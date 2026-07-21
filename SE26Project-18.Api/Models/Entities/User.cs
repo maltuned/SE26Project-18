@@ -20,6 +20,8 @@ public class User
 
     public UserStatus Status { get; private set; }
 
+    public UserRole Role { get; private set; }
+
     public ICollection<UserTag> Tags { get; private set; } = [];
 
     public ICollection<Recruitment> Recruitments { get; private set; } = [];
