@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Models.Entities;
+using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Models.Responses;
 
@@ -28,7 +29,7 @@ public sealed class AuthService : IAuthService
             throw new InvalidOperationException("Username already exists.");
 
         var passwordHashed = BCrypt.Net.BCrypt.HashPassword(request.Password);
-        var user = new User(request.Username, passwordHashed);
+        var user = new User(request.Username, passwordHashed, UserRole.User);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
@@ -56,7 +57,9 @@ public sealed class AuthService : IAuthService
         if (storedToken is null || storedToken.IsRevoked || storedToken.ExpiresAt < DateTime.UtcNow)
             throw new UnauthorizedAccessException("Invalid or expired refresh token.");
 
-        storedToken.Revoke();
+        storedToken.IsRevoked = true;
+
+        await CleanupStaleTokensAsync(storedToken.Id, ct);
 
         var newTokens = await IssueTokensAsync(storedToken.User, ct);
         await _db.SaveChangesAsync(ct);
@@ -75,9 +78,19 @@ public sealed class AuthService : IAuthService
 
         if (storedToken is not null && !storedToken.IsRevoked)
         {
-            storedToken.Revoke();
+            storedToken.IsRevoked = true;
+            await CleanupStaleTokensAsync(storedToken.UserId, ct);
             await _db.SaveChangesAsync(ct);
         }
+    }
+
+    private async Task CleanupStaleTokensAsync(long userId, CancellationToken ct)
+    {
+        await _db
+            .RefreshTokens.Where(rt =>
+                rt.UserId == userId && (rt.IsRevoked || rt.ExpiresAt < DateTime.UtcNow)
+            )
+            .ExecuteDeleteAsync(ct);
     }
 
     private async Task<TokenResponse> IssueTokensAsync(User user, CancellationToken ct)
@@ -91,8 +104,8 @@ public sealed class AuthService : IAuthService
         var hashedRefreshToken = _tokenService.HashToken(rawRefreshToken);
 
         var refreshTokenEntity = new RefreshToken(
-            hashedRefreshToken,
             user.Id,
+            hashedRefreshToken,
             DateTime.UtcNow.AddDays(refreshTokenDays)
         );
 

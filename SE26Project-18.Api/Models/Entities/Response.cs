@@ -8,12 +8,16 @@ public class Response
 {
     public long Id { get; private set; }
 
-    public Recruitment Recruitment { get; private set; }
+    public Recruitment Recruitment { get; private init; }
 
-    public ResponseType Status { get; private set; }
+    public User Responser { get; private init; }
 
-    public Response(Recruitment recruitment)
+    public ResponseType Type { get; private init; }
+
+    public Response(Recruitment recruitment, User responser, ResponseType type)
     {
         Recruitment = recruitment;
+        Responser = responser;
+        Type = type;
     }
 }

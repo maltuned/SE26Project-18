@@ -8,23 +8,30 @@ public class User
 {
     public long Id { get; private set; }
 
-    public string Username { get; private set; } = string.Empty;
+    public string Username { get; set; }
 
-    public string PasswordHashed { get; private set; } = string.Empty;
+    public string PasswordHashed { get; set; }
 
-    public string Nickname { get; private set; } = string.Empty;
+    public string Nickname { get; set; } = string.Empty;
 
-    public string Signature { get; private set; } = string.Empty;
+    public string Signature { get; set; } = string.Empty;
 
-    public Gender Gender { get; private set; }
+    public Gender Gender { get; set; } = Gender.Other;
 
-    public UserStatus Status { get; private set; }
+    public UserStatus Status { get; set; } = UserStatus.Online;
 
-    public UserRole Role { get; private set; }
+    public UserRole Role { get; private init; }
 
-    public ICollection<UserTag> Tags { get; private set; } = [];
+    public ICollection<UserTag> Tags { get; set; } = [];
 
-    public ICollection<Recruitment> Recruitments { get; private set; } = [];
+    public ICollection<Recruitment> Recruitments { get; set; } = [];
 
-    public ICollection<Chat> Chats { get; private set; } = [];
+    public ICollection<Chat> Chats { get; set; } = [];
+
+    public User(string username, string passwordHashed, UserRole role)
+    {
+        Username = username;
+        PasswordHashed = passwordHashed;
+        Role = role;
+    }
 }

@@ -7,34 +7,20 @@ public class RefreshToken
 {
     public long Id { get; private set; }
 
-    public string TokenHashed { get; private set; } = string.Empty;
+    public long UserId { get; private init; }
 
-    public long UserId { get; private set; }
+    public User User { get; private init; } = null!;
 
-    public User User { get; private set; } = null!;
+    public string TokenHashed { get; private init; }
 
-    public DateTime ExpiresAt { get; private set; }
+    public DateTime ExpiresAt { get; private init; }
 
-    public bool IsRevoked { get; private set; }
+    public bool IsRevoked { get; set; } = false;
 
-    public DateTime CreatedAt { get; private set; }
-
-    public DateTime? RevokedAt { get; private set; }
-
-    private RefreshToken() { }
-
-    public RefreshToken(string tokenHashed, long userId, DateTime expiresAt)
+    public RefreshToken(long userId, string tokenHashed, DateTime expiresAt)
     {
-        TokenHashed = tokenHashed;
         UserId = userId;
+        TokenHashed = tokenHashed;
         ExpiresAt = expiresAt;
-        IsRevoked = false;
-        CreatedAt = DateTime.UtcNow;
-    }
-
-    public void Revoke()
-    {
-        IsRevoked = true;
-        RevokedAt = DateTime.UtcNow;
     }
 }

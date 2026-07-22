@@ -7,14 +7,16 @@ public class Message
 {
     public long Id { get; private set; }
 
-    public User Sender { get; private set; }
+    public User Sender { get; private init; }
 
-    public string Content { get; private set; } = string.Empty;
+    public string Content { get; private init; }
 
-    public DateTime SentAt { get; private set; }
+    public DateTime SentAt { get; private init; }
 
-    public Message(User sender)
+    public Message(User sender, string content, DateTime sentAt)
     {
         Sender = sender;
+        Content = content;
+        SentAt = sentAt;
     }
 }
