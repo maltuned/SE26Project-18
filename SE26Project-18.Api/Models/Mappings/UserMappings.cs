@@ -35,15 +35,14 @@ public static class UserMappings
 
     public static UserResponse ToResponse(this User user)
     {
-        return new UserResponse
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Nickname = user.Nickname,
-            Signature = user.Signature,
-            Gender = user.Gender,
-            Status = user.Status,
-            Tags = user.Tags.Select(t => t.ToResponse()).ToList(),
-        };
+        return new UserResponse(
+            user.Id,
+            user.Username,
+            user.Nickname,
+            user.Signature,
+            user.Gender,
+            user.Status,
+            user.Tags.Select(t => t.ToResponse()).ToList()
+        );
     }
 }

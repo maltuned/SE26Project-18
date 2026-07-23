@@ -51,7 +51,19 @@ builder.Services.AddCors(options =>
     });
 });
 
+var connectionString = builder.Configuration.GetConnectionString("Default");
+
 builder.Services.AddControllers();
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    }
+});
+builder.Services.AddScoped<ChatService>();
+
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
