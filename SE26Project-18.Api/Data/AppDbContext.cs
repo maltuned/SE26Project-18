@@ -110,9 +110,9 @@ public sealed class AppDbContext : DbContext
             entity.ToTable("responses");
             entity.HasKey(r => r.Id);
             entity
-                .HasOne(r => r.Responser)
+                .HasOne(r => r.Responder)
                 .WithMany()
-                .HasForeignKey("ResponserId")
+                .HasForeignKey("ResponderId")
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

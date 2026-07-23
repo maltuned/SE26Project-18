@@ -23,7 +23,9 @@ public sealed class GameService : IGameService
         var query = _db.Games.Include(g => g.Tags).AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(request.Query))
-            query = query.Where(g => g.Description.Contains(request.Query));
+            query = query.Where(g =>
+                g.Name.Contains(request.Query) || g.Description.Contains(request.Query)
+            );
 
         if (request.TagIds is { Count: > 0 })
         {

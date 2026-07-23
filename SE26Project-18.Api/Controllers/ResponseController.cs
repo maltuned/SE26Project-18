@@ -1,147 +1,104 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SE26Project_18.Api.Dtos.Response;
+using SE26Project_18.Api.Models.Requests;
+using SE26Project_18.Api.Models.Responses;
 using SE26Project_18.Api.Services;
 
 namespace SE26Project_18.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
 [Authorize]
-public class ResponseController : ControllerBase
+[Route("api/v1/[controller]")]
+public sealed class ResponseController : ControllerBase
 {
-    private readonly ResponseService _service;
+    private readonly IResponseService _service;
 
-    public ResponseController(ResponseService service)
+    public ResponseController(IResponseService service)
     {
         _service = service;
     }
 
-    // 回应招募  POST /api/response
     [HttpPost]
-    public async Task<ActionResult<ResponseDto>> Create(
-        [FromBody] CreateResponseDto dto)
+    public async Task<ActionResult<ResponseResponse>> Create(
+        [FromBody] CreateResponseRequest request
+    )
     {
         try
         {
-            var userId = GetUserId();
-            var result = await _service.CreateAsync(userId, dto);
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            var response = await _service.CreateAsync(GetUserId(), request);
+            return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException exception)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new { error = exception.Message });
         }
     }
 
-    // 单条回应详情  GET /api/response/{id}
-    [HttpGet("{id}")]
-    public async Task<ActionResult<ResponseDto>> GetById(long id)
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<ResponseResponse>> GetById(long id)
     {
         try
         {
-            var result = await _service.GetByIdAsync(id, GetUserId());
-            return Ok(result);
+            return Ok(await _service.GetByIdAsync(id, GetUserId()));
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("不存在"))
+        catch (KeyNotFoundException exception)
         {
-            return NotFound(new { error = ex.Message });
+            return NotFound(new { error = exception.Message });
         }
-        catch (InvalidOperationException)
+        catch (UnauthorizedAccessException)
         {
             return Forbid();
         }
     }
 
-    // 收到的回应列表  GET /api/response/inbox?page=1&pageSize=20&recruitmentId=
-    [HttpGet("inbox")]
-    public async Task<ActionResult<PagedResult<ResponseDto>>> GetInbox(
-        [FromQuery] long? recruitmentId = null,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
-    {
-        var validation = ValidatePaging(page, pageSize);
-        if (validation != null) return validation;
-        var userId = GetUserId();
-        var result = await _service.GetInboxAsync(userId, recruitmentId, page, pageSize);
-        return Ok(result);
-    }
-
-    // 发出的回应列表  GET /api/response/outbox?page=1&pageSize=20
-    [HttpGet("outbox")]
-    public async Task<ActionResult<PagedResult<ResponseDto>>> GetOutbox(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
-    {
-        var validation = ValidatePaging(page, pageSize);
-        if (validation != null) return validation;
-        var userId = GetUserId();
-        var result = await _service.GetOutboxAsync(userId, page, pageSize);
-        return Ok(result);
-    }
-
-    // 撤回回应  DELETE /api/response/{id}
-    [HttpDelete("{id}")]
-    public async Task<ActionResult> Cancel(long id)
+    [HttpPatch("{id:long}/accept")]
+    public async Task<ActionResult<ResponseResponse>> Accept(long id)
     {
         try
         {
-            var userId = GetUserId();
-            await _service.CancelAsync(id, userId);
-            return NoContent();
+            return Ok(await _service.AcceptAsync(id, GetUserId()));
         }
-        catch (InvalidOperationException ex)
+        catch (KeyNotFoundException exception)
         {
-            return BadRequest(new { error = ex.Message });
+            return NotFound(new { error = exception.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { error = exception.Message });
         }
     }
 
-    // 接受回应  PATCH /api/response/{id}/accept
-    [HttpPatch("{id}/accept")]
-    public async Task<ActionResult> Accept(long id)
+    [HttpPatch("{id:long}/reject")]
+    public async Task<ActionResult<ResponseResponse>> Reject(long id)
     {
         try
         {
-            var userId = GetUserId();
-            await _service.AcceptAsync(id, userId);
-            return NoContent();
+            return Ok(await _service.RejectAsync(id, GetUserId()));
         }
-        catch (InvalidOperationException ex)
+        catch (KeyNotFoundException exception)
         {
-            return BadRequest(new { error = ex.Message });
+            return NotFound(new { error = exception.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { error = exception.Message });
         }
     }
 
-    // 拒绝回应  PATCH /api/response/{id}/reject
-    [HttpPatch("{id}/reject")]
-    public async Task<ActionResult> Reject(long id)
-    {
-        try
-        {
-            var userId = GetUserId();
-            await _service.RejectAsync(id, userId);
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-    }
-
-    // 分页参数校验
-    private static BadRequestObjectResult? ValidatePaging(int page, int pageSize)
-    {
-        if (page < 1 || pageSize < 1 || pageSize > 100)
-            return new BadRequestObjectResult(new { error = "page 必须 >= 1，pageSize 必须在 1-100 之间" });
-        return null;
-    }
-
-    // 从 JWT Token 中提取当前用户 ID
     private long GetUserId()
     {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier)
-                    ?? throw new InvalidOperationException("Token 中未包含用户标识");
+        var claim =
+            User.FindFirst(ClaimTypes.NameIdentifier)
+            ?? throw new InvalidOperationException("Token does not contain a user identifier.");
         return long.Parse(claim.Value);
     }
 }

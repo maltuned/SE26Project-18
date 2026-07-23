@@ -12,12 +12,29 @@ public class Response
 
     public User Responder { get; private init; }
 
-    public ResponseType Type { get; private init; }
+    public ResponseType Type { get; private set; } = ResponseType.Pending;
 
-    public Response(Recruitment recruitment, User responder, ResponseType type)
+    public Response(Recruitment recruitment, User responder)
     {
         Recruitment = recruitment;
         Responder = responder;
-        Type = type;
+    }
+
+    public void Accept()
+    {
+        EnsurePending();
+        Type = ResponseType.Accepted;
+    }
+
+    public void Reject()
+    {
+        EnsurePending();
+        Type = ResponseType.Rejected;
+    }
+
+    private void EnsurePending()
+    {
+        if (Type != ResponseType.Pending)
+            throw new InvalidOperationException("Response has already been processed.");
     }
 }

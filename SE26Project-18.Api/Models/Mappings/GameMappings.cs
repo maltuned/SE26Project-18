@@ -9,6 +9,7 @@ public static class GameMappings
     {
         return new GameResponse(
             game.Id,
+            game.Name,
             game.Description,
             game.Tags.Select(t => t.ToResponse()).ToList()
         );

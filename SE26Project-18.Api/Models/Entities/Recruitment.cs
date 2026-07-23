@@ -41,11 +41,9 @@ public class Recruitment
         ExpiresAt = expiresAt;
     }
 
-    public void AddResponse(Response response)
+    public void AddParticipant()
     {
-        Responses.Add(response);
-        if (response.Type == ResponseType.Accepted)
-            CurrParticipants++;
+        CurrParticipants++;
         if (CurrParticipants >= MaxParticipants)
             Status = RecruitmentStatus.Closed;
     }
