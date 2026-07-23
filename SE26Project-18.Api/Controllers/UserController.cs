@@ -18,9 +18,6 @@ public sealed class UserController : ControllerBase
         _userService = userService;
     }
 
-    /// <summary>
-    /// GET /api/v1/User/me — 获取当前登录用户信息（从 JWT sub 提取 ID）
-    /// </summary>
     [HttpGet("me")]
     public async Task<IActionResult> GetCurrentUser(CancellationToken ct)
     {

@@ -15,14 +15,11 @@ public sealed class AuthService : IAuthService
 
     private readonly IConfiguration _configuration;
 
-    private readonly RabbitMQService? _rabbitMQ;
-
-    public AuthService(AppDbContext db, ITokenService tokenService, IConfiguration configuration, RabbitMQService? rabbitMQ = null)
+    public AuthService(AppDbContext db, ITokenService tokenService, IConfiguration configuration)
     {
         _db = db;
         _tokenService = tokenService;
         _configuration = configuration;
-        _rabbitMQ = rabbitMQ;
     }
 
     public async Task<TokenResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
@@ -36,17 +33,6 @@ public sealed class AuthService : IAuthService
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
-
-        // 发布 UserRegistered 事件到 RabbitMQ（后续做欢迎通知等）
-        if (_rabbitMQ is not null)
-        {
-            await _rabbitMQ.PublishAsync("user.registered", new
-            {
-                UserId = user.Id,
-                user.Username,
-                RegisteredAt = DateTime.UtcNow,
-            });
-        }
 
         return await IssueTokensAsync(user, ct);
     }

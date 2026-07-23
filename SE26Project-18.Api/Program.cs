@@ -39,11 +39,9 @@ builder
     .AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
 
 builder.Services.AddSingleton<ITokenService, TokenService>();
-builder.Services.AddSingleton<RabbitMQService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IGameService, GameService>();
 builder.Services.AddScoped<IUserService, UserService>();
-// GameService 在 feat-add-game-feature 分支，合并后放开
-// builder.Services.AddScoped<IGameService, GameService>();
 
 builder.Services.AddCors(options =>
 {
@@ -68,17 +66,4 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
-// 启动 RabbitMQ 消费者 — 监听用户注册事件（示例：输出到控制台）
-var rabbitMQ = app.Services.GetRequiredService<RabbitMQService>();
-await rabbitMQ.SubscribeAsync(
-    queueName: "user_registered_queue",
-    routingKey: "user.registered",
-    handler: async (json) =>
-    {
-        Console.WriteLine($"[RabbitMQ] 收到消息: {json}");
-        await Task.CompletedTask;
-    }
-);
-
 app.Run();

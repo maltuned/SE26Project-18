@@ -19,7 +19,4 @@ public class Message
         Content = content;
         SentAt = sentAt;
     }
-
-    /// <summary>EF Core 无参构造函数</summary>
-    private Message() { }
 }
