@@ -20,6 +20,8 @@ public class Recruitment
 
     public RecruitmentStatus Status { get; private set; }
 
+    protected Recruitment() { }
+
     public DateTime UpdatedAt { get; private set; }
 
     public DateTime ExpiresAt { get; private set; }
@@ -27,5 +29,13 @@ public class Recruitment
     public Recruitment(Game game)
     {
         Game = game;
+    }
+
+    public void AddParticipant()
+    {
+        CurrParticipants++;
+        UpdatedAt = DateTime.UtcNow;
+        if (CurrParticipants >= MaxParticipants)
+            Status = RecruitmentStatus.Closed;
     }
 }

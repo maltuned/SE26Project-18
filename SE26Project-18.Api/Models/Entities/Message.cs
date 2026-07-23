@@ -13,6 +13,8 @@ public class Message
 
     public DateTime SentAt { get; private set; }
 
+    protected Message() { }
+
     public Message(User sender)
     {
         Sender = sender;

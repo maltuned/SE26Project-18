@@ -1,0 +1,27 @@
+# ============================================================
+#  PlayMate 数据库配置
+# ============================================================
+#  启动: docker compose up -d
+#  停止: docker compose down
+#  连接信息（全员统一）:
+#    地址   : localhost
+#    端口   : 3307
+#    用户名 : root
+#    密码   : playmate123
+#    数据库 : playmate（开发环境 playmate_dev）
+# ============================================================
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: playmate-db
+    environment:
+      MARIADB_ROOT_PASSWORD: playmate123  # root 密码
+      MARIADB_DATABASE: playmate          # 默认创建的数据库
+    ports:
+      - "3307:3307"                       # 宿主机:容器
+    volumes:
+      - mariadb_data:/var/lib/mysql       # 数据持久化
+
+volumes:
+  mariadb_data:

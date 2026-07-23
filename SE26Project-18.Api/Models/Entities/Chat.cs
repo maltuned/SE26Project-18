@@ -22,6 +22,8 @@ public class Chat
 
     public ChatStatus Status { get; private set; }
 
+    protected Chat() { }
+
     public Chat(Recruitment recruitment, User recruiter, User responser)
     {
         Recruitment = recruitment;

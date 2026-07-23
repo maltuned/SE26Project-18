@@ -23,4 +23,44 @@ public sealed class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
 
     public DbSet<UserTag> UserTags => Set<UserTag>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Chat -> User (Recruiter / Responser)
+        modelBuilder.Entity<Chat>()
+            .HasOne(c => c.Recruiter)
+            .WithMany()
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Chat>()
+            .HasOne(c => c.Responser)
+            .WithMany()
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Response -> User (Responder / Recruiter)
+        modelBuilder.Entity<Response>()
+            .HasOne(r => r.Responder)
+            .WithMany()
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Response>()
+            .HasOne(r => r.Recruiter)
+            .WithMany()
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Response -> Recruitment
+        modelBuilder.Entity<Response>()
+            .HasOne(r => r.Recruitment)
+            .WithMany()
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Response -> Chat（接受后创建，一对一，FK 在 Response）
+        modelBuilder.Entity<Response>()
+            .HasOne(r => r.Chat)
+            .WithOne()
+            .HasForeignKey<Response>(r => r.ChatId)
+            .OnDelete(DeleteBehavior.SetNull);
+    }
 }
