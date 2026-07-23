@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Api.Models.Requests;
@@ -15,6 +16,20 @@ public sealed class UserController : ControllerBase
     public UserController(IUserService userService)
     {
         _userService = userService;
+    }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetCurrentUser(CancellationToken ct)
+    {
+        var subClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (subClaim is null || !long.TryParse(subClaim, out var userId))
+            return Unauthorized();
+
+        var user = await _userService.GetByIdAsync(userId, ct);
+        if (user is null)
+            return NotFound();
+
+        return Ok(user);
     }
 
     [HttpGet("{id:long}")]

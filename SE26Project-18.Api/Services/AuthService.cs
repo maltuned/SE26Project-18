@@ -112,12 +112,11 @@ public sealed class AuthService : IAuthService
         _db.RefreshTokens.Add(refreshTokenEntity);
         await _db.SaveChangesAsync(ct);
 
-        return new TokenResponse
-        {
-            AccessToken = accessToken,
-            RefreshToken = rawRefreshToken,
-            AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenMinutes),
-            RefreshTokenExpiresAt = refreshTokenEntity.ExpiresAt,
-        };
+        return new TokenResponse(
+            accessToken,
+            rawRefreshToken,
+            DateTime.UtcNow.AddMinutes(accessTokenMinutes),
+            refreshTokenEntity.ExpiresAt
+        );
     }
 }

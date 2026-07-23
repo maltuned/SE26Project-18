@@ -7,29 +7,45 @@ namespace SE26Project_18.Api.Models.Entities;
 public class Recruitment
 {
     public long Id { get; private set; }
-    public Game Game { get; set; }
-    public string Title { get; set; } = string.Empty;
+
+    public Game Game { get; private init; }
+
+    public User Recruiter { get; private init; }
+
+    public string Title { get; set; }
+
     public string Description { get; set; } = string.Empty;
+
     public int MaxParticipants { get; set; }
+
     public int CurrParticipants { get; set; } = 0;
+
+    public ICollection<Response> Responses { get; set; } = [];
+
     public RecruitmentStatus Status { get; set; } = RecruitmentStatus.Open;
+
     public DateTime ExpiresAt { get; set; }
-    public DateTime UpdatedAt { get; private set; }
 
-    protected Recruitment() { }
-
-    public Recruitment(Game game, string title, int maxParticipants, DateTime expiresAt)
+    public Recruitment(
+        Game game,
+        User recruiter,
+        string title,
+        int maxParticipants,
+        DateTime expiresAt
+    )
     {
         Game = game;
+        Recruiter = recruiter;
         Title = title;
         MaxParticipants = maxParticipants;
         ExpiresAt = expiresAt;
     }
 
-    public void AddParticipant()
+    public void AddResponse(Response response)
     {
-        CurrParticipants++;
-        UpdatedAt = DateTime.UtcNow;
+        Responses.Add(response);
+        if (response.Type == ResponseType.Accepted)
+            CurrParticipants++;
         if (CurrParticipants >= MaxParticipants)
             Status = RecruitmentStatus.Closed;
     }

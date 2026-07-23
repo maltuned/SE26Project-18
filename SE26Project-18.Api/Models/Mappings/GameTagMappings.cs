@@ -7,6 +7,6 @@ public static class GameTagMappings
 {
     public static GameTagResponse ToResponse(this GameTag tag)
     {
-        return new GameTagResponse { Id = tag.Id, Name = tag.Name };
+        return new GameTagResponse(tag.Id, tag.Name);
     }
 }

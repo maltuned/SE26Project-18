@@ -6,11 +6,12 @@ namespace SE26Project_18.Api.Models.Entities;
 public class Message
 {
     public long Id { get; private set; }
-    public User Sender { get; private set; }
-    public string Content { get; private set; }
-    public DateTime SentAt { get; private set; }
 
-    protected Message() { }
+    public User Sender { get; private init; }
+
+    public string Content { get; private init; }
+
+    public DateTime SentAt { get; private init; }
 
     public Message(User sender, string content, DateTime sentAt)
     {

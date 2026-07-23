@@ -1,0 +1,39 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using SE26Project_18.Api.Models.Requests;
+using SE26Project_18.Api.Services;
+
+namespace SE26Project_18.Api.Controllers;
+
+[ApiController]
+[Authorize]
+[Route("api/v1/[controller]")]
+public sealed class GameController : ControllerBase
+{
+    private readonly IGameService _gameService;
+
+    public GameController(IGameService gameService)
+    {
+        _gameService = gameService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Search(
+        [FromQuery] SearchGamesRequest request,
+        CancellationToken ct
+    )
+    {
+        var games = await _gameService.SearchAsync(request, ct);
+        return Ok(games);
+    }
+
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> GetById(long id, CancellationToken ct)
+    {
+        var game = await _gameService.GetById(id, ct);
+        if (game is null)
+            return NotFound();
+
+        return Ok(game);
+    }
+}
