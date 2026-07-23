@@ -40,17 +40,17 @@ public sealed class AppDbContext : DbContext
                 .HasForeignKey("RecruitmentId")
                 .OnDelete(DeleteBehavior.Restrict);
             entity
-                .HasOne(c => c.Recruiter)
-                .WithMany(r => r.ChatsAsRecruiter)
-                .HasForeignKey("RecruiterId")
+                .HasOne(c => c.User1)
+                .WithMany(u => u.ChatsAsUser1)
+                .HasForeignKey("User1Id")
                 .OnDelete(DeleteBehavior.Restrict);
             entity
-                .HasOne(c => c.Responser)
-                .WithMany(r => r.ChatsAsResponser)
-                .HasForeignKey("ResponserId")
+                .HasOne(c => c.User2)
+                .WithMany(u => u.ChatsAsUser2)
+                .HasForeignKey("User2Id")
                 .OnDelete(DeleteBehavior.Restrict);
             entity
-                .HasMany(c => c.messages)
+                .HasMany(c => c.Messages)
                 .WithOne()
                 .HasForeignKey("ChatId")
                 .OnDelete(DeleteBehavior.Cascade);

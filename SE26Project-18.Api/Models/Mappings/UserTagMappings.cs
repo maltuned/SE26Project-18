@@ -7,6 +7,6 @@ public static class UserTagMappings
 {
     public static UserTagResponse ToResponse(this UserTag tag)
     {
-        return new UserTagResponse { Id = tag.Id, Name = tag.Name };
+        return new UserTagResponse(tag.Id, tag.Name);
     }
 }
