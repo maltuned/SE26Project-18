@@ -9,14 +9,16 @@ public class Message
 
     public User Sender { get; private set; }
 
-    public string Content { get; private set; } = string.Empty;
+    public string Content { get; private set; }
 
     public DateTime SentAt { get; private set; }
 
     protected Message() { }
 
-    public Message(User sender)
+    public Message(User sender, string content, DateTime sentAt)
     {
         Sender = sender;
+        Content = content;
+        SentAt = sentAt;
     }
 }

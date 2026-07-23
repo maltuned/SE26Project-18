@@ -8,27 +8,30 @@ public class Recruitment
 {
     public long Id { get; private set; }
 
-    public Game Game { get; private set; }
+    public Game Game { get; set; }
 
-    public string Title { get; private set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
 
-    public string Description { get; private set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
 
-    public int MaxParticipants { get; private set; }
+    public int MaxParticipants { get; set; }
 
-    public int CurrParticipants { get; private set; }
+    public int CurrParticipants { get; set; } = 0;
 
-    public RecruitmentStatus Status { get; private set; }
-
-    protected Recruitment() { }
+    public RecruitmentStatus Status { get; set; } = RecruitmentStatus.Open;
 
     public DateTime UpdatedAt { get; private set; }
 
-    public DateTime ExpiresAt { get; private set; }
+    public DateTime ExpiresAt { get; set; }
 
-    public Recruitment(Game game)
+    protected Recruitment() { }
+
+    public Recruitment(Game game, string title, int maxParticipants, DateTime expiresAt)
     {
         Game = game;
+        Title = title;
+        MaxParticipants = maxParticipants;
+        ExpiresAt = expiresAt;
     }
 
     public void AddParticipant()

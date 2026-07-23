@@ -7,7 +7,14 @@ public class Game
 {
     public long Id { get; private set; }
 
-    public string Description { get; private set; } = string.Empty;
+    public string Name { get; set; }
+
+    public string Description { get; set; } = string.Empty;
 
     public ICollection<GameTag> Tags = [];
+
+    public Game(string name)
+    {
+        Name = name;
+    }
 }
