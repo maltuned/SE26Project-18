@@ -8,19 +8,19 @@ public class Chat
 {
     public long Id { get; private set; }
 
-    public Recruitment Recruitment { get; private set; }
+    public Recruitment Recruitment { get; set; }
 
-    public User Recruiter { get; private set; }
+    public User Recruiter { get; private init; }
 
-    public User Responser { get; private set; }
+    public User Responser { get; private init; }
 
-    public ICollection<Message> messages { get; private set; } = [];
+    public ICollection<Message> messages { get; set; } = [];
 
-    public int NewMsgsCntForRecruiter { get; private set; }
+    public int NewMsgsCntForRecruiter { get; set; } = 0;
 
-    public int NewMsgsCntForResponser { get; private set; }
+    public int NewMsgsCntForResponser { get; set; } = 0;
 
-    public ChatStatus Status { get; private set; }
+    public ChatStatus Status { get; set; } = ChatStatus.Restricted;
 
     public Chat(Recruitment recruitment, User recruiter, User responser)
     {
