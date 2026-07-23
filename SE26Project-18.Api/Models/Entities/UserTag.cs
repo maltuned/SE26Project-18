@@ -7,7 +7,7 @@ public class UserTag
 {
     public long Id { get; private set; }
 
-    public string Name { get; private set; } = string.Empty;
+    public string Name { get; set; }
 
     public UserTag(string name)
     {

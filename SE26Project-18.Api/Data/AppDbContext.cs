@@ -18,6 +18,8 @@ public sealed class AppDbContext : DbContext
 
     public DbSet<Recruitment> Recruitments => Set<Recruitment>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     public DbSet<Response> Responses => Set<Response>();
 
     public DbSet<User> Users => Set<User>();
@@ -28,37 +30,114 @@ public sealed class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<User>()
-            .Ignore(user => user.Chats);
+        modelBuilder.Entity<Chat>(entity =>
+        {
+            entity.ToTable("chats");
+            entity.HasKey(c => c.Id);
+            entity
+                .HasOne(c => c.Recruitment)
+                .WithMany()
+                .HasForeignKey("RecruitmentId")
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(c => c.Recruiter)
+                .WithMany(r => r.ChatsAsRecruiter)
+                .HasForeignKey("RecruiterId")
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(c => c.Responser)
+                .WithMany(r => r.ChatsAsResponser)
+                .HasForeignKey("ResponserId")
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasMany(c => c.messages)
+                .WithOne()
+                .HasForeignKey("ChatId")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
-        modelBuilder.Entity<Chat>()
-            .HasOne(chat => chat.Recruitment)
-            .WithMany()
-            .HasForeignKey(chat => chat.RecruitmentId)
-            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Game>(entity =>
+        {
+            entity.ToTable("games");
+            entity.HasKey(g => g.Id);
+            entity.HasMany(g => g.Tags).WithMany();
+        });
 
-        modelBuilder.Entity<Chat>()
-            .HasOne(chat => chat.Recruiter)
-            .WithMany()
-            .HasForeignKey(chat => chat.RecruiterId)
-            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<GameTag>(entity =>
+        {
+            entity.ToTable("game_tags");
+            entity.HasKey(t => t.Id);
+        });
 
-        modelBuilder.Entity<Chat>()
-            .HasOne(chat => chat.Responser)
-            .WithMany()
-            .HasForeignKey(chat => chat.ResponserId)
-            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.ToTable("messages");
+            entity.HasKey(m => m.Id);
+            entity
+                .HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey("SenderId")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
-        modelBuilder.Entity<Message>()
-            .HasOne(message => message.Chat)
-            .WithMany(chat => chat.Messages)
-            .HasForeignKey(message => message.ChatId)
-            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Recruitment>(entity =>
+        {
+            entity.ToTable("recruitments");
+            entity.HasKey(r => r.Id);
+            entity
+                .HasOne(r => r.Game)
+                .WithMany()
+                .HasForeignKey("GameId")
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(r => r.Recruiter)
+                .WithMany(u => u.Recruitments)
+                .HasForeignKey("RecruiterId")
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasMany(r => r.Responses)
+                .WithOne()
+                .HasForeignKey("RecruitmentId")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
-        modelBuilder.Entity<Message>()
-            .HasOne(message => message.Sender)
-            .WithMany()
-            .HasForeignKey(message => message.SenderId)
-            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.ToTable("refresh_tokens");
+            entity.HasKey(rt => rt.Id);
+            entity.HasIndex(rt => rt.TokenHashed).IsUnique();
+
+            entity
+                .HasOne(rt => rt.User)
+                .WithMany()
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Response>(entity =>
+        {
+            entity.ToTable("responses");
+            entity.HasKey(r => r.Id);
+            entity
+                .HasOne(r => r.Responser)
+                .WithMany()
+                .HasForeignKey("ResponserId")
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasKey(u => u.Id);
+            entity.HasIndex(u => u.Username).IsUnique();
+
+            entity.HasMany(u => u.Tags).WithMany();
+        });
+
+        modelBuilder.Entity<UserTag>(entity =>
+        {
+            entity.ToTable("user_tags");
+            entity.HasKey(t => t.Id);
+        });
     }
 }

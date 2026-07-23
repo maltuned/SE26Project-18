@@ -8,41 +8,24 @@ public class Chat
 {
     public long Id { get; private set; }
 
-    public long? RecruitmentId { get; private set; }
+    public Recruitment Recruitment { get; set; }
 
-    public Recruitment? Recruitment { get; private set; }
+    public User Recruiter { get; private init; }
 
-    public long RecruiterId { get; private set; }
+    public User Responser { get; private init; }
 
-    public User Recruiter { get; private set; } = null!;
+    public ICollection<Message> messages { get; set; } = [];
 
-    public long ResponserId { get; private set; }
+    public int NewMsgsCntForRecruiter { get; set; } = 0;
 
-    public User Responser { get; private set; } = null!;
+    public int NewMsgsCntForResponser { get; set; } = 0;
 
-    public ICollection<Message> Messages { get; private set; } = [];
+    public ChatStatus Status { get; set; } = ChatStatus.Restricted;
 
-    public int NewMsgsCntForRecruiter { get; private set; }
-
-    public int NewMsgsCntForResponser { get; private set; }
-
-    public ChatStatus Status { get; private set; }
-
-    private Chat() { }
-
-    public Chat(long recruiterId, long responserId, long? recruitmentId = null)
+    public Chat(Recruitment recruitment, User recruiter, User responser)
     {
-        RecruiterId = recruiterId;
-        ResponserId = responserId;
-        RecruitmentId = recruitmentId;
-        Status = ChatStatus.Free;
-    }
-
-    public void RefreshRecruitment(long? recruitmentId)
-    {
-        if (recruitmentId is > 0)
-        {
-            RecruitmentId = recruitmentId;
-        }
+        Recruitment = recruitment;
+        Recruiter = recruiter;
+        Responser = responser;
     }
 }
