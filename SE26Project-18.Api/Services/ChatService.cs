@@ -1,114 +1,116 @@
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
-using SE26Project_18.Api.Models.Dtos;
 using SE26Project_18.Api.Models.Entities;
+using SE26Project_18.Api.Models.Mappings;
+using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Services;
 
 public sealed class ChatService
 {
-    private readonly AppDbContext dbContext;
+    private readonly AppDbContext _db;
 
-    public ChatService(AppDbContext dbContext)
+    public ChatService(AppDbContext db)
     {
-        this.dbContext = dbContext;
+        this._db = db;
     }
 
-    public async Task<IReadOnlyList<ChatDto>> GetChatsAsync(long userId)
+    public async Task<IReadOnlyList<ChatResponse>> GetChatsAsync(long userId)
     {
-        var chats = await dbContext.Chats
-            .AsNoTracking()
+        var chats = await _db
+            .Chats.AsNoTracking()
+            .Include(chat => chat.Recruitment)
+            .Include(chat => chat.User1)
+            .Include(chat => chat.User2)
             .Include(chat => chat.Messages)
-            .Where(chat => chat.RecruiterId == userId || chat.ResponserId == userId)
+                .ThenInclude(message => message.Sender)
+            .Where(chat => chat.User1.Id == userId || chat.User2.Id == userId)
             .ToListAsync();
 
         return chats
             .OrderByDescending(GetLastMessageTime)
-            .Select(ToDto)
+            .Select(chat => chat.ToResponse())
             .ToList();
     }
 
-    public async Task<ChatDto?> GetChatByUsersAsync(long firstUserId, long secondUserId)
+    public async Task<ChatResponse?> GetChatByUsersAsync(long user1Id, long user2Id)
     {
-        var chat = await dbContext.Chats
-            .AsNoTracking()
+        var chat = await _db
+            .Chats.AsNoTracking()
+            .Include(chat => chat.Recruitment)
+            .Include(chat => chat.User1)
+            .Include(chat => chat.User2)
             .Include(chat => chat.Messages)
+                .ThenInclude(message => message.Sender)
             .FirstOrDefaultAsync(chat =>
-                (chat.RecruiterId == firstUserId && chat.ResponserId == secondUserId)
-                || (chat.RecruiterId == secondUserId && chat.ResponserId == firstUserId));
+                (chat.User1.Id == user1Id && chat.User2.Id == user2Id)
+                || (chat.User1.Id == user2Id && chat.User2.Id == user1Id)
+            );
 
-        return chat is null ? null : ToDto(chat);
+        return chat?.ToResponse();
     }
 
-    public async Task<ChatDto?> GetChatByIdAsync(long id)
+    public async Task<ChatResponse?> GetChatByIdAsync(long id)
     {
-        var chat = await dbContext.Chats
-            .AsNoTracking()
+        var chat = await _db
+            .Chats.AsNoTracking()
+            .Include(chat => chat.Recruitment)
+            .Include(chat => chat.User1)
+            .Include(chat => chat.User2)
             .Include(chat => chat.Messages)
+                .ThenInclude(message => message.Sender)
             .FirstOrDefaultAsync(chat => chat.Id == id);
 
-        return chat is null ? null : ToDto(chat);
+        return chat?.ToResponse();
     }
 
-    public async Task<ChatDto> CreateChatAsync(long firstUserId, long secondUserId, long? recruitmentId)
+    public async Task<ChatResponse> CreateChatAsync(long recruitmentId, long user1Id, long user2Id)
     {
-        var chat = await dbContext.Chats
-            .Include(chat => chat.Messages)
+        var chat = await _db
+            .Chats.Include(chat => chat.Recruitment)
+            .Include(chat => chat.User1)
+            .Include(chat => chat.User2)
             .FirstOrDefaultAsync(chat =>
-                (chat.RecruiterId == firstUserId && chat.ResponserId == secondUserId)
-                || (chat.RecruiterId == secondUserId && chat.ResponserId == firstUserId));
+                (chat.User1.Id == user1Id && chat.User2.Id == user2Id)
+                || (chat.User1.Id == user2Id && chat.User2.Id == user1Id)
+            );
 
         if (chat is null)
         {
-            chat = new Chat(firstUserId, secondUserId, recruitmentId);
-            dbContext.Chats.Add(chat);
-        }
-        else
-        {
-            chat.RefreshRecruitment(recruitmentId);
+            var users = await _db
+                .Users.Where(user => user.Id == user1Id || user.Id == user2Id)
+                .ToListAsync();
+            var recruitment =
+                await _db.Recruitments.FirstOrDefaultAsync(r => r.Id == recruitmentId)
+                ?? throw new KeyNotFoundException("Recruitment not found.");
+
+            chat = new Chat(
+                recruitment,
+                users.Single(user => user.Id == user1Id),
+                users.Single(user => user.Id == user2Id)
+            );
+            _db.Chats.Add(chat);
         }
 
-        await dbContext.SaveChangesAsync();
-        return ToDto(chat);
+        await _db.SaveChangesAsync();
+        return chat.ToResponse();
     }
 
-    public async Task<bool> UsersExistAsync(long firstUserId, long secondUserId)
+    public async Task<bool> UsersExistAsync(long user1Id, long user2Id)
     {
-        var userIds = new[] { firstUserId, secondUserId };
-        var count = await dbContext.Users.CountAsync(user => userIds.Contains(user.Id));
+        var userIds = new[] { user1Id, user2Id };
+        var count = await _db.Users.CountAsync(user => userIds.Contains(user.Id));
 
         return count == 2;
     }
 
     public async Task<bool> RecruitmentExistsAsync(long recruitmentId)
     {
-        return await dbContext.Recruitments.AnyAsync(recruitment => recruitment.Id == recruitmentId);
-    }
-
-    private static ChatDto ToDto(Chat chat)
-    {
-        var lastMessage = chat.Messages
-            .OrderByDescending(message => message.SentAt)
-            .FirstOrDefault();
-
-        return new ChatDto(
-            chat.Id,
-            chat.RecruitmentId,
-            chat.RecruiterId,
-            chat.ResponserId,
-            chat.Status,
-            chat.NewMsgsCntForRecruiter,
-            chat.NewMsgsCntForResponser,
-            lastMessage is null
-                ? null
-                : new LastMessageDto(lastMessage.SenderId, lastMessage.Content, lastMessage.SentAt));
+        return await _db.Recruitments.AnyAsync(recruitment => recruitment.Id == recruitmentId);
     }
 
     private static DateTime GetLastMessageTime(Chat chat)
     {
-        return chat.Messages
-            .OrderByDescending(message => message.SentAt)
-            .Select(message => message.SentAt)
-            .FirstOrDefault();
+        return chat.Messages.MaxBy(message => message.SentAt)?.SentAt ?? DateTime.MinValue;
     }
 }
