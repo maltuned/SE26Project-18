@@ -18,6 +18,8 @@ public sealed class AppDbContext : DbContext
 
     public DbSet<Recruitment> Recruitments => Set<Recruitment>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     public DbSet<Response> Responses => Set<Response>();
 
     public DbSet<User> Users => Set<User>();
@@ -27,6 +29,31 @@ public sealed class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // RefreshToken
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasIndex(rt => rt.TokenHashed).IsUnique();
+
+            entity
+                .HasOne(rt => rt.User)
+                .WithMany()
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // User
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasIndex(u => u.Username).IsUnique();
+            entity.HasMany(u => u.Tags).WithMany();
+        });
+
+        // Game
+        modelBuilder.Entity<Game>(entity =>
+        {
+            entity.HasMany(g => g.Tags).WithMany();
+        });
 
         // Chat -> User (Recruiter / Responser)
         modelBuilder.Entity<Chat>()
@@ -56,7 +83,7 @@ public sealed class AppDbContext : DbContext
             .WithMany()
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Response -> Chat（接受后创建，一对一，FK 在 Response）
+        // Response -> Chat
         modelBuilder.Entity<Response>()
             .HasOne(r => r.Chat)
             .WithOne()
