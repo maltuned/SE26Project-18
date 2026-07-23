@@ -10,15 +10,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
-    )
-);
+        new MariaDbServerVersion(new Version(11, 4, 5))
+    ));
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
-var jwtSecret = Encoding.UTF8.GetBytes(jwtSection["Secret"]!);
+var jwtSecret = jwtSection["Secret"]
+    ?? throw new InvalidOperationException("JWT Secret 未配置");
 
-builder
-    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
@@ -29,19 +28,18 @@ builder
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtSection["Issuer"],
             ValidAudience = jwtSection["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(jwtSecret),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
             ClockSkew = TimeSpan.Zero,
         };
     });
 
-builder
-    .Services.AddAuthorizationBuilder()
+builder.Services.AddAuthorizationBuilder()
     .AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
 
+builder.Services.AddScoped<ResponseService>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IGameService, GameService>();
 
 builder.Services.AddCors(options =>
 {
