@@ -709,7 +709,7 @@ class BackendSim {
 
   findResponsesByRecruitmentId(recruitmentId: number): ResponseDto[] {
     return this.responses
-      .filter(r => r.recruitment_id === recruitmentId && r.response_status !== '已删除')
+      .filter(r => r.recruitment_id === recruitmentId)
       .map(r => this.toResponseDto(r));
   }
 

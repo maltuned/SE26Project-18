@@ -57,7 +57,7 @@ export default function RecruitmentManageScreen() {
 
       setLoadingResponses(true);
       getResponses(Number(recruitmentId)).then((data) => {
-        setResponses(data);
+        setResponses(data.filter((r) => r.responseStatus !== "已删除"));
         setLoadingResponses(false);
       });
     } else {
@@ -75,7 +75,8 @@ export default function RecruitmentManageScreen() {
   const handleDelete = async () => {
     if (!recruitment?.id) return;
     await deleteRecruitment(recruitment.id);
-    router.replace("/(tabs)/recruitment");
+    router.dismissAll();
+    router.push("/(tabs)/recruitment");
   };
 
   const handleViewChat = async (res: ResponseData) => {
@@ -85,6 +86,8 @@ export default function RecruitmentManageScreen() {
       c.users?.some((u) => u.userId === res.responserId),
     );
     if (chat) {
+      router.dismissAll();
+      router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${chat.id}`);
     }
   };

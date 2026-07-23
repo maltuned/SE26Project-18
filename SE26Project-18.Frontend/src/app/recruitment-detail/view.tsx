@@ -17,6 +17,7 @@ import {
   getChatsByRecruitmentId,
   getRecruitmentById,
   getResponses,
+  ResponseData,
   RecruitmentData,
   RecruitmentTag,
   sendMessage,
@@ -35,7 +36,7 @@ export default function RecruitmentViewScreen() {
 
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
   const [existingChat, setExistingChat] = useState<ChatData | null>(null);
-  const [hasResponded, setHasResponded] = useState(false);
+  const [myResponse, setMyResponse] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [showGreetingModal, setShowGreetingModal] = useState(false);
@@ -68,7 +69,7 @@ export default function RecruitmentViewScreen() {
 
       getResponses(recruitment.id).then((responses) => {
         const myResponse = responses.find((r) => r.responserId === userId);
-        setHasResponded(!!myResponse);
+        setMyResponse(myResponse || null);
       });
     }
   }, [userId, recruitment?.id]);
@@ -107,14 +108,13 @@ export default function RecruitmentViewScreen() {
   const handleChat = async () => {
     if (!userId) return;
     // 已关闭且没回应过：不能操作
-    if (isClosed && !hasResponded) return;
-    // 回应过但没有聊天：显示已回应，不能操作
-    if (hasResponded && !existingChat) {
-      Alert.alert("提示", "您已经回应过此招募，请等待发布者回复");
-      return;
-    }
+    if (isClosed && !myResponse) return;
+    // 已回应且被拒绝：不能操作
+    if (myResponse && myResponse.responseStatus === "已删除") return;
+    // 回应过但没有聊天：不能操作
+    if (myResponse && !existingChat) return;
     // 有聊天：继续聊天
-    if (hasResponded && existingChat) {
+    if (myResponse && existingChat) {
       router.dismissAll();
       router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${existingChat.id}`);
@@ -245,24 +245,26 @@ export default function RecruitmentViewScreen() {
         <TouchableOpacity
           style={[
             styles.chatButton,
-            isClosed
+            isClosed && !myResponse || myResponse && myResponse.responseStatus === "已删除"
               ? { backgroundColor: colors.textQuaternary }
               : { backgroundColor: colors.primary },
             loading && styles.chatButtonDisabled,
           ]}
           onPress={handleChat}
-          disabled={loading || (isClosed && !hasResponded)}
+          disabled={loading || (isClosed && !myResponse) || !!(myResponse && myResponse.responseStatus === "已删除")}
         >
           <Text style={styles.chatButtonText}>
             {loading
               ? "加载中..."
-              : isClosed && !hasResponded
+              : isClosed && !myResponse
                 ? "已关闭"
-                : hasResponded && !existingChat
-                  ? "已回应"
-                  : hasResponded && existingChat
-                    ? "继续聊天"
-                    : "聊一聊"}
+                : myResponse && myResponse.responseStatus === "已删除"
+                  ? "对方已拒绝"
+                  : myResponse && !existingChat
+                    ? "已回应"
+                    : myResponse && existingChat
+                      ? "继续聊天"
+                      : "聊一聊"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
