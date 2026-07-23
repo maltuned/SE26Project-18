@@ -7,14 +7,25 @@ public class Message
 {
     public long Id { get; private set; }
 
-    public User Sender { get; private set; }
+    public long ChatId { get; private set; }
+
+    public Chat Chat { get; private set; } = null!;
+
+    public long SenderId { get; private set; }
+
+    public User Sender { get; private set; } = null!;
 
     public string Content { get; private set; } = string.Empty;
 
     public DateTime SentAt { get; private set; }
 
-    public Message(User sender)
+    private Message() { }
+
+    public Message(long chatId, long senderId, string content)
     {
-        Sender = sender;
+        ChatId = chatId;
+        SenderId = senderId;
+        Content = content;
+        SentAt = DateTime.UtcNow;
     }
 }

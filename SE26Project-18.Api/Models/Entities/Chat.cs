@@ -8,13 +8,19 @@ public class Chat
 {
     public long Id { get; private set; }
 
-    public Recruitment Recruitment { get; private set; }
+    public long? RecruitmentId { get; private set; }
 
-    public User Recruiter { get; private set; }
+    public Recruitment? Recruitment { get; private set; }
 
-    public User Responser { get; private set; }
+    public long RecruiterId { get; private set; }
 
-    public ICollection<Message> messages { get; private set; } = [];
+    public User Recruiter { get; private set; } = null!;
+
+    public long ResponserId { get; private set; }
+
+    public User Responser { get; private set; } = null!;
+
+    public ICollection<Message> Messages { get; private set; } = [];
 
     public int NewMsgsCntForRecruiter { get; private set; }
 
@@ -22,10 +28,21 @@ public class Chat
 
     public ChatStatus Status { get; private set; }
 
-    public Chat(Recruitment recruitment, User recruiter, User responser)
+    private Chat() { }
+
+    public Chat(long recruiterId, long responserId, long? recruitmentId = null)
     {
-        Recruitment = recruitment;
-        Recruiter = recruiter;
-        Responser = responser;
+        RecruiterId = recruiterId;
+        ResponserId = responserId;
+        RecruitmentId = recruitmentId;
+        Status = ChatStatus.Free;
+    }
+
+    public void RefreshRecruitment(long? recruitmentId)
+    {
+        if (recruitmentId is > 0)
+        {
+            RecruitmentId = recruitmentId;
+        }
     }
 }
