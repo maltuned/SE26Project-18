@@ -40,4 +40,11 @@ public class Recruitment
         MaxParticipants = maxParticipants;
         ExpiresAt = expiresAt;
     }
+
+    public void AddParticipant()
+    {
+        CurrParticipants++;
+        if (CurrParticipants >= MaxParticipants)
+            Status = RecruitmentStatus.Closed;
+    }
 }

@@ -41,6 +41,7 @@ builder
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGameService, GameService>();
+builder.Services.AddScoped<IResponseService, ResponseService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddCors(options =>

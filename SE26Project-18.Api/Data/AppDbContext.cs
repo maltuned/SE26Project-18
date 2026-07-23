@@ -9,21 +9,13 @@ public sealed class AppDbContext : DbContext
         : base(options) { }
 
     public DbSet<Chat> Chats => Set<Chat>();
-
     public DbSet<Game> Games => Set<Game>();
-
     public DbSet<GameTag> GameTags => Set<GameTag>();
-
     public DbSet<Message> Messages => Set<Message>();
-
     public DbSet<Recruitment> Recruitments => Set<Recruitment>();
-
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-
     public DbSet<Response> Responses => Set<Response>();
-
     public DbSet<User> Users => Set<User>();
-
     public DbSet<UserTag> UserTags => Set<UserTag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -106,7 +98,6 @@ public sealed class AppDbContext : DbContext
             entity.ToTable("refresh_tokens");
             entity.HasKey(rt => rt.Id);
             entity.HasIndex(rt => rt.TokenHashed).IsUnique();
-
             entity
                 .HasOne(rt => rt.User)
                 .WithMany()
@@ -119,9 +110,9 @@ public sealed class AppDbContext : DbContext
             entity.ToTable("responses");
             entity.HasKey(r => r.Id);
             entity
-                .HasOne(r => r.Responser)
+                .HasOne(r => r.Responder)
                 .WithMany()
-                .HasForeignKey("ResponserId")
+                .HasForeignKey("ResponderId")
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -130,7 +121,6 @@ public sealed class AppDbContext : DbContext
             entity.ToTable("users");
             entity.HasKey(u => u.Id);
             entity.HasIndex(u => u.Username).IsUnique();
-
             entity.HasMany(u => u.Tags).WithMany();
         });
 

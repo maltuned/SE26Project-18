@@ -58,9 +58,9 @@ public sealed class ChatController : ControllerBase
         }
 
         var chat = await chatService.CreateChatAsync(
+            request.RecruitmentId,
             request.User1Id,
-            request.User2Id,
-            request.RecruitmentId
+            request.User2Id
         );
 
         return Ok(chat);
