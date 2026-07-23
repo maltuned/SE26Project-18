@@ -1,12 +1,15 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SE26Project_18.Api.Models.Requests;
+using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Models.Responses;
 using SE26Project_18.Api.Services;
 
 namespace SE26Project_18.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[Authorize]
+[Route("api/v1/chats")]
 public sealed class ChatController : ControllerBase
 {
     private readonly IChatService _chatService;
@@ -16,61 +19,39 @@ public sealed class ChatController : ControllerBase
         _chatService = chatService;
     }
 
+    [HttpGet("me")]
+    public async Task<ActionResult<IReadOnlyList<ChatResponse>>> GetChats(CancellationToken ct)
+    {
+        return Ok(await _chatService.GetChatsAsync(GetCurrentUserId(), ct));
+    }
+
     [HttpGet("by-user/{userId:long}")]
-    public async Task<ActionResult<IReadOnlyList<ChatResponse>>> GetChats(long userId)
+    public async Task<ActionResult<ChatResponse>> GetChatByUser(long userId, CancellationToken ct)
     {
-        var chats = await _chatService.GetChatsAsync(userId);
-        return Ok(chats);
+        var currentUserId = GetCurrentUserId();
+
+        if (userId == currentUserId)
+            throw new ValidationException("UserId must identify another user.");
+
+        var chat = await _chatService.GetChatByUserAsync(currentUserId, userId, ct);
+        return Ok(chat ?? throw new NotFoundException("Chat not found."));
     }
 
-    [HttpGet("by-users")]
-    public async Task<ActionResult<ChatResponse>> GetChatByUsers(
-        [FromQuery] long user1Id,
-        [FromQuery] long user2Id
-    )
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<ChatResponse>> GetChatById(long id, CancellationToken ct)
     {
-        if (user1Id == user2Id)
-        {
-            return BadRequest("User1Id and User2Id must be different.");
-        }
-
-        var chat = await _chatService.GetChatByUsersAsync(user1Id, user2Id);
-
-        return chat is null ? NotFound() : Ok(chat);
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<ChatResponse>> CreateChat(CreateChatRequest request)
-    {
-        if (request.User1Id == request.User2Id)
-        {
-            return BadRequest("User1Id and User2Id must be different.");
-        }
-
-        if (!await _chatService.UsersExistAsync(request.User1Id, request.User2Id))
-        {
-            return NotFound("User not found.");
-        }
-
-        if (!await _chatService.RecruitmentExistsAsync(request.RecruitmentId))
-        {
-            return NotFound("Recruitment not found.");
-        }
-
-        var chat = await _chatService.CreateChatAsync(
-            request.RecruitmentId,
-            request.User1Id,
-            request.User2Id
-        );
+        var chat = await _chatService.GetChatByIdAsync(id, GetCurrentUserId(), ct);
+        if (chat is null)
+            throw new NotFoundException("Chat not found.");
 
         return Ok(chat);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<ActionResult<ChatResponse>> GetChatById(long id)
+    private long GetCurrentUserId()
     {
-        var chat = await _chatService.GetChatByIdAsync(id);
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            throw new AuthenticationException("Token does not contain a valid user identifier.");
 
-        return chat is null ? NotFound() : Ok(chat);
+        return userId;
     }
 }

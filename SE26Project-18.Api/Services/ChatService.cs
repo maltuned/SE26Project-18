@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
-using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Mappings;
 using SE26Project_18.Api.Models.Responses;
 
@@ -15,102 +14,71 @@ public sealed class ChatService : IChatService
         this._db = db;
     }
 
-    public async Task<IReadOnlyList<ChatResponse>> GetChatsAsync(long userId)
+    public async Task<IReadOnlyList<ChatResponse>> GetChatsAsync(long userId, CancellationToken ct)
     {
         var chats = await _db
             .Chats.AsNoTracking()
             .Include(chat => chat.Recruitment)
             .Include(chat => chat.User1)
             .Include(chat => chat.User2)
-            .Include(chat => chat.Messages)
+            .Include(chat => chat.Messages.OrderByDescending(message => message.SentAt).Take(1))
                 .ThenInclude(message => message.Sender)
             .Where(chat => chat.User1.Id == userId || chat.User2.Id == userId)
-            .ToListAsync();
+            .ToListAsync(ct);
 
         return chats
-            .OrderByDescending(GetLastMessageTime)
+            .OrderByDescending(chat =>
+                chat.Messages.MaxBy(message => message.SentAt)?.SentAt ?? DateTime.MinValue
+            )
             .Select(chat => chat.ToResponse())
             .ToList();
     }
 
-    public async Task<ChatResponse?> GetChatByUsersAsync(long user1Id, long user2Id)
+    public async Task<ChatResponse?> GetChatByUserAsync(
+        long currentUserId,
+        long otherUserId,
+        CancellationToken ct
+    )
     {
         var chat = await _db
             .Chats.AsNoTracking()
             .Include(chat => chat.Recruitment)
             .Include(chat => chat.User1)
             .Include(chat => chat.User2)
-            .Include(chat => chat.Messages)
+            .Include(chat => chat.Messages.OrderByDescending(message => message.SentAt).Take(1))
                 .ThenInclude(message => message.Sender)
-            .FirstOrDefaultAsync(chat =>
-                (chat.User1.Id == user1Id && chat.User2.Id == user2Id)
-                || (chat.User1.Id == user2Id && chat.User2.Id == user1Id)
+            .FirstOrDefaultAsync(
+                chat =>
+                    (
+                        (chat.User1.Id == currentUserId && chat.User2.Id == otherUserId)
+                        || (chat.User1.Id == otherUserId && chat.User2.Id == currentUserId)
+                    ),
+                ct
             );
 
         return chat?.ToResponse();
     }
 
-    public async Task<ChatResponse?> GetChatByIdAsync(long id)
+    public async Task<ChatResponse?> GetChatByIdAsync(
+        long id,
+        long currentUserId,
+        CancellationToken ct
+    )
     {
         var chat = await _db
             .Chats.AsNoTracking()
             .Include(chat => chat.Recruitment)
             .Include(chat => chat.User1)
             .Include(chat => chat.User2)
-            .Include(chat => chat.Messages)
+            .Include(chat => chat.Messages.OrderByDescending(message => message.SentAt).Take(1))
                 .ThenInclude(message => message.Sender)
-            .FirstOrDefaultAsync(chat => chat.Id == id);
+            .FirstOrDefaultAsync(
+                chat =>
+                    chat.Id == id
+                    && (chat.User1.Id == currentUserId || chat.User2.Id == currentUserId),
+                ct
+            );
 
         return chat?.ToResponse();
-    }
-
-    public async Task<ChatResponse> CreateChatAsync(long recruitmentId, long user1Id, long user2Id)
-    {
-        var chat = await _db
-            .Chats.Include(chat => chat.Recruitment)
-            .Include(chat => chat.User1)
-            .Include(chat => chat.User2)
-            .FirstOrDefaultAsync(chat =>
-                (chat.User1.Id == user1Id && chat.User2.Id == user2Id)
-                || (chat.User1.Id == user2Id && chat.User2.Id == user1Id)
-            );
-
-        if (chat is null)
-        {
-            var users = await _db
-                .Users.Where(user => user.Id == user1Id || user.Id == user2Id)
-                .ToListAsync();
-            var recruitment =
-                await _db.Recruitments.FirstOrDefaultAsync(r => r.Id == recruitmentId)
-                ?? throw new KeyNotFoundException("Recruitment not found.");
-
-            chat = new Chat(
-                recruitment,
-                users.Single(user => user.Id == user1Id),
-                users.Single(user => user.Id == user2Id)
-            );
-            _db.Chats.Add(chat);
-        }
-
-        await _db.SaveChangesAsync();
-        return chat.ToResponse();
-    }
-
-    public async Task<bool> UsersExistAsync(long user1Id, long user2Id)
-    {
-        var userIds = new[] { user1Id, user2Id };
-        var count = await _db.Users.CountAsync(user => userIds.Contains(user.Id));
-
-        return count == 2;
-    }
-
-    public async Task<bool> RecruitmentExistsAsync(long recruitmentId)
-    {
-        return await _db.Recruitments.AnyAsync(recruitment => recruitment.Id == recruitmentId);
-    }
-
-    private static DateTime GetLastMessageTime(Chat chat)
-    {
-        return chat.Messages.MaxBy(message => message.SentAt)?.SentAt ?? DateTime.MinValue;
     }
 }

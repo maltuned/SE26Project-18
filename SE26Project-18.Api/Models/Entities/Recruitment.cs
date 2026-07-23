@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SE26Project_18.Api.Models.Enums;
 
@@ -19,6 +20,9 @@ public class Recruitment
     public int MaxParticipants { get; set; }
 
     public int CurrParticipants { get; set; } = 0;
+
+    [ConcurrencyCheck]
+    public int Version { get; private set; }
 
     public ICollection<Response> Responses { get; set; } = [];
 
@@ -44,6 +48,7 @@ public class Recruitment
     public void AddParticipant()
     {
         CurrParticipants++;
+        Version++;
         if (CurrParticipants >= MaxParticipants)
             Status = RecruitmentStatus.Closed;
     }

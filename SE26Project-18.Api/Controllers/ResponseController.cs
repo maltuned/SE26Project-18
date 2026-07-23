@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SE26Project_18.Api.Models.Requests;
+using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Models.Responses;
 using SE26Project_18.Api.Services;
 
@@ -9,7 +9,7 @@ namespace SE26Project_18.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/[controller]")]
+[Route("api/v1/responses")]
 public sealed class ResponseController : ControllerBase
 {
     private readonly IResponseService _service;
@@ -19,86 +19,29 @@ public sealed class ResponseController : ControllerBase
         _service = service;
     }
 
-    [HttpPost]
-    public async Task<ActionResult<ResponseResponse>> Create(
-        [FromBody] CreateResponseRequest request
-    )
+    [HttpGet("{id:long}", Name = "GetResponseById")]
+    public async Task<ActionResult<ResponseResponse>> GetById(long id, CancellationToken ct)
     {
-        try
-        {
-            var response = await _service.CreateAsync(GetUserId(), request);
-            return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return BadRequest(new { error = exception.Message });
-        }
+        return Ok(await _service.GetByIdAsync(id, GetCurrentUserId(), ct));
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<ActionResult<ResponseResponse>> GetById(long id)
+    [HttpPost("{id:long}/accept")]
+    public async Task<ActionResult<ResponseResponse>> Accept(long id, CancellationToken ct)
     {
-        try
-        {
-            return Ok(await _service.GetByIdAsync(id, GetUserId()));
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { error = exception.Message });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
+        return Ok(await _service.AcceptAsync(id, GetCurrentUserId(), ct));
     }
 
-    [HttpPatch("{id:long}/accept")]
-    public async Task<ActionResult<ResponseResponse>> Accept(long id)
+    [HttpPost("{id:long}/reject")]
+    public async Task<ActionResult<ResponseResponse>> Reject(long id, CancellationToken ct)
     {
-        try
-        {
-            return Ok(await _service.AcceptAsync(id, GetUserId()));
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { error = exception.Message });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
-        catch (InvalidOperationException exception)
-        {
-            return BadRequest(new { error = exception.Message });
-        }
+        return Ok(await _service.RejectAsync(id, GetCurrentUserId(), ct));
     }
 
-    [HttpPatch("{id:long}/reject")]
-    public async Task<ActionResult<ResponseResponse>> Reject(long id)
+    private long GetCurrentUserId()
     {
-        try
-        {
-            return Ok(await _service.RejectAsync(id, GetUserId()));
-        }
-        catch (KeyNotFoundException exception)
-        {
-            return NotFound(new { error = exception.Message });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
-        catch (InvalidOperationException exception)
-        {
-            return BadRequest(new { error = exception.Message });
-        }
-    }
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            throw new AuthenticationException("Token does not contain a valid user identifier.");
 
-    private long GetUserId()
-    {
-        var claim =
-            User.FindFirst(ClaimTypes.NameIdentifier)
-            ?? throw new InvalidOperationException("Token does not contain a user identifier.");
-        return long.Parse(claim.Value);
+        return userId;
     }
 }

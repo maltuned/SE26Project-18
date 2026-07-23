@@ -46,6 +46,7 @@ public sealed class AppDbContext : DbContext
                 .WithOne()
                 .HasForeignKey("ChatId")
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex("User1Id", "User2Id").IsUnique();
         });
 
         modelBuilder.Entity<Game>(entity =>
@@ -114,6 +115,7 @@ public sealed class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey("ResponderId")
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex("RecruitmentId", "ResponderId").IsUnique();
         });
 
         modelBuilder.Entity<User>(entity =>
