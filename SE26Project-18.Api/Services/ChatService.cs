@@ -6,7 +6,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Services;
 
-public sealed class ChatService
+public sealed class ChatService : IChatService
 {
     private readonly AppDbContext _db;
 

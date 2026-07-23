@@ -8,11 +8,10 @@ using SE26Project_18.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
-    )
-);
+{
+    var connectionString = builder.Configuration.GetConnectionString("Default");
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+});
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtSecret = Encoding.UTF8.GetBytes(jwtSection["Secret"]!);
@@ -40,6 +39,7 @@ builder
 
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGameService, GameService>();
 builder.Services.AddScoped<IResponseService, ResponseService>();
 builder.Services.AddScoped<IUserService, UserService>();
@@ -52,17 +52,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("Default");
-
 builder.Services.AddControllers();
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    if (!string.IsNullOrWhiteSpace(connectionString))
-    {
-        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
-    }
-});
-builder.Services.AddScoped<ChatService>();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();

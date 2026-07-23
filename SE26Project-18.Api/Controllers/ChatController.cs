@@ -9,17 +9,17 @@ namespace SE26Project_18.Api.Controllers;
 [Route("api/v1/[controller]")]
 public sealed class ChatController : ControllerBase
 {
-    private readonly ChatService chatService;
+    private readonly IChatService _chatService;
 
-    public ChatController(ChatService chatService)
+    public ChatController(IChatService chatService)
     {
-        this.chatService = chatService;
+        _chatService = chatService;
     }
 
     [HttpGet("by-user/{userId:long}")]
     public async Task<ActionResult<IReadOnlyList<ChatResponse>>> GetChats(long userId)
     {
-        var chats = await chatService.GetChatsAsync(userId);
+        var chats = await _chatService.GetChatsAsync(userId);
         return Ok(chats);
     }
 
@@ -34,7 +34,7 @@ public sealed class ChatController : ControllerBase
             return BadRequest("User1Id and User2Id must be different.");
         }
 
-        var chat = await chatService.GetChatByUsersAsync(user1Id, user2Id);
+        var chat = await _chatService.GetChatByUsersAsync(user1Id, user2Id);
 
         return chat is null ? NotFound() : Ok(chat);
     }
@@ -47,17 +47,17 @@ public sealed class ChatController : ControllerBase
             return BadRequest("User1Id and User2Id must be different.");
         }
 
-        if (!await chatService.UsersExistAsync(request.User1Id, request.User2Id))
+        if (!await _chatService.UsersExistAsync(request.User1Id, request.User2Id))
         {
             return NotFound("User not found.");
         }
 
-        if (!await chatService.RecruitmentExistsAsync(request.RecruitmentId))
+        if (!await _chatService.RecruitmentExistsAsync(request.RecruitmentId))
         {
             return NotFound("Recruitment not found.");
         }
 
-        var chat = await chatService.CreateChatAsync(
+        var chat = await _chatService.CreateChatAsync(
             request.RecruitmentId,
             request.User1Id,
             request.User2Id
@@ -69,7 +69,7 @@ public sealed class ChatController : ControllerBase
     [HttpGet("{id:long}")]
     public async Task<ActionResult<ChatResponse>> GetChatById(long id)
     {
-        var chat = await chatService.GetChatByIdAsync(id);
+        var chat = await _chatService.GetChatByIdAsync(id);
 
         return chat is null ? NotFound() : Ok(chat);
     }
