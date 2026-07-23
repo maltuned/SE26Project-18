@@ -50,5 +50,53 @@ public sealed class AppDbContext : DbContext
         {
             entity.HasMany(g => g.Tags).WithMany();
         });
+
+        // ---- Recruitment → Game ----
+        modelBuilder.Entity<Recruitment>(entity =>
+        {
+            entity.Property<long>("GameId");
+            entity.HasOne(r => r.Game).WithMany().HasForeignKey("GameId");
+        });
+
+        // ---- Chat ----
+        modelBuilder.Entity<Chat>(entity =>
+        {
+            // Chat → Recruitment
+            entity.Property<long>("RecruitmentId");
+            entity.HasOne(c => c.Recruitment).WithMany().HasForeignKey("RecruitmentId");
+
+            // Chat → User（Recruiter）
+            entity.Property<long>("RecruiterId");
+            entity.HasOne(c => c.Recruiter).WithMany().HasForeignKey("RecruiterId")
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Chat → User（Responser）
+            entity.Property<long>("ResponserId");
+            entity.HasOne(c => c.Responser).WithMany().HasForeignKey("ResponserId")
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Chat → Message
+            entity.HasMany(c => c.messages).WithOne().HasForeignKey("ChatId");
+        });
+
+        // ---- Message → User ----
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.Property<long>("SenderId");
+            entity.HasOne(m => m.Sender).WithMany().HasForeignKey("SenderId");
+        });
+
+        // ---- Response ----
+        modelBuilder.Entity<Response>(entity =>
+        {
+            // Response → Recruitment
+            entity.Property<long>("RecruitmentId");
+            entity.HasOne(r => r.Recruitment).WithMany().HasForeignKey("RecruitmentId");
+
+            // Response → User
+            entity.Property<long>("ResponserId");
+            entity.HasOne(r => r.Responser).WithMany().HasForeignKey("ResponserId")
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }

@@ -20,4 +20,7 @@ public class Response
         Responser = responser;
         Type = type;
     }
+
+    /// <summary>EF Core 无参构造函数</summary>
+    private Response() { }
 }

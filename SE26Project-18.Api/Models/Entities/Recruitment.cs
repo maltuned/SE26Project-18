@@ -29,4 +29,7 @@ public class Recruitment
         MaxParticipants = maxParticipants;
         ExpiresAt = expiresAt;
     }
+
+    /// <summary>EF Core 无参构造函数</summary>
+    private Recruitment() { }
 }

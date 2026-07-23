@@ -9,7 +9,7 @@ public class GameTag
 
     public string Name { get; set; }
 
-    public Game(string name)
+    public GameTag(string name)
     {
         Name = name;
     }

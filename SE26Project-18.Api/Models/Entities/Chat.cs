@@ -28,4 +28,7 @@ public class Chat
         Recruiter = recruiter;
         Responser = responser;
     }
+
+    /// <summary>EF Core 无参构造函数</summary>
+    private Chat() { }
 }
