@@ -35,7 +35,7 @@ public sealed class GameService : IGameService
             }
         }
 
-        var games = await query.ToListAsync(ct);
+        var games = await query.OrderBy(g => g.Name).Take(10).ToListAsync(ct);
 
         return games.Select(g => g.ToResponse()).ToList();
     }

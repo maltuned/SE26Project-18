@@ -4,15 +4,13 @@ namespace SE26Project_18.Api.Services;
 
 public interface IChatService
 {
-    Task<IReadOnlyList<ChatResponse>> GetChatsAsync(long userId);
+    Task<IReadOnlyList<ChatResponse>> GetChatsAsync(long userId, CancellationToken ct);
 
-    Task<ChatResponse?> GetChatByUsersAsync(long user1Id, long user2Id);
+    Task<ChatResponse?> GetChatByUserAsync(
+        long currentUserId,
+        long otherUserId,
+        CancellationToken ct
+    );
 
-    Task<ChatResponse?> GetChatByIdAsync(long id);
-
-    Task<ChatResponse> CreateChatAsync(long recruitmentId, long user1Id, long user2Id);
-
-    Task<bool> UsersExistAsync(long user1Id, long user2Id);
-
-    Task<bool> RecruitmentExistsAsync(long recruitmentId);
+    Task<ChatResponse?> GetChatByIdAsync(long id, long currentUserId, CancellationToken ct);
 }

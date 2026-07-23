@@ -11,5 +11,5 @@ public interface IAuthService
 
     Task<TokenResponse> RefreshAsync(string refreshToken, CancellationToken ct);
 
-    Task LogoutAsync(string refreshToken, CancellationToken ct);
+    Task LogoutAsync(long userId, string refreshToken, CancellationToken ct);
 }
