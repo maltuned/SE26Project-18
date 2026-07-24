@@ -7,6 +7,7 @@ type AuthContextType = {
   userId: number | null;
   login: (userId: number) => void;
   logout: () => void;
+  refreshUser: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   userId: null,
   login: () => {},
   logout: () => {},
+  refreshUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -43,6 +45,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout: () => {
           setUserId(null);
           setIsLoggedIn(false);
+        },
+        refreshUser: () => {
+          if (userId) {
+            getUserById(userId).then((user) => setCurrentUser(user));
+          }
         },
       }}
     >

@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -19,13 +19,11 @@ import {
 } from "../../api/api";
 import GameSearchModal from "../../components/game-search-modal";
 import RecruitmentViewCard from "../../components/recruitment-view-card";
-import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { userId } = useAuth();
   const [searchText, setSearchText] = useState("");
   const [selectedGameTags, setSelectedGameTags] = useState<number[]>([]);
   const [selectedRecruitmentTags, setSelectedRecruitmentTags] = useState<
@@ -52,12 +50,12 @@ export default function HomeScreen() {
     setLoading(false);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadData();
   }, []);
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       loadData();
     }, []),
   );

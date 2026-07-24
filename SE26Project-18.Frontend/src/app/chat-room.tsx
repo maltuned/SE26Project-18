@@ -51,7 +51,10 @@ export default function ChatRoomScreen() {
   const [otherUserId, setOtherUserId] = useState<number | null>(null);
   const [otherUser, setOtherUser] = useState<UserInfo | null>(null);
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
-  const [currentUserSent, setCurrentUserSent] = useState(false);
+
+  // 基于实际消息列表判断
+  const currentUserSent = messages.some((m) => m.sender === "me");
+  const otherUserSent = messages.some((m) => m.sender === "other");
 
   useEffect(() => {
     if (chatId) {
@@ -61,7 +64,6 @@ export default function ChatRoomScreen() {
           setChatStatus(chat.chatStatus);
           const chatOtherUser = chat.users?.find((u) => u.userId !== userId);
           setOtherUserId(chatOtherUser?.userId ?? null);
-          setCurrentUserSent(chatOtherUser?.sentMessage || false);
           if (chatOtherUser?.userId) {
             getUserById(chatOtherUser.userId).then((user) => {
               if (user) setOtherUser(user);
@@ -124,7 +126,7 @@ export default function ChatRoomScreen() {
   const handleSendMessage = async () => {
     if (!inputText.trim() || !userId || !chatId || !otherUserId) return;
     if (chatStatus === "关闭") return;
-    if (chatStatus === "限制" && currentUserSent) return;
+    if (chatStatus === "限制" && currentUserSent && !otherUserSent) return;
 
     const content = inputText.trim();
     setInputText("");
@@ -145,7 +147,10 @@ export default function ChatRoomScreen() {
         receiverId: otherUserId,
         content,
       });
-      setCurrentUserSent(true);
+      // 限制状态下，发送消息后如果对方已发过消息，则更新为开放
+      if (chatStatus === "限制" && otherUserSent) {
+        setChatStatus("开放");
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
     }
@@ -169,18 +174,24 @@ export default function ChatRoomScreen() {
     });
   };
 
+  // 限制+己方发过+对方没发过 → 不能发
+  // 限制+对方发过 → 能发（发后变开放）
+  // 限制+双方都没发过 → 能发一条
   const canSend =
-    chatStatus === "开放" || (chatStatus === "限制" && !currentUserSent);
+    chatStatus === "开放" ||
+    (chatStatus === "限制" && !(currentUserSent && !otherUserSent));
 
   const getStatusHint = (): string => {
-    switch (chatStatus) {
-      case "限制":
-        return currentUserSent ? "等待对方回复中..." : "您可以发送一条消息";
-      case "关闭":
-        return "聊天已关闭";
-      default:
-        return "";
+    if (chatStatus !== "限制") {
+      return chatStatus === "关闭" ? "聊天已关闭" : "";
     }
+    if (currentUserSent && !otherUserSent) {
+      return "等待对方回复中...";
+    }
+    if (!currentUserSent && !otherUserSent) {
+      return "在对方回复前只能发送一条消息";
+    }
+    return "您可以发送消息";
   };
 
   if (loading || !otherUser) {
@@ -225,7 +236,7 @@ export default function ChatRoomScreen() {
             style={[styles.headerAvatar, { backgroundColor: colors.primary }]}
           />
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {otherUser?.nickname ?? "聊天"}
+            {(otherUser?.nickname || otherUser?.username) ?? "聊天"}
           </Text>
         </TouchableOpacity>
         <View style={styles.placeholder} />

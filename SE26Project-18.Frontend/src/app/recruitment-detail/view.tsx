@@ -232,7 +232,9 @@ export default function RecruitmentViewScreen() {
                 <Text
                   style={[styles.avatarName, { color: colors.textSecondary }]}
                 >
-                  {recruitment.publisher?.nickname || "未知用户"}
+                  {recruitment.publisher?.nickname ||
+                    recruitment.publisher?.username ||
+                    "未知用户"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -245,13 +247,18 @@ export default function RecruitmentViewScreen() {
         <TouchableOpacity
           style={[
             styles.chatButton,
-            isClosed && !myResponse || myResponse && myResponse.responseStatus === "已删除"
+            (isClosed && !myResponse) ||
+            (myResponse && myResponse.responseStatus === "已删除")
               ? { backgroundColor: colors.textQuaternary }
               : { backgroundColor: colors.primary },
             loading && styles.chatButtonDisabled,
           ]}
           onPress={handleChat}
-          disabled={loading || (isClosed && !myResponse) || !!(myResponse && myResponse.responseStatus === "已删除")}
+          disabled={
+            loading ||
+            (isClosed && !myResponse) ||
+            !!(myResponse && myResponse.responseStatus === "已删除")
+          }
         >
           <Text style={styles.chatButtonText}>
             {loading

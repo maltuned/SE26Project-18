@@ -744,7 +744,7 @@ class BackendSim {
       return {
         id: chat.id,
         other_user_avatar: otherUser.avatar || '',
-        other_user_name: otherUser.nickname,
+        other_user_name: otherUser.nickname || otherUser.username,
         last_message_content: lastMessage ? lastMessage.content : '',
         last_message_at: lastMessage ? lastMessage.created_at : chat.created_at,
         created_at: chat.created_at,

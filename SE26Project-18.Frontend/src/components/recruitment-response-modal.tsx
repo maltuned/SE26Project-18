@@ -64,7 +64,7 @@ function RecruitmentResponseModal({
             >
               <View style={styles.header}>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  向 {recruitment.publisher?.nickname} 打招呼
+                  向 {recruitment.publisher?.nickname || recruitment.publisher?.username}  打招呼
                 </Text>
                 <TouchableOpacity onPress={onClose}>
                   <Text

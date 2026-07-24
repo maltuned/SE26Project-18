@@ -1,21 +1,63 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import {
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import { getUserById, updateUser, UserInfo } from "../api/api";
+import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
 export default function PersonalPageEditScreen() {
   const router = useRouter();
-  const [nickname, setNickname] = useState("用户昵称");
-  const [bio, setBio] = useState("这个人很懒，什么都没写...");
+  const params = useLocalSearchParams<{ userId?: string }>();
+  const { userId, refreshUser } = useAuth();
   const { colors } = useTheme();
+
+  const editUserId = params.userId ? Number(params.userId) : userId;
+
+  const [nickname, setNickname] = useState("");
+  const [bio, setBio] = useState("");
+  const [fetching, setFetching] = useState(true);
   const testImage = require("../../assets/images/testImage.png");
+
+  useEffect(() => {
+    if (editUserId) {
+      getUserById(editUserId).then((user: UserInfo | null) => {
+        if (user) {
+          setNickname(user.nickname || "");
+          setBio(user.signature || "");
+        }
+        setFetching(false);
+      }).catch(() => {
+        setFetching(false);
+      });
+    } else {
+      setFetching(false);
+    }
+  }, [editUserId]);
+
+  const handleSave = async () => {
+    if (!editUserId) {
+      Alert.alert("提示", "请先登录");
+      return;
+    }
+    try {
+      await updateUser(editUserId, {
+        nickname,
+        signature: bio,
+      });
+      refreshUser();
+      router.back();
+    } catch {
+      Alert.alert("错误", "更新失败，请稍后重试");
+    }
+  };
+
+  if (fetching) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.surface }]}>
+        <Text style={{ color: colors.text, textAlign: "center", marginTop: 100 }}>加载中...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
@@ -62,6 +104,7 @@ export default function PersonalPageEditScreen() {
         </View>
         <TouchableOpacity
           style={[styles.saveButton, { backgroundColor: colors.primary }]}
+          onPress={handleSave}
         >
           <Text style={styles.saveText}>保存</Text>
         </TouchableOpacity>
@@ -100,24 +143,28 @@ const styles = StyleSheet.create({
   },
   nicknameInput: {
     flex: 1,
-    marginLeft: 14,
-    fontSize: 17,
-    fontWeight: "600",
-    borderRadius: 8,
-    padding: 8,
-  },
-  bioInput: {
-    fontSize: 14,
+    marginLeft: 12,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingTop: 12,
-    height: 80,
+    paddingVertical: 8,
+    fontSize: 16,
+  },
+  bioInput: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    minHeight: 100,
   },
   saveButton: {
-    height: 48,
+    height: 44,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  saveText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });

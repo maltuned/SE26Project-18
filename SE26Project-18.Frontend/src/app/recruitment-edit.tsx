@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,8 +15,10 @@ import {
 } from "react-native";
 import {
   GameInfo,
+  RecruitmentData,
   RecruitmentTag,
   getGames,
+  getRecruitmentById,
   getRecruitmentTags,
   saveRecruitment,
 } from "../api/api";
@@ -27,42 +29,64 @@ import { useTheme } from "../contexts/theme-context";
 
 export default function RecruitmentEditScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ data?: string }>();
+  const params = useLocalSearchParams<{ id?: string }>();
   const { colors } = useTheme();
   const { userId } = useAuth();
 
-  const editRecruitment = useMemo(() => {
-    try {
-      if (params.data) {
-        return JSON.parse(decodeURIComponent(params.data));
-      }
-    } catch {}
-    return undefined;
-  }, [params.data]);
+  const editId = params.id ? Number(params.id) : null;
 
-  const [gameName, setGameName] = useState(editRecruitment?.gameName || "");
-  const [title, setTitle] = useState(editRecruitment?.title || "");
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(
-    editRecruitment?.recruitmentTags?.map((tag: RecruitmentTag) => tag.id) ||
-      [],
-  );
-  const [description, setDescription] = useState(
-    editRecruitment?.description || "",
-  );
+  const [gameName, setGameName] = useState("");
+  const [title, setTitle] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [description, setDescription] = useState("");
   const [selectedGame, setSelectedGame] = useState<GameInfo | null>(null);
   const [gameModalVisible, setGameModalVisible] = useState(false);
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [tags, setTags] = useState<RecruitmentTag[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingRecruitment, setFetchingRecruitment] = useState(false);
 
   const testImage = require("../../assets/images/testImage.png");
 
   useEffect(() => {
     getRecruitmentTags().then((data) => {
       setTags(data);
-      setLoading(false);
     });
-  }, []);
+
+    if (editId) {
+      setFetchingRecruitment(true);
+      getRecruitmentById(editId).then((data: RecruitmentData | null) => {
+        if (data) {
+          setGameName(data.gameName || "");
+          setTitle(data.title || "");
+          setSelectedTagIds(
+            data.recruitmentTags?.map((tag: RecruitmentTag) => tag.id) || [],
+          );
+          setDescription(data.description || "");
+          if (data.gameId) {
+            setSelectedGame({
+              id: data.gameId,
+              name: data.gameName || "",
+              icon: "",
+              company: "",
+              description: "",
+              cover: "",
+              tags: [],
+              createdAt: "",
+              updatedAt: "",
+            });
+          }
+        }
+        setFetchingRecruitment(false);
+        setLoading(false);
+      }).catch(() => {
+        setFetchingRecruitment(false);
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, [editId]);
 
   const toggleTag = (tagId: number) => {
     setSelectedTagIds((prev) =>
@@ -113,15 +137,15 @@ export default function RecruitmentEditScreen() {
 
     try {
       await saveRecruitment({
-        id: editRecruitment?.id ?? -1,
+        id: editId ?? -1,
         publisherId: userId,
-        gameId: selectedGame?.id ?? editRecruitment?.gameId ?? -1,
+        gameId: selectedGame?.id ?? -1,
         title: title.trim(),
         description,
         status: "招募中",
         expiredAt: toISOString(oneDayLater),
         maxParticipants: 5,
-        currentParticipants: editRecruitment?.currentParticipants ?? 0,
+        currentParticipants: 0,
         tagsId: selectedTagIds,
       });
       router.replace("/(tabs)");
@@ -160,8 +184,14 @@ export default function RecruitmentEditScreen() {
                 style={[
                   styles.topInput,
                   { backgroundColor: colors.searchBackground },
+                  editId ? { opacity: 0.5 } : {},
                 ]}
-                onPress={() => setSearchModalVisible(true)}
+                onPress={() => {
+                  if (!editId) {
+                    setSearchModalVisible(true);
+                  }
+                }}
+                disabled={!!editId}
               >
                 <Text
                   style={[

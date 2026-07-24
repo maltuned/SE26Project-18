@@ -39,7 +39,7 @@ export default function MoreScreen() {
       >
         <Image source={testImage} style={styles.avatar} />
         <Text style={[styles.nickname, { color: colors.text }]}>
-          {currentUser?.nickname || "未登录"}
+          {currentUser?.nickname || currentUser?.username || "未登录"}
         </Text>
         <Text style={[styles.bio, { color: colors.bioText }]}>
           {currentUser?.signature || "这个人很懒，什么都没写..."}

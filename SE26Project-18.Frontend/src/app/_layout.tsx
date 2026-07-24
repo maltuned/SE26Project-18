@@ -7,6 +7,7 @@ import {
 import { useEffect } from "react";
 import { StatusBar, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { initTagCaches } from "../api/api";
 import { AuthProvider, useAuth } from "../contexts/auth-context";
 import { ThemeProvider, useTheme } from "../contexts/theme-context";
 
@@ -21,6 +22,10 @@ export default function RootLayout() {
 }
 
 function RootLayoutMain() {
+  useEffect(() => {
+    initTagCaches();
+  }, []);
+
   return <RootLayoutNav />;
 }
 

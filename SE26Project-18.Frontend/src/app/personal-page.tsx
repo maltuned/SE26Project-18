@@ -87,8 +87,8 @@ export default function PersonalPageScreen() {
 
   const openCard = (item: RecruitmentData) => {
     router.push({
-      pathname: '/recruitment-detail' as any,
-      params: { recruitmentId: item.id.toString() }
+      pathname: "/recruitment-detail" as any,
+      params: { recruitmentId: item.id.toString() },
     });
   };
 
@@ -102,7 +102,9 @@ export default function PersonalPageScreen() {
       {isOwnPage ? (
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => router.push("/personal-page-edit")}
+          onPress={() =>
+            router.push(`/personal-page-edit?userId=${targetUserId}`)
+          }
         >
           <Text style={[styles.editText, { color: colors.primary }]}>
             编辑资料
@@ -127,8 +129,13 @@ export default function PersonalPageScreen() {
           />
           <View style={styles.profileInfo}>
             <Text style={[styles.nickname, { color: colors.nicknameText }]}>
-              {targetUser?.nickname || "未登录"}
+              {targetUser?.nickname ? `${targetUser.nickname}` : `@${targetUser?.username}` || "空用户名"}
             </Text>
+            {targetUser?.nickname && (
+            <Text style={[styles.username, { color: colors.textTertiary }]}>
+              {`@${targetUser?.username}` || "空用户名"}
+            </Text>
+            )}
           </View>
         </View>
         <Text style={[styles.bio, { color: colors.bioText }]}>
@@ -279,6 +286,7 @@ const styles = StyleSheet.create({
   },
   profileInfo: { flex: 1, marginLeft: 16 },
   nickname: { fontSize: 22, fontWeight: "bold" },
+  username: { fontSize: 14, fontWeight: "bold" },
   bio: { fontSize: 14, lineHeight: 20 },
   tabRow: {
     flexDirection: "row",

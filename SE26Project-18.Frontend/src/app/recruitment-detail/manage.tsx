@@ -244,7 +244,7 @@ export default function RecruitmentManageScreen() {
                     ]}
                   />
                   <Text style={[styles.responderName, { color: colors.text }]}>
-                    {res.responser?.nickname || "未知用户"}
+                    {res.responser?.nickname || res.responser?.username || "未知用户"}
                   </Text>
                 </TouchableOpacity>
                 <View style={styles.actionButtons}>

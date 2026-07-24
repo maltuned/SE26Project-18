@@ -22,15 +22,13 @@ export default function LoginScreen() {
   const { colors } = useTheme();
 
   const handleLogin = async () => {
-    setUsername("zhangsan");
-    setPassword("123456");
     if (!username || !password) {
       Alert.alert("登录失败", "请输入用户名和密码");
       return;
     }
     setLoading(true);
     try {
-      const user = await apiLogin(username, `hash_${username}`);
+      const user = await apiLogin(username, password);
       if (user) {
         login(user.id);
       } else {
