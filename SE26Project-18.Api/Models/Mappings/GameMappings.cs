@@ -7,11 +7,11 @@ public static class GameMappings
 {
     public static GameResponse ToResponse(this Game game)
     {
-        return new GameResponse
-        {
-            Id = game.Id,
-            Description = game.Description,
-            Tags = game.Tags.Select(t => t.ToResponse()).ToList(),
-        };
+        return new GameResponse(
+            game.Id,
+            game.Name,
+            game.Description,
+            game.Tags.Select(t => t.ToResponse()).ToList()
+        );
     }
 }

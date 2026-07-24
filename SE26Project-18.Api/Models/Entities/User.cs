@@ -26,7 +26,9 @@ public class User
 
     public ICollection<Recruitment> Recruitments { get; set; } = [];
 
-    public ICollection<Chat> Chats { get; set; } = [];
+    public ICollection<Chat> ChatsAsUser1 { get; set; } = [];
+
+    public ICollection<Chat> ChatsAsUser2 { get; set; } = [];
 
     public User(string username, string passwordHashed, UserRole role)
     {

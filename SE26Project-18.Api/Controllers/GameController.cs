@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Services;
 
@@ -7,7 +8,7 @@ namespace SE26Project_18.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/[controller]")]
+[Route("api/v1/games")]
 public sealed class GameController : ControllerBase
 {
     private readonly IGameService _gameService;
@@ -31,9 +32,6 @@ public sealed class GameController : ControllerBase
     public async Task<IActionResult> GetById(long id, CancellationToken ct)
     {
         var game = await _gameService.GetById(id, ct);
-        if (game is null)
-            return NotFound();
-
-        return Ok(game);
+        return Ok(game ?? throw new NotFoundException("Game not found."));
     }
 }

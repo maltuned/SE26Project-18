@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
+using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Mappings;
 using SE26Project_18.Api.Models.Requests;
@@ -37,7 +38,7 @@ public sealed class UserService : IUserService
     {
         var user =
             await _db.Users.Include(u => u.Tags).FirstOrDefaultAsync(u => u.Id == id, ct)
-            ?? throw new KeyNotFoundException("User not found.");
+            ?? throw new NotFoundException("User not found.");
 
         var tagIds = request.TagIds?.Distinct().ToArray();
 
@@ -49,7 +50,7 @@ public sealed class UserService : IUserService
 
             if (tags.Count != tagIds.Length)
             {
-                throw new InvalidOperationException("One or more tags do not exist.");
+                throw new NotFoundException("One or more tags do not exist.");
             }
         }
 

@@ -1,12 +1,14 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Services;
 
 namespace SE26Project_18.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[Route("api/v1/auth")]
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -50,7 +52,10 @@ public sealed class AuthController : ControllerBase
         CancellationToken ct
     )
     {
-        await _authService.LogoutAsync(request.RefreshToken, ct);
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            throw new AuthenticationException("Token does not contain a valid user identifier.");
+
+        await _authService.LogoutAsync(userId, request.RefreshToken, ct);
         return NoContent();
     }
 }

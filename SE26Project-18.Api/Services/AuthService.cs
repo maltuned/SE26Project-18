@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
+using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Requests;
@@ -26,53 +27,74 @@ public sealed class AuthService : IAuthService
     {
         var exists = await _db.Users.AnyAsync(u => u.Username == request.Username, ct);
         if (exists)
-            throw new InvalidOperationException("Username already exists.");
+            throw new ConflictException("Username already exists.");
 
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         var passwordHashed = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = new User(request.Username, passwordHashed, UserRole.User);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
 
-        return await IssueTokensAsync(user, ct);
+        var tokens = IssueTokens(user);
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return tokens;
     }
 
     public async Task<TokenResponse> LoginAsync(LoginRequest request, CancellationToken ct)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username, ct);
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHashed))
-            throw new UnauthorizedAccessException("Invalid username or password.");
+            throw new AuthenticationException("Invalid username or password.");
 
-        return await IssueTokensAsync(user, ct);
+        if (user.Status == UserStatus.Suspended)
+            throw new AuthenticationException("User account is suspended.");
+
+        var tokens = IssueTokens(user);
+        await _db.SaveChangesAsync(ct);
+        return tokens;
     }
 
     public async Task<TokenResponse> RefreshAsync(string refreshToken, CancellationToken ct)
     {
         var tokenHashed = _tokenService.HashToken(refreshToken);
+        var now = DateTime.UtcNow;
 
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         var storedToken = await _db
             .RefreshTokens.Include(rt => rt.User)
+            .AsNoTracking()
             .FirstOrDefaultAsync(rt => rt.TokenHashed == tokenHashed, ct);
 
-        if (storedToken is null || storedToken.IsRevoked || storedToken.ExpiresAt < DateTime.UtcNow)
-            throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+        if (storedToken is null || storedToken.IsRevoked || storedToken.ExpiresAt <= now)
+            throw new AuthenticationException("Invalid or expired refresh token.");
 
-        storedToken.IsRevoked = true;
+        if (storedToken.User.Status == UserStatus.Suspended)
+            throw new AuthenticationException("User account is suspended.");
 
-        await CleanupStaleTokensAsync(storedToken.Id, ct);
+        var consumed = await _db
+            .RefreshTokens.Where(rt =>
+                rt.Id == storedToken.Id && !rt.IsRevoked && rt.ExpiresAt > now
+            )
+            .ExecuteUpdateAsync(setters => setters.SetProperty(rt => rt.IsRevoked, true), ct);
+        if (consumed != 1)
+            throw new AuthenticationException("Invalid or expired refresh token.");
 
-        var newTokens = await IssueTokensAsync(storedToken.User, ct);
+        await CleanupStaleTokensAsync(storedToken.UserId, ct);
+        var newTokens = IssueTokens(storedToken.User);
         await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         return newTokens;
     }
 
-    public async Task LogoutAsync(string refreshToken, CancellationToken ct)
+    public async Task LogoutAsync(long userId, string refreshToken, CancellationToken ct)
     {
         var tokenHashed = _tokenService.HashToken(refreshToken);
 
         var storedToken = await _db.RefreshTokens.FirstOrDefaultAsync(
-            rt => rt.TokenHashed == tokenHashed,
+            rt => rt.TokenHashed == tokenHashed && rt.UserId == userId,
             ct
         );
 
@@ -93,7 +115,7 @@ public sealed class AuthService : IAuthService
             .ExecuteDeleteAsync(ct);
     }
 
-    private async Task<TokenResponse> IssueTokensAsync(User user, CancellationToken ct)
+    private TokenResponse IssueTokens(User user)
     {
         var jwtSection = _configuration.GetSection("Jwt");
         var refreshTokenDays = int.Parse(jwtSection["RefreshTokenExpiryDays"]!);
@@ -110,14 +132,12 @@ public sealed class AuthService : IAuthService
         );
 
         _db.RefreshTokens.Add(refreshTokenEntity);
-        await _db.SaveChangesAsync(ct);
 
-        return new TokenResponse
-        {
-            AccessToken = accessToken,
-            RefreshToken = rawRefreshToken,
-            AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenMinutes),
-            RefreshTokenExpiresAt = refreshTokenEntity.ExpiresAt,
-        };
+        return new TokenResponse(
+            accessToken,
+            rawRefreshToken,
+            DateTime.UtcNow.AddMinutes(accessTokenMinutes),
+            refreshTokenEntity.ExpiresAt
+        );
     }
 }

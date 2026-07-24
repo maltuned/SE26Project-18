@@ -10,22 +10,22 @@ public class Chat
 
     public Recruitment Recruitment { get; set; }
 
-    public User Recruiter { get; private init; }
+    public User User1 { get; private init; }
 
-    public User Responser { get; private init; }
+    public User User2 { get; private init; }
 
-    public ICollection<Message> messages { get; set; } = [];
+    public ICollection<Message> Messages { get; set; } = [];
 
-    public int NewMsgsCntForRecruiter { get; set; } = 0;
+    public int NewMsgsCntForUser1 { get; set; } = 0;
 
-    public int NewMsgsCntForResponser { get; set; } = 0;
+    public int NewMsgsCntForUser2 { get; set; } = 0;
 
     public ChatStatus Status { get; set; } = ChatStatus.Restricted;
 
-    public Chat(Recruitment recruitment, User recruiter, User responser)
+    public Chat(Recruitment recruitment, User user1, User user2)
     {
         Recruitment = recruitment;
-        Recruiter = recruiter;
-        Responser = responser;
+        User1 = user1;
+        User2 = user2;
     }
 }

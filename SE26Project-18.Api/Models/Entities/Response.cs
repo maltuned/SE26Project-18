@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SE26Project_18.Api.Models.Enums;
+using SE26Project_18.Api.Models.Exceptions;
 
 namespace SE26Project_18.Api.Models.Entities;
 
@@ -10,14 +12,36 @@ public class Response
 
     public Recruitment Recruitment { get; private init; }
 
-    public User Responser { get; private init; }
+    public User Responder { get; private init; }
 
-    public ResponseType Type { get; private init; }
+    public ResponseType Type { get; private set; } = ResponseType.Pending;
 
-    public Response(Recruitment recruitment, User responser, ResponseType type)
+    [ConcurrencyCheck]
+    public int Version { get; private set; }
+
+    public Response(Recruitment recruitment, User responder)
     {
         Recruitment = recruitment;
-        Responser = responser;
-        Type = type;
+        Responder = responder;
+    }
+
+    public void Accept()
+    {
+        EnsurePending();
+        Type = ResponseType.Accepted;
+        Version++;
+    }
+
+    public void Reject()
+    {
+        EnsurePending();
+        Type = ResponseType.Rejected;
+        Version++;
+    }
+
+    private void EnsurePending()
+    {
+        if (Type != ResponseType.Pending)
+            throw new ResponseAlreadyProcessedException(Type);
     }
 }
