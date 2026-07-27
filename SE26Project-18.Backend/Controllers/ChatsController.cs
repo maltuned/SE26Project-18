@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Backend.Models.Dtos;
 using SE26Project_18.Backend.Services;
@@ -7,6 +8,7 @@ namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class ChatsController : ControllerBase
 {
     private readonly IChatService _chatService;

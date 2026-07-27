@@ -28,14 +28,10 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const user = await apiLogin(username, password);
-      if (user) {
-        login(user.id);
-      } else {
-        Alert.alert("登录失败", "用户名或密码错误");
-      }
-    } catch (error) {
-      Alert.alert("登录失败", "网络错误，请稍后重试");
+      const result = await apiLogin(username, password);
+      login(result.user);
+    } catch (error: any) {
+      Alert.alert("登录失败", error.message || "用户名或密码错误");
     } finally {
       setLoading(false);
     }
@@ -85,7 +81,7 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
           <View style={styles.linkRow}>
-            <TouchableOpacity onPress={() => {}}>
+            <TouchableOpacity onPress={() => Alert.alert("施工中", "等待后续实现")}>
               <Text style={[styles.linkText, { color: colors.primary }]}>
                 忘记密码
               </Text>

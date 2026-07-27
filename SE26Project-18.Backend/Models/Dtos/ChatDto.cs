@@ -14,7 +14,7 @@ public class ChatDto
     public string RecruitmentTitle { get; set; } = string.Empty;
 
     [JsonPropertyName("other_user")]
-    public UserDto OtherUser { get; set; } = null!;
+    public UserBriefDto OtherUser { get; set; } = null!;
 
     [JsonPropertyName("last_message")]
     public MessageDto? LastMessage { get; set; }
@@ -32,5 +32,5 @@ public class ChatDto
     public ChatUserDto[]? Users { get; set; }
 
     [JsonPropertyName("recruitment")]
-    public RecruitmentDto? Recruitment { get; set; }
+    public RecruitmentBriefDto? Recruitment { get; set; }
 }

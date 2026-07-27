@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Backend.Models.Dtos;
 using SE26Project_18.Backend.Services;
@@ -6,6 +7,7 @@ namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class RecruitmentsController : ControllerBase
 {
     private readonly IRecruitmentService _recruitmentService;

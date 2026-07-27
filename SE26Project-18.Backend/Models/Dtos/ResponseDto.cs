@@ -23,5 +23,5 @@ public class ResponseDto
     public string UpdatedAt { get; set; } = string.Empty;
 
     [JsonPropertyName("responser")]
-    public UserDto Responser { get; set; } = null!;
+    public UserBriefDto Responser { get; set; } = null!;
 }

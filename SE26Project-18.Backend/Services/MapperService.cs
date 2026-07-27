@@ -23,6 +23,17 @@ public class MapperService
         };
     }
 
+    public UserBriefDto ToUserBriefDto(User user)
+    {
+        return new UserBriefDto
+        {
+            Id = user.Id,
+            Nickname = user.Nickname,
+            Username = user.Username,
+            Avatar = user.Avatar,
+        };
+    }
+
     public GameDto ToGameDto(Game game, long[]? tagsId = null)
     {
         return new GameDto
@@ -36,6 +47,17 @@ public class MapperService
             TagsId = tagsId ?? game.Tags.Select(t => t.Id).ToArray(),
             CreatedAt = game.CreatedAt.ToString("o"),
             UpdatedAt = game.UpdatedAt.ToString("o"),
+        };
+    }
+
+    public GameBriefDto ToGameBriefDto(Game game)
+    {
+        return new GameBriefDto
+        {
+            Id = game.Id,
+            Name = game.Name,
+            Cover = game.Cover,
+            Icon = game.Icon,
         };
     }
 
@@ -68,6 +90,16 @@ public class MapperService
         };
     }
 
+    public RecruitmentBriefDto ToRecruitmentBriefDto(Recruitment r)
+    {
+        return new RecruitmentBriefDto
+        {
+            Id = r.Id,
+            Title = r.Title,
+            Game = ToGameBriefDto(r.Game),
+        };
+    }
+
     public RecruitmentDetailDto ToRecruitmentDetailDto(Recruitment r)
     {
         return new RecruitmentDetailDto
@@ -84,8 +116,8 @@ public class MapperService
             ExpiredAt = r.ExpiredAt.ToString("o"),
             MaxParticipants = r.MaxParticipants,
             CurrentParticipants = r.CurrentParticipants,
-            Publisher = ToUserDto(r.Publisher),
-            Game = ToGameDto(r.Game, r.GameTags.Select(t => t.Id).ToArray()),
+            Publisher = ToUserBriefDto(r.Publisher),
+            Game = ToGameBriefDto(r.Game),
             GameTags = r.GameTags.Select(ToGameTagDto).ToArray(),
             RecruitmentTags = r.RecruitmentTags.Select(ToRecruitmentTagDto).ToArray(),
         };
@@ -101,7 +133,7 @@ public class MapperService
             ResponseStatus = r.ResponseStatus.ToDtoString(),
             CreatedAt = r.CreatedAt.ToString("o"),
             UpdatedAt = r.UpdatedAt.ToString("o"),
-            Responser = ToUserDto(r.Responser),
+            Responser = ToUserBriefDto(r.Responser),
         };
     }
 
@@ -115,8 +147,8 @@ public class MapperService
             ReceiverId = m.ReceiverId,
             Content = m.Content,
             CreatedAt = m.CreatedAt.ToString("o"),
-            Sender = ToUserDto(m.Sender),
-            Receiver = ToUserDto(m.Receiver),
+            Sender = ToUserBriefDto(m.Sender),
+            Receiver = ToUserBriefDto(m.Receiver),
         };
     }
 
@@ -157,13 +189,13 @@ public class MapperService
             Id = c.Id,
             RecruitmentId = c.RecruitmentId,
             RecruitmentTitle = c.Recruitment?.Title ?? "",
-            OtherUser = otherUser != null ? ToUserDto(otherUser) : new UserDto { Id = otherUser?.Id ?? 0, Username = "", Nickname = "" },
+            OtherUser = otherUser != null ? ToUserBriefDto(otherUser) : new UserBriefDto { Id = otherUser?.Id ?? 0, Username = "", Nickname = "" },
             LastMessage = lastMsg != null ? ToMessageDto(lastMsg) : null,
             UnreadCount = unread,
             ChatStatus = c.ChatStatus.ToDtoString(),
             NewMessageAt = c.NewMessageAt?.ToString("o") ?? "",
             Users = users,
-            Recruitment = c.Recruitment != null ? ToRecruitmentDto(c.Recruitment) : new RecruitmentDto { Id = c.RecruitmentId, Title = "" },
+            Recruitment = c.Recruitment != null ? ToRecruitmentBriefDto(c.Recruitment) : new RecruitmentBriefDto { Id = c.RecruitmentId, Title = "" },
         };
     }
 }

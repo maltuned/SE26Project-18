@@ -30,7 +30,7 @@ function RootLayoutMain() {
 }
 
 function RootLayoutNav() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isRestoring } = useAuth();
   const { colors } = useTheme();
   const segments = useSegments();
   const router = useRouter();
@@ -38,7 +38,7 @@ function RootLayoutNav() {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    if (!navState?.key) return;
+    if (!navState?.key || isRestoring) return;
 
     const inAuthGroup = segments[0] === "(auth)";
 
@@ -47,7 +47,7 @@ function RootLayoutNav() {
     } else if (isLoggedIn && inAuthGroup) {
       router.replace("/(tabs)");
     }
-  }, [isLoggedIn, segments, navState?.key]);
+  }, [isLoggedIn, isRestoring, segments, navState?.key]);
 
   return (
     <View

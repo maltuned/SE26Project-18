@@ -56,6 +56,12 @@ export interface RecruitmentTag {
   name: string;
 }
 
+export interface RecruitmentBrief {
+  id: number;
+  title: string;
+  game: GameBrief;
+}
+
 export interface RecruitmentData {
   id: number;
   publisherId: number;
@@ -72,18 +78,6 @@ export interface RecruitmentData {
   maxParticipants: number;
   currentParticipants: number;
   publisher: UserInfo;
-}
-
-export interface RecruitmentInfo {
-  id: number;
-  gameId: number;
-  gameName: string;
-  title: string;
-  description: string;
-  gameTags: string[];
-  recruitmentTags: RecruitmentTag[];
-  status: RecruitmentStatus;
-  createdAt: string;
 }
 
 // ==================== Response ====================
@@ -120,7 +114,7 @@ export interface ChatData {
   newMessageAt: string;
   // For recruitment-based access (publisher/responser management)
   users?: { userId: number; sentMessage: boolean }[];
-  recruitment?: RecruitmentData;
+  recruitment?: RecruitmentBrief;
 }
 
 // ==================== Message ====================

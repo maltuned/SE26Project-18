@@ -39,6 +39,7 @@ export default function RecruitmentViewScreen() {
   const [myResponse, setMyResponse] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [chatDataLoading, setChatDataLoading] = useState(true);
   const [showGreetingModal, setShowGreetingModal] = useState(false);
 
   useEffect(() => {
@@ -60,16 +61,20 @@ export default function RecruitmentViewScreen() {
 
   useEffect(() => {
     if (userId && recruitment?.id) {
-      getChatsByRecruitmentId(recruitment.id).then((chats) => {
+      setChatDataLoading(true);
+      Promise.all([
+        getChatsByRecruitmentId(recruitment.id),
+        getResponses(recruitment.id),
+      ]).then(([chats, responses]) => {
         const myChat = chats.find((c) =>
           c.users?.some((u) => u.userId === userId),
         );
         if (myChat) setExistingChat(myChat);
-      });
-
-      getResponses(recruitment.id).then((responses) => {
-        const myResponse = responses.find((r) => r.responserId === userId);
-        setMyResponse(myResponse || null);
+        const myResp = responses.find((r) => r.responserId === userId);
+        setMyResponse(myResp || null);
+        setChatDataLoading(false);
+      }).catch(() => {
+        setChatDataLoading(false);
       });
     }
   }, [userId, recruitment?.id]);
@@ -106,7 +111,7 @@ export default function RecruitmentViewScreen() {
   const isClosed = recruitment.status === "已关闭";
 
   const handleChat = async () => {
-    if (!userId) return;
+    if (!userId || chatDataLoading) return;
     // 已关闭且没回应过：不能操作
     if (isClosed && !myResponse) return;
     // 已回应且被拒绝：不能操作
@@ -256,12 +261,13 @@ export default function RecruitmentViewScreen() {
           onPress={handleChat}
           disabled={
             loading ||
+            chatDataLoading ||
             (isClosed && !myResponse) ||
             !!(myResponse && myResponse.responseStatus === "已删除")
           }
         >
           <Text style={styles.chatButtonText}>
-            {loading
+            {loading || chatDataLoading
               ? "加载中..."
               : isClosed && !myResponse
                 ? "已关闭"

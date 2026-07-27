@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Backend.Models.Dtos;
 using SE26Project_18.Backend.Services;
@@ -6,6 +7,7 @@ namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -13,29 +15,6 @@ public class UsersController : ControllerBase
     public UsersController(IUserService userService)
     {
         _userService = userService;
-    }
-
-    [HttpPost("login")]
-    public async Task<ActionResult<ApiResponse<UserDto>>> Login([FromBody] LoginRequest request)
-    {
-        var user = await _userService.LoginAsync(request.Username, request.Password);
-        if (user == null)
-            return Ok(ApiResponse<UserDto>.Fail("用户名或密码错误", 401));
-        return Ok(ApiResponse<UserDto>.Success(user, "登录成功"));
-    }
-
-    [HttpPost("register")]
-    public async Task<ActionResult<ApiResponse<UserDto>>> Register([FromBody] LoginRequest request)
-    {
-        try
-        {
-            var user = await _userService.RegisterAsync(request.Username, request.Password);
-            return Ok(ApiResponse<UserDto>.Success(user, "注册成功"));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Ok(ApiResponse<UserDto>.Fail(ex.Message, 409));
-        }
     }
 
     [HttpPost("update")]
@@ -62,12 +41,6 @@ public class UsersController : ControllerBase
         var users = await _userService.GetUsersAsync();
         return Ok(ApiResponse<List<UserDto>>.Success(users));
     }
-}
-
-public class LoginRequest
-{
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
 }
 
 public class UpdateUserRequest

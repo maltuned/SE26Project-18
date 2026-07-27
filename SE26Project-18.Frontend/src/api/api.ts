@@ -2,13 +2,17 @@ import type {
   ApiResponse,
   ChatBriefDto,
   ChatDto,
+  GameBriefDto,
   GameDto,
   GameTagDto,
   MessageDto,
+  RecruitmentBriefDto,
   RecruitmentDetailDto,
   RecruitmentDto,
   RecruitmentTagDto,
   ResponseDto,
+  TokenResponse,
+  UserBriefDto,
   UserDto
 } from "./dtos";
 import type {
@@ -18,22 +22,30 @@ import type {
   GameInfo,
   GameTag,
   MessageData,
+  RecruitmentBrief,
   RecruitmentData,
   RecruitmentTag,
   ResponseData,
   ResponseStatus,
   UserInfo
 } from "./data-patterns";
+import { tokenStorage } from "./tokenStorage";
 
 // Re-export frontend data patterns for convenience
 export type {
-  ChatBrief, ChatData, ChatStatus, GameBrief, GameInfo, GameTag, MessageData, RecruitmentData,
+  ChatBrief, ChatData, ChatStatus, GameBrief, GameInfo, GameTag, MessageData, RecruitmentBrief, RecruitmentData,
   RecruitmentTag, ResponseData, ResponseStatus, UserInfo
 } from "./data-patterns";
 
 // ==================== Config ====================
 
-const API_BASE = "http://10.73.61.199:5111";
+const API_BASE = "http://10.109.121.199:5111";
+
+let onAuthExpired: (() => void) | null = null;
+
+export const setAuthExpiredHandler = (handler: () => void) => {
+  onAuthExpired = handler;
+};
 
 // ==================== Fetch Helpers ====================
 
@@ -53,16 +65,108 @@ const buildUrl = (endpoint: string, params?: Record<string, any>) => {
   return url.toString();
 };
 
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  const token = await tokenStorage.getAccessToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
+let refreshPromise: Promise<boolean> | null = null;
+
+const tryRefreshToken = async (): Promise<boolean> => {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const refreshToken = await tokenStorage.getRefreshToken();
+      if (!refreshToken) return false;
+
+      const res = await fetch(buildUrl("/Auth/refresh"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!res.ok) return false;
+
+      const data: ApiResponse<TokenResponse> = await res.json();
+      if (data.status !== 200 || !data.data) return false;
+
+      await tokenStorage.setTokens(
+        data.data.access_token,
+        data.data.refresh_token,
+        data.data.access_token_expires_at,
+        data.data.refresh_token_expires_at,
+      );
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+};
+
 const apiGet = async <T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> => {
+  const headers = await getAuthHeaders();
   const res = await fetch(buildUrl(endpoint, params), {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers,
   });
+
+  if (res.status === 401) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      const retryHeaders = await getAuthHeaders();
+      const retryRes = await fetch(buildUrl(endpoint, params), {
+        method: "GET",
+        headers: retryHeaders,
+      });
+      if (retryRes.ok) return retryRes.json();
+    }
+    await tokenStorage.clearTokens();
+    onAuthExpired?.();
+    throw new Error("认证已过期");
+  }
+
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 };
 
 const apiPost = async <T>(endpoint: string, body?: any): Promise<ApiResponse<T>> => {
+  const headers = await getAuthHeaders();
+  const res = await fetch(buildUrl(endpoint), {
+    method: "POST",
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (res.status === 401) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      const retryHeaders = await getAuthHeaders();
+      const retryRes = await fetch(buildUrl(endpoint), {
+        method: "POST",
+        headers: retryHeaders,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (retryRes.ok) return retryRes.json();
+    }
+    await tokenStorage.clearTokens();
+    onAuthExpired?.();
+    throw new Error("认证已过期");
+  }
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+};
+
+const apiPostNoAuth = async <T>(endpoint: string, body?: any): Promise<ApiResponse<T>> => {
   const res = await fetch(buildUrl(endpoint), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -85,6 +189,19 @@ const mapUserDto = (dto: UserDto): UserInfo => ({
   status: dto.status,
   createdAt: dto.created_at,
   updatedAt: dto.updated_at,
+});
+
+const mapUserBriefDto = (dto: UserBriefDto): UserInfo => ({
+  id: dto.id,
+  uid: dto.id,
+  username: dto.username,
+  nickname: dto.nickname,
+  avatar: dto.avatar,
+  signature: "",
+  gender: "其他",
+  status: "正常",
+  createdAt: "",
+  updatedAt: "",
 });
 
 // 标签缓存（启动时从后端抓取，通过id查找）
@@ -168,7 +285,7 @@ const mapRecruitmentDetailDto = (dto: RecruitmentDetailDto): RecruitmentData => 
   expiredAt: dto.expired_at,
   maxParticipants: dto.max_participants,
   currentParticipants: dto.current_participants,
-  publisher: mapUserDto(dto.publisher),
+  publisher: mapUserBriefDto(dto.publisher),
 });
 
 // ResponseDto → ResponseData (类型一致, 仅字段名差异)
@@ -179,7 +296,14 @@ const mapResponseDto = (dto: ResponseDto): ResponseData => ({
   responseStatus: dto.response_status,
   createdAt: dto.created_at,
   updatedAt: dto.updated_at,
-  responser: mapUserDto(dto.responser),
+  responser: mapUserBriefDto(dto.responser),
+});
+
+// RecruitmentBriefDto → RecruitmentBrief
+const mapRecruitmentBriefDto = (dto: RecruitmentBriefDto): RecruitmentBrief => ({
+  id: dto.id,
+  title: dto.title,
+  game: { id: dto.game.id, name: dto.game.name, icon: dto.game.icon },
 });
 
 // GameDto → GameBrief
@@ -212,8 +336,8 @@ const mapMessageDto = (dto: MessageDto): MessageData => ({
   receiverId: dto.receiver_id,
   content: dto.content,
   createdAt: dto.created_at,
-  sender: mapUserDto(dto.sender),
-  receiver: mapUserDto(dto.receiver),
+  sender: mapUserBriefDto(dto.sender),
+  receiver: mapUserBriefDto(dto.receiver),
 });
 
 // ChatBriefDto → ChatBrief (类型一致, 仅字段名差异)
@@ -232,7 +356,7 @@ const mapChatDto = (dto: ChatDto): ChatData => ({
   id: dto.id,
   recruitmentId: dto.recruitment_id,
   recruitmentTitle: dto.recruitment_title,
-  otherUser: mapUserDto(dto.other_user),
+  otherUser: mapUserBriefDto(dto.other_user),
   lastMessage: dto.last_message ? mapMessageDto(dto.last_message) : null,
   unreadCount: dto.unread_count,
   chatStatus: dto.chat_status,
@@ -241,8 +365,7 @@ const mapChatDto = (dto: ChatDto): ChatData => ({
     userId: u.user_id,
     sentMessage: u.sent_message,
   })),
-  // 差异: backend recruitment是RecruitmentDto, 前端需要RecruitmentData
-  recruitment: dto.recruitment ? mapRecruitmentDto(dto.recruitment) : undefined,
+  recruitment: dto.recruitment ? mapRecruitmentBriefDto(dto.recruitment) : undefined,
 });
 
 // ==================== Response Helpers ====================
@@ -256,6 +379,22 @@ const handleResponse = async <T>(
     if (res.status >= 200 && res.status < 300 && res.data !== undefined && res.data !== null) {
       return mapper(res.data);
     }
+    return null;
+  } catch (e) {
+    console.error("API Error:", e);
+    return null;
+  }
+};
+
+const handleResponseDirect = async <T>(
+  promise: Promise<ApiResponse<T>>,
+): Promise<T | null> => {
+  try {
+    const res = await promise;
+    if (res.status >= 200 && res.status < 300 && res.data !== undefined && res.data !== null) {
+      return res.data;
+    }
+    console.error("API Error:", res);
     return null;
   } catch (e) {
     console.error("API Error:", e);
@@ -292,20 +431,65 @@ const handlePostResponse = async <T>(
 
 // ==================== User API ====================
 
-export const login = (
+export const login = async (
   username: string,
   password: string,
-): Promise<UserInfo | null> => {
-  const response = apiPost<UserDto>("/Users/login", { username, password });
-  return handleResponse<UserInfo>(response, mapUserDto);
+): Promise<{ token: TokenResponse; user: UserInfo }> => {
+  const res = await apiPostNoAuth<TokenResponse>("/Auth/login", { username, password });
+  if (res.status !== 200 || !res.data) {
+    throw new Error(res.message || "登录失败");
+  }
+  const token = res.data;
+  await tokenStorage.setTokens(
+    token.access_token,
+    token.refresh_token,
+    token.access_token_expires_at,
+    token.refresh_token_expires_at,
+  );
+  const user = await getMe(token.access_token);
+  if (!user) throw new Error("登录失败：无法获取用户信息");
+  return { token, user };
 };
 
-export const register = (
+export const register = async (
   username: string,
   password: string,
-): Promise<UserInfo | null> => {
-  const response = apiPost<UserDto>("/Users/register", { username, password });
-  return handleResponse<UserInfo>(response, mapUserDto);
+): Promise<{ token: TokenResponse; user: UserInfo }> => {
+  const res = await apiPostNoAuth<TokenResponse>("/Auth/register", { username, password });
+  if (res.status !== 200 || !res.data) {
+    throw new Error(res.message || "注册失败");
+  }
+  const token = res.data;
+  await tokenStorage.setTokens(
+    token.access_token,
+    token.refresh_token,
+    token.access_token_expires_at,
+    token.refresh_token_expires_at,
+  );
+  const user = await getMe(token.access_token);
+  if (!user) throw new Error("注册失败：无法获取用户信息");
+  return { token, user };
+};
+
+export const getMe = async (accessToken?: string): Promise<UserInfo | null> => {
+  const token = accessToken ?? await tokenStorage.getAccessToken();
+  if (!token) return null;
+  const res = await fetch(buildUrl("/Auth/me"), {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`获取用户信息失败: HTTP ${res.status} ${text}`);
+  }
+  const data: ApiResponse<UserDto> = await res.json();
+  if (data.status >= 200 && data.status < 300 && data.data) {
+    return mapUserDto(data.data);
+  }
+  throw new Error(`获取用户信息失败: API ${data.status} ${data.message}`);
 };
 
 export const getUserById = (id: number): Promise<UserInfo | null> => {

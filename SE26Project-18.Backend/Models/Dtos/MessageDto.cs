@@ -23,8 +23,8 @@ public class MessageDto
     public string CreatedAt { get; set; } = string.Empty;
 
     [JsonPropertyName("sender")]
-    public UserDto Sender { get; set; } = null!;
+    public UserBriefDto Sender { get; set; } = null!;
 
     [JsonPropertyName("receiver")]
-    public UserDto Receiver { get; set; } = null!;
+    public UserBriefDto Receiver { get; set; } = null!;
 }

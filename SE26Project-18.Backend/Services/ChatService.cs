@@ -21,7 +21,7 @@ public class ChatService : IChatService
         return _db.Chats
             .Include(c => c.Recruiter)
             .Include(c => c.Responser)
-            .Include(c => c.Recruitment)
+            .Include(c => c.Recruitment).ThenInclude(r => r.Game)
             .Include(c => c.Messages).ThenInclude(m => m.Sender)
             .Include(c => c.Messages).ThenInclude(m => m.Receiver);
     }
@@ -68,14 +68,18 @@ public class ChatService : IChatService
 
         if (existing != null)
         {
-            // Update recruitment_id and return
+            // Update recruitment_id and reload navigation
             existing.RecruitmentId = recruitmentId;
             existing.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
+            await _db.Entry(existing).Reference(c => c.Recruitment).LoadAsync();
+            await _db.Entry(existing.Recruitment).Reference(r => r.Game).LoadAsync();
             return _mapper.ToChatDto(existing, user1Id);
         }
 
-        var recruitment = await _db.Recruitments.FindAsync(recruitmentId)
+        var recruitment = await _db.Recruitments
+            .Include(r => r.Game)
+            .FirstOrDefaultAsync(r => r.Id == recruitmentId)
             ?? throw new KeyNotFoundException("招募不存在");
         var recruiter = await _db.Users.FindAsync(user1Id)
             ?? throw new KeyNotFoundException("用户不存在");

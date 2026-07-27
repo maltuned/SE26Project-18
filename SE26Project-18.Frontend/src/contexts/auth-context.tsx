@@ -1,32 +1,67 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getUserById, UserInfo } from "../api/api";
+import { getMe, setAuthExpiredHandler, UserInfo } from "../api/api";
+import { tokenStorage } from "../api/tokenStorage";
 
 type AuthContextType = {
   isLoggedIn: boolean;
+  isRestoring: boolean;
   currentUser: UserInfo | null;
   userId: number | null;
-  login: (userId: number) => void;
-  logout: () => void;
+  login: (user: UserInfo) => void;
+  logout: () => Promise<void>;
   refreshUser: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
+  isRestoring: true,
   currentUser: null,
   userId: null,
   login: () => {},
-  logout: () => {},
+  logout: async () => {},
   refreshUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
 
   useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const token = await tokenStorage.getAccessToken();
+        if (token) {
+          const user = await getMe();
+          if (user) {
+            setCurrentUser(user);
+            setUserId(user.id);
+            setIsLoggedIn(true);
+          } else {
+            await tokenStorage.clearTokens();
+          }
+        }
+      } catch {
+        await tokenStorage.clearTokens();
+      } finally {
+        setIsRestoring(false);
+      }
+    };
+    restoreSession();
+
+    setAuthExpiredHandler(() => {
+      setUserId(null);
+      setIsLoggedIn(false);
+      setCurrentUser(null);
+    });
+  }, []);
+
+  useEffect(() => {
     if (userId) {
-      getUserById(userId).then((user) => setCurrentUser(user));
+      getMe().then((user) => {
+        if (user) setCurrentUser(user);
+      });
     } else {
       setCurrentUser(null);
     }
@@ -36,19 +71,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         isLoggedIn,
+        isRestoring,
         currentUser,
         userId,
-        login: (id: number) => {
-          setUserId(id);
+        login: (user: UserInfo) => {
+          setUserId(user.id);
           setIsLoggedIn(true);
+          setCurrentUser(user);
         },
-        logout: () => {
+        logout: async () => {
+          await tokenStorage.clearTokens();
           setUserId(null);
           setIsLoggedIn(false);
+          setCurrentUser(null);
         },
         refreshUser: () => {
           if (userId) {
-            getUserById(userId).then((user) => setCurrentUser(user));
+            getMe().then((user) => {
+              if (user) setCurrentUser(user);
+            });
           }
         },
       }}
