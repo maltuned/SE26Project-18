@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { GameInfo, getGameById } from "../api/api";
 import { useTheme } from "../contexts/theme-context";
 
@@ -17,12 +18,14 @@ interface GameInfoModalProps {
   visible: boolean;
   gameId: number | null;
   onClose: () => void;
+  onFeedback?: () => void;
 }
 
 const testImage = require("../../assets/images/testImage.png");
 
-function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
+function GameInfoModal({ visible, gameId, onClose, onFeedback }: GameInfoModalProps) {
   const { colors } = useTheme();
+  const router = useRouter();
   const [game, setGame] = useState<GameInfo | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -76,7 +79,16 @@ function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
                       <Text style={[styles.name, { color: colors.text }]}>
                         {game?.name}
                       </Text>
-                      <TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (onFeedback) {
+                            onFeedback();
+                          } else {
+                            onClose();
+                            setTimeout(() => router.push("/feedback" as any), 200);
+                          }
+                        }}
+                      >
                         <Text
                           style={[
                             styles.feedbackText,

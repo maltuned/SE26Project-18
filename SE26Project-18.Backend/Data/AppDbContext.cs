@@ -17,6 +17,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<Chat> Chats => Set<Chat>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Feedback> Feedbacks => Set<Feedback>();
+    public DbSet<Report> Reports => Set<Report>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -153,6 +155,24 @@ public sealed class AppDbContext : DbContext
             entity.HasOne(rt => rt.User)
                 .WithMany()
                 .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Feedback
+        modelBuilder.Entity<Feedback>(entity =>
+        {
+            entity.HasOne(f => f.User)
+                .WithMany()
+                .HasForeignKey(f => f.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Report
+        modelBuilder.Entity<Report>(entity =>
+        {
+            entity.HasOne(r => r.Reporter)
+                .WithMany()
+                .HasForeignKey(r => r.ReporterId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

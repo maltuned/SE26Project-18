@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   ChatBriefDto,
   ChatDto,
+  FeedbackDto,
   GameBriefDto,
   GameDto,
   GameTagDto,
@@ -10,6 +11,7 @@ import type {
   RecruitmentDetailDto,
   RecruitmentDto,
   RecruitmentTagDto,
+  ReportDto,
   ResponseDto,
   TokenResponse,
   UserBriefDto,
@@ -821,4 +823,16 @@ export const sendMessage = (data: {
 
 export const initTagCaches = async () => {
   await ensureTagsLoaded();
+};
+
+// ==================== Feedback & Report API ====================
+
+export const submitFeedback = async (data: FeedbackDto): Promise<boolean> => {
+  const response = apiPost<boolean>("/Feedback", data);
+  return handlePostResponse(response, (d: boolean) => d);
+};
+
+export const submitReport = async (data: ReportDto): Promise<boolean> => {
+  const response = apiPost<boolean>("/Report", data);
+  return handlePostResponse(response, (d: boolean) => d);
 };

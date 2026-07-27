@@ -159,7 +159,13 @@ export default function RecruitmentViewScreen() {
   };
 
   const handleReport = () => {
-    Alert.alert("举报", "举报已提交，我们会尽快处理", [{ text: "确定" }]);
+    router.push({
+      pathname: "/report" as any,
+      params: {
+        targetType: "招募",
+        targetId: String(recruitment?.id ?? 0),
+      },
+    });
   };
 
   return (

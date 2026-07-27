@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -82,7 +81,13 @@ export default function PersonalPageScreen() {
   }, [targetUserId]);
 
   const handleReport = () => {
-    Alert.alert("举报", "举报已提交，我们会尽快处理");
+    router.push({
+      pathname: "/report" as any,
+      params: {
+        targetType: "用户",
+        targetId: String(targetUserId),
+      },
+    });
   };
 
   const openCard = (item: RecruitmentData) => {

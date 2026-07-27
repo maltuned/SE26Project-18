@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { GameBrief, getGames } from "../api/api";
 import { useTheme } from "../contexts/theme-context";
 import GameInfoModal from "./game-info-modal";
@@ -30,6 +31,7 @@ function GameSearchModal({
   onClose,
 }: GameSearchModalProps) {
   const { colors } = useTheme();
+  const router = useRouter();
   const safeAreaInsets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState(initialText);
   const [results, setResults] = useState<GameBrief[]>([]);
@@ -183,7 +185,12 @@ function GameSearchModal({
           )}
 
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                handleClose();
+                setTimeout(() => router.push("/feedback" as any), 200);
+              }}
+            >
               <Text style={[styles.feedbackText, { color: colors.primary }]}>
                 没有游戏？反馈
               </Text>
@@ -195,6 +202,11 @@ function GameSearchModal({
           visible={gameInfoVisible}
           gameId={selectedGameId}
           onClose={() => setGameInfoVisible(false)}
+          onFeedback={() => {
+            setGameInfoVisible(false);
+            handleClose();
+            setTimeout(() => router.push("/feedback" as any), 200);
+          }}
         />
       </Pressable>
     </Modal>

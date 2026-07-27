@@ -161,3 +161,17 @@ export interface ApiResponse<T = any> {
   data: T;
   message: string;
 }
+
+// ==================== Feedback & Report ====================
+
+export interface FeedbackDto {
+  type: string;
+  content: string;
+}
+
+export interface ReportDto {
+  target_type: string;
+  target_id: number;
+  violation_type: string;
+  content: string;
+}

@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
     Alert,
@@ -10,17 +10,24 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { submitFeedback } from "../api/api";
+import { submitReport } from "../api/api";
 import { useTheme } from "../contexts/theme-context";
 
-const FEEDBACK_TYPES = [
-    { key: "内容反馈", label: "内容反馈" },
-    { key: "体验反馈", label: "体验反馈" },
+const VIOLATION_TYPES = [
+    { key: "涉政", label: "涉政" },
+    { key: "谩骂", label: "谩骂" },
+    { key: "广告", label: "广告" },
+    { key: "色情", label: "色情" },
+    { key: "欺诈", label: "欺诈" },
+    { key: "其他", label: "其他" },
 ];
 
-export default function FeedbackScreen() {
+export default function ReportScreen() {
   const router = useRouter();
-  const [selectedType, setSelectedType] = useState("内容反馈");
+  const params = useLocalSearchParams<{ targetType?: string; targetId?: string }>();
+  const targetType = params.targetType ?? "招募";
+  const targetId = params.targetId ? Number(params.targetId) : 0;
+  const [selectedViolation, setSelectedViolation] = useState("其他");
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
@@ -28,13 +35,18 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (!text.trim()) {
-      Alert.alert("提示", "请填写反馈内容");
+      Alert.alert("提示", "请填写举报内容");
       return;
     }
     setSubmitting(true);
     try {
-      await submitFeedback({ type: selectedType, content: text.trim() });
-      Alert.alert("成功", "反馈提交成功，感谢你的反馈！", [
+      await submitReport({
+        target_type: targetType,
+        target_id: targetId,
+        violation_type: selectedViolation,
+        content: text.trim(),
+      });
+      Alert.alert("成功", "举报提交成功，我们会尽快处理", [
         { text: "确定", onPress: () => router.back() },
       ]);
     } catch (e: any) {
@@ -44,14 +56,14 @@ export default function FeedbackScreen() {
     }
   };
 
-  const selectedLabel = FEEDBACK_TYPES.find((t) => t.key === selectedType)?.label ?? selectedType;
+  const selectedLabel = VIOLATION_TYPES.find((t) => t.key === selectedViolation)?.label ?? selectedViolation;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
       <TouchableOpacity style={styles.back} onPress={() => router.back()}>
         <Text style={[styles.backText, { color: colors.primary }]}>← 返回</Text>
       </TouchableOpacity>
-      <Text style={[styles.header, { color: colors.text }]}>反馈</Text>
+      <Text style={[styles.header, { color: colors.text }]}>举报</Text>
       <View style={styles.body}>
         <TouchableOpacity
           style={[
@@ -87,31 +99,31 @@ export default function FeedbackScreen() {
                 { backgroundColor: colors.card },
               ]}
             >
-              {FEEDBACK_TYPES.map((item) => (
+              {VIOLATION_TYPES.map((item) => (
                 <TouchableOpacity
                   key={item.key}
                   style={[
                     styles.dropdownItem,
-                    selectedType === item.key && {
+                    selectedViolation === item.key && {
                       backgroundColor: colors.primaryLight,
                     },
                   ]}
                   onPress={() => {
-                    setSelectedType(item.key);
+                    setSelectedViolation(item.key);
                     setDropdownVisible(false);
                   }}
                 >
                   <Text
                     style={[
                       styles.dropdownItemText,
-                      selectedType === item.key
+                      selectedViolation === item.key
                         ? { color: colors.primary }
                         : { color: colors.text },
                     ]}
                   >
                     {item.label}
                   </Text>
-                  {selectedType === item.key && (
+                  {selectedViolation === item.key && (
                     <Text style={[styles.checkmark, { color: colors.primary }]}>
                       ✓
                     </Text>
@@ -131,7 +143,7 @@ export default function FeedbackScreen() {
               borderColor: colors.borderLight,
             },
           ]}
-          placeholder="请描述你的问题或建议..."
+          placeholder="请描述举报原因..."
           placeholderTextColor={colors.textTertiary}
           multiline
           value={text}
@@ -149,7 +161,7 @@ export default function FeedbackScreen() {
           disabled={submitting}
         >
           <Text style={styles.submitText}>
-            {submitting ? "提交中..." : "提交反馈"}
+            {submitting ? "提交中..." : "提交举报"}
           </Text>
         </TouchableOpacity>
       </View>

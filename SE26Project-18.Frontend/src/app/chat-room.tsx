@@ -6,7 +6,9 @@ import {
     Image,
     Keyboard,
     KeyboardAvoidingView,
+    Modal,
     Platform,
+    Pressable,
     StatusBar,
     StyleSheet,
     Text,
@@ -51,6 +53,7 @@ export default function ChatRoomScreen() {
   const [otherUserId, setOtherUserId] = useState<number | null>(null);
   const [otherUser, setOtherUser] = useState<UserInfo | null>(null);
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
+  const [moreMenuVisible, setMoreMenuVisible] = useState(false);
 
   // 基于实际消息列表判断
   const currentUserSent = messages.some((m) => m.sender === "me");
@@ -239,7 +242,49 @@ export default function ChatRoomScreen() {
             {(otherUser?.nickname || otherUser?.username) ?? "聊天"}
           </Text>
         </TouchableOpacity>
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          onPress={() => setMoreMenuVisible(true)}
+          style={styles.moreButtonContainer}
+        >
+          <Text style={[styles.moreButton, { color: colors.text }]}>⋯</Text>
+        </TouchableOpacity>
+
+        <Modal
+          visible={moreMenuVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setMoreMenuVisible(false)}
+        >
+          <Pressable
+            style={[styles.overlay, { backgroundColor: colors.overlay }]}
+            onPress={() => setMoreMenuVisible(false)}
+          >
+            <View
+              style={[
+                styles.dropdownMenu,
+                { backgroundColor: colors.card },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setMoreMenuVisible(false);
+                  router.push({
+                    pathname: "/report" as any,
+                    params: {
+                      targetType: "聊天",
+                      targetId: String(chatId ?? 0),
+                    },
+                  });
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: colors.text }]}>
+                  举报
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
       </View>
 
       {recruitment && (
@@ -336,7 +381,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   headerAvatar: { width: 28, height: 28, borderRadius: 14, marginRight: 6 },
-  placeholder: { width: 50 },
+  moreButton: { fontSize: 22, fontWeight: "600", lineHeight: 24 },
+  moreButtonContainer: { paddingHorizontal: 4, paddingVertical: 2 },
+  overlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  dropdownMenu: {
+    width: "100%",
+    borderRadius: 12,
+    paddingVertical: 4,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+  },
   recruitmentBar: {
     flexDirection: "row",
     alignItems: "center",
