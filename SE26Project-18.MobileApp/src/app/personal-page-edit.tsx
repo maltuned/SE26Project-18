@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
-import { getUserById, updateUser, UserInfo } from "../api/api";
+import { getUserById, updateUserMe, UserResponse } from "../api/api";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
@@ -20,7 +20,7 @@ export default function PersonalPageEditScreen() {
 
   useEffect(() => {
     if (editUserId) {
-      getUserById(editUserId).then((user: UserInfo | null) => {
+      getUserById(editUserId).then((user: UserResponse) => {
         if (user) {
           setNickname(user.nickname || "");
           setBio(user.signature || "");
@@ -40,7 +40,7 @@ export default function PersonalPageEditScreen() {
       return;
     }
     try {
-      await updateUser(editUserId, {
+      await updateUserMe({
         nickname,
         signature: bio,
       });

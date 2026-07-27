@@ -72,7 +72,7 @@ export default function HomeScreen() {
     gTags: number[] = selectedGameTags,
     rTags: number[] = selectedRecruitmentTags,
   ) => {
-    const data = await getRecruitments(gameName, gTags, rTags);
+    const data = await getRecruitments();
     setRecruitments(data);
   };
 

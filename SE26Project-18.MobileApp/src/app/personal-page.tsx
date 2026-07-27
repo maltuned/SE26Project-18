@@ -14,7 +14,7 @@ import {
   getRecruitmentsByPublisherId,
   getUserById,
   RecruitmentData,
-  UserInfo,
+  UserResponse,
 } from "../api/api";
 import RecruitmentViewCard from "../components/recruitment-view-card";
 import { useAuth } from "../contexts/auth-context";
@@ -59,7 +59,7 @@ export default function PersonalPageScreen() {
     [],
   );
   const [loading, setLoading] = useState(false);
-  const [targetUser, setTargetUser] = useState<UserInfo | null>(null);
+  const [targetUser, setTargetUser] = useState<UserResponse | null>(null);
 
   useEffect(() => {
     if (isOwnPage) {

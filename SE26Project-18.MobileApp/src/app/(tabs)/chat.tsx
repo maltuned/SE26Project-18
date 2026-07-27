@@ -7,25 +7,31 @@ import {
     Text,
     View,
 } from "react-native";
-import { ChatBrief, getChats } from "../../api/api";
+import { getMyChats, ChatResponse } from "../../api/api";
 import ChatEntry, { ChatEntryInfo } from "../../components/chat-entry";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
+
+// 本地适配数据结构
+type ChatBriefLocal = { id: number; lastMessageAt: string; chatData: ChatResponse };
 
 export default function ChatListScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { userId } = useAuth();
-  const [chats, setChats] = useState<ChatBrief[]>([]);
+  const [chats, setChats] = useState<ChatBriefLocal[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadChats = React.useCallback(() => {
     setLoading(true);
-    getChats(userId!).then((data) => {
-      const sorted = [...data].sort((a, b) => {
-        const timeA = a.lastMessageAt || "";
-        const timeB = b.lastMessageAt || "";
-        return new Date(timeB).getTime() - new Date(timeA).getTime();
+    getMyChats().then((data) => {
+      const mapped: ChatBriefLocal[] = data.map((c) => ({
+        id: c.id,
+        lastMessageAt: c.lastMessage?.sentAt || "",
+        chatData: c,
+      }));
+      const sorted = mapped.sort((a, b) => {
+        return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
       });
       setChats(sorted);
       setLoading(false);
@@ -49,14 +55,14 @@ export default function ChatListScreen() {
     }, [userId, loadChats]),
   );
 
-  const openChat = (chat: ChatBrief) => {
+  const openChat = (chat: ChatBriefLocal) => {
     router.push(`/chat-room?chatId=${chat.id}`);
   };
 
-  const mapToChatEntryInfo = (entry: ChatBrief): ChatEntryInfo => ({
+  const mapToChatEntryInfo = (entry: ChatBriefLocal): ChatEntryInfo => ({
     id: String(entry.id),
-    name: entry.otherUserName,
-    lastMessage: entry.lastMessageContent,
+    name: `聊天 #${entry.chatData.id}`,
+    lastMessage: entry.chatData.lastMessage?.content || "",
     time: formatTime(entry.lastMessageAt),
   });
 
@@ -92,12 +98,10 @@ export default function ChatListScreen() {
         <FlatList
           data={chats.map(mapToChatEntryInfo)}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+          renderItem={({ item }: { item: ChatEntryInfo }) => (
             <ChatEntry
               chat={item}
-              onPress={() =>
-                openChat(chats.find((e) => e.id === Number(item.id))!)
-              }
+              onPress={() => router.push(`/chat-room?chatId=${item.id}`)}
             />
           )}
         />

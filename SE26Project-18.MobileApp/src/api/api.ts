@@ -1,44 +1,28 @@
-import type {
-  ApiResponse,
-  ChatBriefDto,
-  ChatDto,
-  GameDto,
-  GameTagDto,
-  MessageDto,
-  RecruitmentDetailDto,
-  RecruitmentDto,
-  RecruitmentTagDto,
-  ResponseDto,
-  UserDto
-} from "./dtos";
-import type {
-  ChatBrief,
-  ChatData,
-  GameBrief,
-  GameInfo,
-  GameTag,
-  MessageData,
-  RecruitmentData,
-  RecruitmentTag,
-  ResponseData,
-  ResponseStatus,
-  UserInfo
+// Re-export frontend data patterns (部分类型在 data-patterns.ts 中定义)
+export type {
+  ChatBrief, ChatData, GameInfo, GameTag, MessageData, RecruitmentData,
+  RecruitmentTag, ResponseData, UserInfo
 } from "./data-patterns";
 
-// Re-export frontend data patterns for convenience
-export type {
-  ChatBrief, ChatData, ChatStatus, GameBrief, GameInfo, GameTag, MessageData, RecruitmentData,
-  RecruitmentTag, ResponseData, ResponseStatus, UserInfo
-} from "./data-patterns";
+// ChatStatus / ResponseStatus 在 data-patterns 中，避免与 api.ts 中的 ChatStatus 冲突
+export type { ChatStatus as LegacyChatStatus, ResponseStatus } from "./data-patterns";
 
 // ==================== Config ====================
 
-const API_BASE = "http://10.73.61.199:5111";
+const API_BASE = "http://localhost:5193";
+
+// ==================== JWT Token 管理 ====================
+
+let _accessToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  _accessToken = token;
+}
 
 // ==================== Fetch Helpers ====================
 
-const buildUrl = (endpoint: string, params?: Record<string, any>) => {
-  const url = new URL(endpoint.replace(/^\//, ""), API_BASE);
+const buildUrl = (path: string, params?: Record<string, any>) => {
+  const url = new URL(path.startsWith("/") ? path : `/${path}`, API_BASE);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== "") {
@@ -53,588 +37,327 @@ const buildUrl = (endpoint: string, params?: Record<string, any>) => {
   return url.toString();
 };
 
-const apiGet = async <T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> => {
-  const res = await fetch(buildUrl(endpoint, params), {
+const authHeaders = () => {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (_accessToken) headers["Authorization"] = `Bearer ${_accessToken}`;
+  return headers;
+};
+
+const apiGet = async <T>(path: string, params?: Record<string, any>): Promise<T> => {
+  const res = await fetch(buildUrl(path, params), {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || err.title || `HTTP ${res.status}`);
+  }
+  // 204 No Content
+  if (res.status === 204) return undefined as T;
   return res.json();
 };
 
-const apiPost = async <T>(endpoint: string, body?: any): Promise<ApiResponse<T>> => {
-  const res = await fetch(buildUrl(endpoint), {
+const apiPost = async <T>(path: string, body?: any): Promise<T> => {
+  const res = await fetch(buildUrl(path), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || err.title || `HTTP ${res.status}`);
+  }
+  if (res.status === 204) return undefined as T;
   return res.json();
 };
 
-// ==================== DTO to Frontend Mappers ====================
-
-const mapUserDto = (dto: UserDto): UserInfo => ({
-  id: dto.id,
-  uid: dto.uid,
-  username: dto.username,
-  nickname: dto.nickname,
-  avatar: dto.avatar,
-  signature: dto.signature,
-  gender: dto.gender,
-  status: dto.status,
-  createdAt: dto.created_at,
-  updatedAt: dto.updated_at,
-});
-
-// 标签缓存（启动时从后端抓取，通过id查找）
-let gameTagCache: Map<number, GameTag> = new Map();
-let recruitmentTagCache: Map<number, RecruitmentTag> = new Map();
-let tagsInitialized = false;
-
-const ensureTagsLoaded = async () => {
-  if (tagsInitialized) return;
-  try {
-    const [gameRes, recRes] = await Promise.all([
-      apiGet<GameTagDto[]>("/GameTags"),
-      apiGet<RecruitmentTagDto[]>("/RecruitmentTags"),
-    ]);
-    gameRes.data?.forEach((t) => gameTagCache.set(t.id, { id: t.id, name: t.name }));
-    recRes.data?.forEach((t) => recruitmentTagCache.set(t.id, { id: t.id, name: t.name }));
-    tagsInitialized = true;
-  } catch {
-    // Tags will be loaded on next call
-  }
-};
-
-const getGameTagsByIds = (ids: number[]): GameTag[] => {
-  ids.forEach((id) => {
-    if (!gameTagCache.has(id)) {
-      // Placeholder for missing tags
-      gameTagCache.set(id, { id, name: `未知标签${id}` });
-    }
+const apiPatch = async <T>(path: string, body?: any): Promise<T> => {
+  const res = await fetch(buildUrl(path), {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: body ? JSON.stringify(body) : undefined,
   });
-  return ids
-    .map((id) => gameTagCache.get(id))
-    .filter((t): t is GameTag => t !== undefined);
-};
-
-const getRecruitmentTagsByIds = (ids: number[]): RecruitmentTag[] => {
-  ids.forEach((id) => {
-    if (!recruitmentTagCache.has(id)) {
-      recruitmentTagCache.set(id, { id, name: `未知标签${id}` });
-    }
-  });
-  return ids
-    .map((id) => recruitmentTagCache.get(id))
-    .filter((t): t is RecruitmentTag => t !== undefined);
-};
-
-// RecruitmentDto (without detail) → RecruitmentData
-const mapRecruitmentDto = (dto: RecruitmentDto): RecruitmentData => ({
-  id: dto.id,
-  publisherId: dto.publisher_id,
-  gameId: dto.game_id,
-  gameName: "",
-  title: dto.title,
-  description: dto.description,
-  gameTags: [],
-  recruitmentTags: getRecruitmentTagsByIds(dto.tags_id),
-  status: dto.status,
-  createdAt: dto.created_at,
-  updatedAt: dto.updated_at,
-  expiredAt: dto.expired_at,
-  maxParticipants: dto.max_participants,
-  currentParticipants: dto.current_participants,
-  publisher: {} as UserInfo,
-});
-
-// RecruitmentDetailDto → RecruitmentData
-// 差异: backend gameTags是对象数组, 前端gameTags是string[]; backend tags_id是recruitment_tags
-const mapRecruitmentDetailDto = (dto: RecruitmentDetailDto): RecruitmentData => ({
-  id: dto.id,
-  publisherId: dto.publisher_id,
-  gameId: dto.game_id,
-  gameName: dto.game.name,
-  title: dto.title,
-  description: dto.description,
-  // 差异: backend gameTags是GameTagDto[], 前端需要string[]
-  gameTags: dto.gameTags.map((t) => t.name),
-  // 差异: backend recruitmentTags是RecruitmentTagDto[], 前端需要RecruitmentTag[]
-  recruitmentTags: dto.recruitmentTags.map((t) => ({ id: t.id, name: t.name })),
-  status: dto.status,
-  createdAt: dto.created_at,
-  updatedAt: dto.updated_at,
-  expiredAt: dto.expired_at,
-  maxParticipants: dto.max_participants,
-  currentParticipants: dto.current_participants,
-  publisher: mapUserDto(dto.publisher),
-});
-
-// ResponseDto → ResponseData (类型一致, 仅字段名差异)
-const mapResponseDto = (dto: ResponseDto): ResponseData => ({
-  id: dto.id,
-  recruitmentId: dto.recruitment_id,
-  responserId: dto.responser_id,
-  responseStatus: dto.response_status,
-  createdAt: dto.created_at,
-  updatedAt: dto.updated_at,
-  responser: mapUserDto(dto.responser),
-});
-
-// GameDto → GameBrief
-const mapGameBriefDto = (dto: GameDto): GameBrief => ({
-  id: dto.id,
-  name: dto.name,
-  icon: dto.icon || "",
-});
-
-// GameDto → GameInfo
-// 差异: backend tags_id是number[], 前端tags是string[]
-const mapGameDto = (dto: GameDto): GameInfo => ({
-  id: dto.id,
-  name: dto.name,
-  company: dto.company,
-  description: dto.description,
-  cover: dto.cover || "",
-  icon: dto.icon || "",
-  // 差异: backend tags_id是number[], 前端需要string[]
-  tags: getGameTagsByIds(dto.tags_id).map((t) => t.name),
-  createdAt: dto.created_at || "",
-  updatedAt: dto.updated_at || "",
-});
-
-// MessageDto → MessageData (类型一致, 仅字段名差异)
-const mapMessageDto = (dto: MessageDto): MessageData => ({
-  id: dto.id,
-  chatId: dto.chat_id,
-  senderId: dto.sender_id,
-  receiverId: dto.receiver_id,
-  content: dto.content,
-  createdAt: dto.created_at,
-  sender: mapUserDto(dto.sender),
-  receiver: mapUserDto(dto.receiver),
-});
-
-// ChatBriefDto → ChatBrief (类型一致, 仅字段名差异)
-const mapChatBriefDto = (dto: ChatBriefDto): ChatBrief => ({
-  id: dto.id,
-  otherUserAvatar: dto.other_user_avatar,
-  otherUserName: dto.other_user_name,
-  lastMessageContent: dto.last_message_content,
-  lastMessageAt: dto.last_message_at,
-  createdAt: dto.created_at,
-});
-
-// ChatDto → ChatData
-// 差异: backend recruitment是RecruitmentDto, 前端需要RecruitmentData
-const mapChatDto = (dto: ChatDto): ChatData => ({
-  id: dto.id,
-  recruitmentId: dto.recruitment_id,
-  recruitmentTitle: dto.recruitment_title,
-  otherUser: mapUserDto(dto.other_user),
-  lastMessage: dto.last_message ? mapMessageDto(dto.last_message) : null,
-  unreadCount: dto.unread_count,
-  chatStatus: dto.chat_status,
-  newMessageAt: dto.new_message_at,
-  users: dto.users?.map((u) => ({
-    userId: u.user_id,
-    sentMessage: u.sent_message,
-  })),
-  // 差异: backend recruitment是RecruitmentDto, 前端需要RecruitmentData
-  recruitment: dto.recruitment ? mapRecruitmentDto(dto.recruitment) : undefined,
-});
-
-// ==================== Response Helpers ====================
-
-const handleResponse = async <T>(
-  promise: Promise<ApiResponse<any>>,
-  mapper: (data: any) => T,
-): Promise<T | null> => {
-  try {
-    const res = await promise;
-    if (res.status >= 200 && res.status < 300 && res.data !== undefined && res.data !== null) {
-      return mapper(res.data);
-    }
-    return null;
-  } catch (e) {
-    console.error("API Error:", e);
-    return null;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || err.title || `HTTP ${res.status}`);
   }
+  if (res.status === 204) return undefined as T;
+  return res.json();
 };
 
-const handleArrayResponse = async <T>(
-  promise: Promise<ApiResponse<any>>,
-  mapper: (data: any) => T[],
-): Promise<T[]> => {
-  try {
-    const res = await promise;
-    if (res.status >= 200 && res.status < 300 && Array.isArray(res.data)) {
-      return mapper(res.data);
-    }
-    return [];
-  } catch (e) {
-    console.error("API Error:", e);
-    return [];
-  }
+// ==================== Auth API ====================
+
+export type TokenResponse = {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: string;
+  refreshTokenExpiresAt: string;
 };
 
-const handlePostResponse = async <T>(
-  promise: Promise<ApiResponse<any>>,
-  mapper: (data: any) => T,
-): Promise<T> => {
-  const res = await promise;
-  if (res.status >= 200 && res.status < 300 && res.data !== undefined && res.data !== null) {
-    return mapper(res.data);
-  }
-  throw new Error(`API Error [${res.status}]: ${res.message}`);
+export type UserResponse = {
+  id: number;
+  username: string;
+  nickname: string;
+  signature: string;
+  gender: number;
+  status: number;
+  tags: { id: number; name: string }[];
+};
+
+// 登录 → 后端返回 TokenResponse（不含 userId，从 token 中解析或调 /users/me）
+export const login = async (
+  username: string,
+  password: string,
+): Promise<TokenResponse> => {
+  return apiPost<TokenResponse>("/api/v1/auth/login", { username, password });
+};
+
+export const register = async (
+  username: string,
+  password: string,
+): Promise<TokenResponse> => {
+  return apiPost<TokenResponse>("/api/v1/auth/register", { username, password });
+};
+
+export const refreshToken = async (
+  refreshToken: string,
+): Promise<string> => {
+  const res = await apiPost<TokenResponse>("/api/v1/auth/refresh", { refreshToken });
+  return res.accessToken;
+};
+
+export const logoutApi = async (): Promise<void> => {
+  await apiPost("/api/v1/auth/logout");
 };
 
 // ==================== User API ====================
 
-export const login = (
-  username: string,
-  password: string,
-): Promise<UserInfo | null> => {
-  const response = apiPost<UserDto>("/Users/login", { username, password });
-  return handleResponse<UserInfo>(response, mapUserDto);
+export const getUserMe = async (): Promise<UserResponse> => {
+  return apiGet<UserResponse>("/api/v1/users/me");
 };
 
-export const register = (
-  username: string,
-  password: string,
-): Promise<UserInfo | null> => {
-  const response = apiPost<UserDto>("/Users/register", { username, password });
-  return handleResponse<UserInfo>(response, mapUserDto);
+export const getUserById = async (id: number): Promise<UserResponse> => {
+  return apiGet<UserResponse>(`/api/v1/users/${id}`);
 };
 
-export const getUserById = (id: number): Promise<UserInfo | null> => {
-  const response = apiGet<UserDto>("/Users/by-id", { id });
-  return handleResponse<UserInfo>(response, mapUserDto);
-};
-
-export const getUsers = (): Promise<UserInfo[]> => {
-  const response = apiGet<UserDto[]>("/Users");
-  return handleArrayResponse<UserInfo>(response, (data: UserDto[]) =>
-    data.map(mapUserDto),
-  );
-};
-
-export const updateUser = (id: number, data: Record<string, any>): Promise<UserInfo | null> => {
-  const response = apiPost<UserDto>("/Users/update", { id, data });
-  return handleResponse<UserInfo>(response, mapUserDto);
+export const updateUserMe = async (data: {
+  nickname?: string;
+  signature?: string;
+  gender?: number;
+  tagIds?: number[];
+}): Promise<UserResponse> => {
+  return apiPatch<UserResponse>("/api/v1/users/me", data);
 };
 
 // ==================== Game API ====================
 
-export const getGames = (query: string = ""): Promise<GameBrief[]> => {
-  const response = apiGet<GameDto[]>("/Games", { query });
-  return handleArrayResponse<GameBrief>(response, (data: GameDto[]) =>
-    data.map(mapGameBriefDto),
-  );
-};
-
-export const getGameById = (id: number): Promise<GameInfo | null> => {
-  const response = apiGet<GameDto>("/Games/by-id", { id });
-  return handleResponse<GameInfo>(response, (dto: GameDto) => mapGameDto(dto));
-};
-
-// ==================== Tag API ====================
-
-export const getGameTags = (): Promise<GameTag[]> => {
-  const response = apiGet<GameTagDto[]>("/GameTags");
-  return handleArrayResponse<GameTag>(response, (data: GameTagDto[]) => data);
-};
-
-export const getRecruitmentTags = (): Promise<RecruitmentTag[]> => {
-  const response = apiGet<RecruitmentTagDto[]>("/RecruitmentTags");
-  return handleArrayResponse<RecruitmentTag>(
-    response,
-    (data: RecruitmentTagDto[]) => data,
-  );
-};
-
-// ==================== Recruitment API ====================
-
-export const getRecruitments = (
-  gameName: string = "",
-  gameTags: number[] = [],
-  recruitmentTags: number[] = [],
-): Promise<RecruitmentData[]> => {
-  const response = apiGet<RecruitmentDetailDto[]>("/Recruitments", {
-    gameName,
-    gameTags,
-    recruitmentTags,
-  });
-  return handleArrayResponse<RecruitmentData>(
-    response,
-    (data: RecruitmentDetailDto[]) => data.map(mapRecruitmentDetailDto),
-  );
-};
-
-export const getRecruitmentsByGame = (
-  gameId: number,
-): Promise<RecruitmentData[]> => {
-  const response = apiGet<RecruitmentDetailDto[]>("/Recruitments/by-game", { gameId });
-  return handleArrayResponse<RecruitmentData>(
-    response,
-    (data: RecruitmentDetailDto[]) => data.map(mapRecruitmentDetailDto),
-  );
-};
-
-export const getRecruitmentById = (
-  id: number,
-): Promise<RecruitmentData | null> => {
-  const response = apiGet<RecruitmentDetailDto>("/Recruitments/by-id", { id });
-  return handleResponse<RecruitmentData>(response, mapRecruitmentDetailDto);
-};
-
-export const getRecruitmentByChatId = async (
-  chatId: number,
-): Promise<RecruitmentData | null> => {
-  const response = apiGet<RecruitmentDetailDto>("/Recruitments/by-chat", { chatId });
-  const result = await handleResponse<RecruitmentData>(response, mapRecruitmentDetailDto);
-  return result && result.id !== 0 ? result : null;
-};
-
-export const getRecruitmentsByPublisherId = (
-  publisherId: number | null,
-): Promise<RecruitmentData[]> => {
-  if (publisherId === null) return getRecruitments();
-  const response = apiGet<RecruitmentDetailDto[]>("/Recruitments/by-publisher", {
-    publisherId,
-  });
-  return handleArrayResponse<RecruitmentData>(
-    response,
-    (data: RecruitmentDetailDto[]) => data.map(mapRecruitmentDetailDto),
-  );
-};
-
-export const saveRecruitment = (data: {
+export type GameResponse = {
   id: number;
-  publisherId: number;
-  gameId: number;
-  title: string;
+  name: string;
   description: string;
-  status: string;
-  expiredAt: string;
-  maxParticipants: number;
-  currentParticipants: number;
-  tagsId: number[];
-}): Promise<RecruitmentData> => {
-  const isNew = data.id <= 0;
-  if (isNew) {
-    const payload = {
-      publisher_id: data.publisherId,
-      game_id: data.gameId,
-      title: data.title,
-      description: data.description,
-      status: data.status,
-      expired_at: data.expiredAt,
-      max_participants: data.maxParticipants,
-      current_participants: data.currentParticipants,
-      tags_id: data.tagsId,
-    };
-    const response = apiPost<RecruitmentDetailDto>("/Recruitments", payload);
-    return handlePostResponse(response, mapRecruitmentDetailDto);
-  }
-  const payload = {
-    id: data.id,
-    data: {
-      title: data.title,
-      description: data.description,
-      status: data.status,
-      expired_at: data.expiredAt,
-      max_participants: data.maxParticipants,
-      current_participants: data.currentParticipants,
-      tags_id: data.tagsId,
-    },
-  };
-  const response = apiPost<RecruitmentDetailDto>("/Recruitments/update", payload);
-  return handlePostResponse(response, mapRecruitmentDetailDto);
+  tags: { id: number; name: string }[];
 };
 
-export const createRecruitment = (data: {
-  publisherId: number;
-  gameId: number;
-  title: string;
-  description: string;
-  status: string;
-  expiredAt: string;
-  maxParticipants: number;
-  currentParticipants: number;
-  tagsId: number[];
-}): Promise<RecruitmentData> => {
-  const payload = {
-    publisher_id: data.publisherId,
-    game_id: data.gameId,
-    title: data.title,
-    description: data.description,
-    status: data.status,
-    expired_at: data.expiredAt,
-    max_participants: data.maxParticipants,
-    current_participants: data.currentParticipants,
-    tags_id: data.tagsId,
-  };
-  const response = apiPost<RecruitmentDetailDto>("/Recruitments", payload);
-  return handlePostResponse(response, mapRecruitmentDetailDto);
+export const searchGames = async (query?: string): Promise<GameResponse[]> => {
+  return apiGet<GameResponse[]>("/api/v1/games", query ? { query } : {});
 };
 
-export const updateRecruitment = (
-  id: number,
-  data: Partial<{
-    title: string;
-    description: string;
-    status: string;
-    expired_at: string;
-    max_participants: number;
-    current_participants: number;
-  }>,
-): Promise<RecruitmentData | null> => {
-  const response = apiPost<RecruitmentDetailDto>("/Recruitments/update", { id, data });
-  return handleResponse<RecruitmentData>(response, mapRecruitmentDetailDto);
-};
-
-export const deleteRecruitment = (id: number): Promise<boolean> => {
-  const response = apiPost<boolean>("/Recruitments/delete", { id });
-  return handlePostResponse(response, (data: boolean) => data);
+export const getGameById = async (id: number): Promise<GameResponse> => {
+  return apiGet<GameResponse>(`/api/v1/games/${id}`);
 };
 
 // ==================== Response API ====================
 
-export const getResponses = (
-  recruitmentId?: number,
-): Promise<ResponseData[]> => {
-  if (recruitmentId === undefined) {
-    // 获取所有招募并聚合回应
-    return getRecruitments().then(async (recruitments) => {
-      const allResponses: ResponseData[] = [];
-      for (const r of recruitments) {
-        const responses = await getResponses(r.id);
-        allResponses.push(...responses);
-      }
-      return allResponses;
-    });
-  }
-  const response = apiGet<ResponseDto[]>("/Responses/by-recruitment", {
-    recruitmentId,
-  });
-  return handleArrayResponse<ResponseData>(response, (data: ResponseDto[]) =>
-    data.map(mapResponseDto),
-  );
-};
+export type ResponseType = "Pending" | "Accepted" | "Rejected";
 
-export const getResponsesByUserId = (
-  userId: number,
-): Promise<ResponseData[]> => {
-  const response = apiGet<ResponseDto[]>("/Responses/by-user", { userId });
-  return handleArrayResponse<ResponseData>(response, (data: ResponseDto[]) =>
-    data.map(mapResponseDto),
-  );
-};
-
-export const createResponse = (data: {
+export type ResponseResponse = {
+  id: number;
   recruitmentId: number;
-  responserId: number;
-}): Promise<ResponseData> => {
-  const response = apiPost<ResponseDto>("/Responses", {
-    recruitment_id: data.recruitmentId,
-    responser_id: data.responserId,
-  });
-  return handlePostResponse(response, mapResponseDto);
+  responderId: number;
+  type: ResponseType;
 };
 
-export const deleteResponse = (
-  id: number,
-  reason: string,
-): Promise<boolean> => {
-  const response = apiPost<boolean>("/Responses/delete", { id, reason });
-  return handlePostResponse(response, (data: boolean) => data);
+// 回应招募
+export const createResponse = async (
+  recruitmentId: number,
+): Promise<ResponseResponse> => {
+  return apiPost<ResponseResponse>(
+    `/api/v1/recruitments/${recruitmentId}/responses`
+  );
 };
 
-export const updateResponseStatus = (
-  id: number,
-  responseStatus: ResponseStatus,
-): Promise<ResponseData | null> => {
-  const response = apiPost<ResponseDto>("/Responses/status", {
-    id,
-    response_status: responseStatus,
-  });
-  return handleResponse<ResponseData>(response, mapResponseDto);
+export const getResponseById = async (id: number): Promise<ResponseResponse> => {
+  return apiGet<ResponseResponse>(`/api/v1/responses/${id}`);
+};
+
+export const acceptResponse = async (id: number): Promise<ResponseResponse> => {
+  return apiPost<ResponseResponse>(`/api/v1/responses/${id}/accept`);
+};
+
+export const rejectResponse = async (id: number): Promise<ResponseResponse> => {
+  return apiPost<ResponseResponse>(`/api/v1/responses/${id}/reject`);
 };
 
 // ==================== Chat API ====================
 
-export const getChats = (userId: number): Promise<ChatBrief[]> => {
-  const response = apiGet<ChatBriefDto[]>("/Chats/by-user", { userId });
-  return handleArrayResponse<ChatBrief>(response, (data: ChatBriefDto[]) =>
-    data.map(mapChatBriefDto),
-  );
+export type ChatStatus = "Restricted" | "Free";
+
+export type MessageResponse = {
+  senderId: number;
+  content: string;
+  sentAt: string;
 };
 
-export const getChatById = (chatId: number, userId?: number): Promise<ChatData | null> => {
-  const response = apiGet<ChatDto>("/Chats/by-id", { chatId, userId });
-  return handleResponse<ChatData>(response, mapChatDto);
-};
-
-export const getChatByUsers = (userIds: number[]): Promise<ChatData | null> => {
-  const response = apiGet<ChatDto>("/Chats/by-users", { userIds });
-  return handleResponse<ChatData>(response, mapChatDto);
-};
-
-export const getChatsByRecruitmentId = (
-  recruitmentId: number,
-): Promise<ChatData[]> => {
-  const response = apiGet<ChatDto[]>("/Chats/by-recruitment", { recruitmentId });
-  return handleArrayResponse<ChatData>(response, (data: ChatDto[]) =>
-    data.map(mapChatDto),
-  );
-};
-
-export const createChat = (data: {
+export type ChatResponse = {
+  id: number;
   recruitmentId: number;
   user1Id: number;
   user2Id: number;
-}): Promise<ChatData> => {
-  const response = apiPost<ChatDto>("/Chats/create", {
-    recruitment_id: data.recruitmentId,
-    user1_id: data.user1Id,
-    user2_id: data.user2Id,
-  });
-  return handlePostResponse(response, mapChatDto);
+  status: ChatStatus;
+  newMsgsCntForUser1: number;
+  newMsgsCntForUser2: number;
+  lastMessage: MessageResponse | null;
 };
 
-export const closeChat = (id: number): Promise<boolean> => {
-  const response = apiPost<boolean>("/Chats/close", { id });
-  return handlePostResponse(response, (data: boolean) => data);
+export const getMyChats = async (): Promise<ChatResponse[]> => {
+  return apiGet<ChatResponse[]>("/api/v1/chats/me");
 };
 
-// ==================== Message API ====================
-
-export const getMessagesByChatId = (chatId: number): Promise<MessageData[]> => {
-  const response = apiGet<MessageDto[]>("/Messages/by-chat", { chatId });
-  return handleArrayResponse<MessageData>(response, (data: MessageDto[]) =>
-    data.map(mapMessageDto),
-  );
+export const getChatById = async (id: number): Promise<ChatResponse> => {
+  return apiGet<ChatResponse>(`/api/v1/chats/${id}`);
 };
 
-export const sendMessage = (data: {
+export const getChatByUserId = async (userId: number): Promise<ChatResponse> => {
+  return apiGet<ChatResponse>(`/api/v1/chats/by-user/${userId}`);
+};
+
+// TODO: 后端尚未实现 — 以下 API 暂不可用
+
+// Recruitment CRUD (后端待实现)
+export const getRecruitments = async (): Promise<any[]> => {
+  console.warn("Recruitment CRUD not yet implemented on backend");
+  return [];
+};
+
+export const getRecruitmentById = async (_id: number): Promise<any | null> => {
+  console.warn("Recruitment CRUD not yet implemented on backend");
+  return null;
+};
+
+// Tags (后端待实现)
+export const getGameTags = async (): Promise<{ id: number; name: string }[]> => {
+  console.warn("Tags not yet implemented on backend");
+  return [];
+};
+
+export const getRecruitmentTags = async (): Promise<{ id: number; name: string }[]> => {
+  console.warn("Tags not yet implemented on backend");
+  return [];
+};
+
+// Messages (后端待实现)
+export const getMessagesByChatId = async (_chatId: number): Promise<any[]> => {
+  console.warn("Messages not yet implemented on backend");
+  return [];
+};
+
+export const sendMessage = async (_data: {
   chatId: number;
-  senderId: number;
-  receiverId: number;
   content: string;
-}): Promise<MessageData> => {
-  const response = apiPost<MessageDto>("/Messages", {
-    chat_id: data.chatId,
-    sender_id: data.senderId,
-    receiver_id: data.receiverId,
-    content: data.content,
-  });
-  return handlePostResponse(response, mapMessageDto);
+}): Promise<any> => {
+  console.warn("Messages not yet implemented on backend");
+  return null;
 };
 
-// ==================== Tag Cache Init ====================
+// Tag cache init (stub — tags not yet on backend)
+export const initTagCaches = async () => {};
 
-export const initTagCaches = async () => {
-  await ensureTagsLoaded();
+export type GameBrief = { id: number; name: string; icon: string };
+
+// ==================== Backward Compat Wrappers ====================
+// 旧函数名 → 新 API 映射，逐步迁移页面后删除
+
+export const getChats = (userId: number): Promise<ChatResponse[]> => getMyChats();
+
+export const getUsers = async (): Promise<UserResponse[]> => {
+  console.warn("getUsers not implemented");
+  return [];
+};
+
+export const updateUser = async (id: number, data: Record<string, any>) => {
+  return updateUserMe(data);
+};
+
+export const getGames = async (query?: string): Promise<GameBrief[]> => {
+  const games = await searchGames(query);
+  return games.map(g => ({ id: g.id, name: g.name, icon: "" }));
+};
+
+export const getRecruitmentsByPublisherId = async (_publisherId: number | null): Promise<any[]> => {
+  console.warn("Recruitment CRUD not yet on backend");
+  return [];
+};
+
+export const saveRecruitment = async (_data: any): Promise<any> => {
+  console.warn("Recruitment CRUD not yet on backend");
+  return null;
+};
+
+export const createRecruitment = async (_data: any): Promise<any> => {
+  console.warn("Recruitment CRUD not yet on backend");
+  return null;
+};
+
+export const updateRecruitment = async (_id: number, _data: any): Promise<any> => {
+  console.warn("Recruitment CRUD not yet on backend");
+  return null;
+};
+
+export const deleteRecruitment = async (_id: number): Promise<boolean> => {
+  console.warn("Recruitment CRUD not yet on backend");
+  return false;
+};
+
+export const getResponses = async (_recruitmentId?: number): Promise<any[]> => {
+  console.warn("Response listing not yet on backend");
+  return [];
+};
+
+export const getResponsesByUserId = async (_userId: number): Promise<any[]> => {
+  console.warn("Response listing not yet on backend");
+  return [];
+};
+
+export const deleteResponse = async (_id: number, _reason: string): Promise<boolean> => {
+  console.warn("Response delete not implemented");
+  return false;
+};
+
+export const updateResponseStatus = async (_id: number, _status: any): Promise<any> => {
+  console.warn("Response status update: use acceptResponse/rejectResponse instead");
+  return null;
+};
+
+export const getChatByIdLegacy = async (chatId: number, userId?: number): Promise<ChatResponse | null> => {
+  return getChatById(chatId);
+};
+
+export const getChatByUsers = async (_userIds: number[]): Promise<any | null> => {
+  console.warn("getChatByUsers not implemented");
+  return null;
+};
+
+export const getChatsByRecruitmentId = async (_recruitmentId: number): Promise<any[]> => {
+  console.warn("Chats by recruitment not yet on backend");
+  return [];
+};
+
+export const createChat = async (_data: any): Promise<any> => {
+  console.warn("Chat create: backend handles this automatically via acceptResponse");
+  return null;
+};
+
+export const closeChat = async (_id: number): Promise<boolean> => {
+  console.warn("Chat close not implemented");
+  return false;
 };

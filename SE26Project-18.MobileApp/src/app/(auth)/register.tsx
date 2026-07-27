@@ -9,11 +9,13 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { register as apiRegister } from "../../api/api";
+import { register as apiRegister, getUserMe, setAuthToken } from "../../api/api";
+import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -35,14 +37,11 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      const user = await apiRegister(username, password);
-      if (user) {
-        Alert.alert("注册成功", "请登录", [
-          { text: "确定", onPress: () => router.replace("/(auth)/login") },
-        ]);
-      } else {
-        Alert.alert("注册失败", "用户名可能已存在");
-      }
+      const tokenRes = await apiRegister(username, password);
+      setAuthToken(tokenRes.accessToken);
+      const user = await getUserMe();
+      login(tokenRes.accessToken, tokenRes.refreshToken, user.id);
+      router.replace("/(tabs)");
     } catch (error) {
       Alert.alert("注册失败", "网络错误，请稍后重试");
     } finally {

@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { login as apiLogin } from "../../api/api";
+import { login as apiLogin, getUserMe, setAuthToken } from "../../api/api";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
@@ -28,12 +28,10 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const user = await apiLogin(username, password);
-      if (user) {
-        login(user.id);
-      } else {
-        Alert.alert("登录失败", "用户名或密码错误");
-      }
+      const tokenRes = await apiLogin(username, password);
+      setAuthToken(tokenRes.accessToken);
+      const user = await getUserMe();
+      login(tokenRes.accessToken, tokenRes.refreshToken, user.id);
     } catch (error) {
       Alert.alert("登录失败", "网络错误，请稍后重试");
     } finally {

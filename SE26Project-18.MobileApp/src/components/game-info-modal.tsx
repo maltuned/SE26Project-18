@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { GameInfo, getGameById } from "../api/api";
+import { GameResponse, getGameById } from "../api/api";
 import { useTheme } from "../contexts/theme-context";
 
 interface GameInfoModalProps {
@@ -23,7 +23,7 @@ const testImage = require("../../assets/images/testImage.png");
 
 function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
   const { colors } = useTheme();
-  const [game, setGame] = useState<GameInfo | null>(null);
+  const [game, setGame] = useState<GameResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -90,12 +90,12 @@ function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
                     <Text
                       style={[styles.company, { color: colors.textSecondary }]}
                     >
-                      {game?.company}
+                      {game?.description}
                     </Text>
                     <View style={styles.tags}>
                       {game?.tags.map((tag) => (
                         <View
-                          key={tag}
+                          key={tag.id}
                           style={[
                             styles.tag,
                             { backgroundColor: colors.primary },
@@ -107,7 +107,7 @@ function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
                               { color: colors.primaryText },
                             ]}
                           >
-                            {tag}
+                            {tag.name}
                           </Text>
                         </View>
                       ))}

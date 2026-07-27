@@ -82,8 +82,8 @@ export default function RecruitmentManageScreen() {
   const handleViewChat = async (res: ResponseData) => {
     if (!recruitment?.id) return;
     const chats = await getChatsByRecruitmentId(recruitment.id);
-    const chat = chats.find((c) =>
-      c.users?.some((u) => u.userId === res.responserId),
+    const chat = chats.find((c: any) =>
+      c.users?.some((u: any) => u.userId === res.responserId),
     );
     if (chat) {
       router.dismissAll();

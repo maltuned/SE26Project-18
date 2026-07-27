@@ -61,14 +61,14 @@ export default function RecruitmentViewScreen() {
   useEffect(() => {
     if (userId && recruitment?.id) {
       getChatsByRecruitmentId(recruitment.id).then((chats) => {
-        const myChat = chats.find((c) =>
-          c.users?.some((u) => u.userId === userId),
+        const myChat = chats.find((c: any) =>
+          c.users?.some((u: any) => u.userId === userId),
         );
         if (myChat) setExistingChat(myChat);
       });
 
       getResponses(recruitment.id).then((responses) => {
-        const myResponse = responses.find((r) => r.responserId === userId);
+        const myResponse = responses.find((r: any) => r.responserId === userId);
         setMyResponse(myResponse || null);
       });
     }
@@ -128,24 +128,10 @@ export default function RecruitmentViewScreen() {
     if (!userId) return;
     setLoading(true);
     try {
-      const chat = await createChat({
-        recruitmentId: recruitment.id,
-        user1Id: userId,
-        user2Id: recruitment.publisherId,
-      });
-      await createResponse({
-        recruitmentId: recruitment.id,
-        responserId: userId,
-      });
-      await sendMessage({
-        chatId: chat.id,
-        senderId: userId,
-        receiverId: recruitment.publisherId,
-        content: greeting,
-      });
+      await createResponse(recruitment.id);
+      Alert.alert("成功", "回应已发送");
       router.dismissAll();
       router.push(`/(tabs)/chat`);
-      router.push(`/chat-room?chatId=${chat.id}`);
     } catch {
       Alert.alert("错误", "无法发起聊天，请稍后重试");
     } finally {

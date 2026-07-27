@@ -16,21 +16,21 @@ import {
     View,
 } from "react-native";
 import {
-    ChatStatus,
     getChatById,
     getMessagesByChatId,
-    getRecruitmentById,
     getUserById,
-    MessageData,
-    RecruitmentData,
     sendMessage,
-    UserInfo,
+    UserResponse,
+    ChatResponse,
 } from "../api/api";
 import ChatMessage, { ChatMessageInfo } from "../components/chat-message";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
 const testImage = require("../../assets/images/testImage.png");
+
+// 后端 ChatStatus: "Restricted" | "Free"
+type ChatStatus = "Restricted" | "Free" | "Closed";
 
 export default function ChatRoomScreen() {
   const router = useRouter();
@@ -47,12 +47,11 @@ export default function ChatRoomScreen() {
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentScrollOffset, setCurrentScrollOffset] = useState(0);
-  const [chatStatus, setChatStatus] = useState<ChatStatus>("限制");
+  const [chatStatus, setChatStatus] = useState<ChatStatus>("Restricted");
   const [otherUserId, setOtherUserId] = useState<number | null>(null);
-  const [otherUser, setOtherUser] = useState<UserInfo | null>(null);
-  const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
+  const [otherUser, setOtherUser] = useState<UserResponse | null>(null);
+  const [recruitmentTitle, setRecruitmentTitle] = useState<string>("");
 
-  // 基于实际消息列表判断
   const currentUserSent = messages.some((m) => m.sender === "me");
   const otherUserSent = messages.some((m) => m.sender === "other");
 
@@ -61,29 +60,20 @@ export default function ChatRoomScreen() {
       setLoading(true);
       getChatById(chatId).then((chat) => {
         if (chat) {
-          setChatStatus(chat.chatStatus);
-          const chatOtherUser = chat.users?.find((u) => u.userId !== userId);
-          setOtherUserId(chatOtherUser?.userId ?? null);
-          if (chatOtherUser?.userId) {
-            getUserById(chatOtherUser.userId).then((user) => {
-              if (user) setOtherUser(user);
-            });
-          }
-          if (chat.recruitmentId) {
-            getRecruitmentById(chat.recruitmentId).then((rec) => {
-              if (rec) setRecruitment(rec);
-            });
-          }
+          setChatStatus(chat.status === "Free" ? "Free" : "Restricted");
+          // 新的 ChatResponse 用 user1Id/user2Id
+          setOtherUserId(chat.user1Id === userId ? chat.user2Id : chat.user1Id);
         }
       });
 
+      // Messages 后端待实现，先用空数组
       getMessagesByChatId(chatId).then((data) => {
-        const chatMessages: ChatMessageInfo[] = data.map(
-          (msg: MessageData) => ({
-            id: String(msg.id),
-            text: msg.content,
+        const chatMessages: ChatMessageInfo[] = (data || []).map(
+          (msg: any) => ({
+            id: String(msg.id || Date.now()),
+            text: msg.content || msg.text || "",
             sender: msg.senderId === userId ? "me" : "other",
-            created_at: msg.createdAt,
+            created_at: msg.created_at || msg.sentAt || new Date().toISOString(),
           }),
         );
         setMessages(chatMessages);
@@ -95,6 +85,14 @@ export default function ChatRoomScreen() {
       });
     }
   }, [chatId, userId]);
+
+  useEffect(() => {
+    if (otherUserId) {
+      getUserById(otherUserId).then((user) => {
+        setOtherUser(user);
+      });
+    }
+  }, [otherUserId]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -124,9 +122,9 @@ export default function ChatRoomScreen() {
   }, [currentScrollOffset]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !userId || !chatId || !otherUserId) return;
-    if (chatStatus === "关闭") return;
-    if (chatStatus === "限制" && currentUserSent && !otherUserSent) return;
+    if (!inputText.trim() || !userId || !chatId) return;
+    if (chatStatus === "Closed") return;
+    if (chatStatus === "Restricted" && currentUserSent && !otherUserSent) return;
 
     const content = inputText.trim();
     setInputText("");
@@ -141,15 +139,9 @@ export default function ChatRoomScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 0);
 
     try {
-      await sendMessage({
-        chatId,
-        senderId: userId,
-        receiverId: otherUserId,
-        content,
-      });
-      // 限制状态下，发送消息后如果对方已发过消息，则更新为开放
-      if (chatStatus === "限制" && otherUserSent) {
-        setChatStatus("开放");
+      await sendMessage({ chatId, content });
+      if (chatStatus === "Restricted" && otherUserSent) {
+        setChatStatus("Free");
       }
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -161,29 +153,16 @@ export default function ChatRoomScreen() {
   );
 
   const handleRecruitmentPress = async () => {
-    if (!recruitment?.id) return;
-    const fullRecruitment = await getRecruitmentById(recruitment.id);
-    if (!fullRecruitment) return;
-    if (fullRecruitment.status === "已删除") {
-      ToastAndroid.show("该招募已被删除", ToastAndroid.SHORT);
-      return;
-    }
-    router.push({
-      pathname: '/recruitment-detail' as any,
-      params: { recruitmentId: fullRecruitment.id.toString() }
-    });
+    ToastAndroid.show("招募详情暂不可用", ToastAndroid.SHORT);
   };
 
-  // 限制+己方发过+对方没发过 → 不能发
-  // 限制+对方发过 → 能发（发后变开放）
-  // 限制+双方都没发过 → 能发一条
   const canSend =
-    chatStatus === "开放" ||
-    (chatStatus === "限制" && !(currentUserSent && !otherUserSent));
+    chatStatus === "Free" ||
+    (chatStatus === "Restricted" && !(currentUserSent && !otherUserSent));
 
   const getStatusHint = (): string => {
-    if (chatStatus !== "限制") {
-      return chatStatus === "关闭" ? "聊天已关闭" : "";
+    if (chatStatus !== "Restricted") {
+      return chatStatus === "Closed" ? "聊天已关闭" : "";
     }
     if (currentUserSent && !otherUserSent) {
       return "等待对方回复中...";
@@ -242,7 +221,7 @@ export default function ChatRoomScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      {recruitment && (
+      {recruitmentTitle ? (
         <TouchableOpacity
           style={[
             styles.recruitmentBar,
@@ -258,7 +237,7 @@ export default function ChatRoomScreen() {
             style={[styles.recruitmentTitle, { color: colors.textSecondary }]}
             numberOfLines={1}
           >
-            {recruitment.title}
+            {recruitmentTitle}
           </Text>
           <Text
             style={[styles.recruitmentArrow, { color: colors.textTertiary }]}
@@ -266,7 +245,7 @@ export default function ChatRoomScreen() {
             ›
           </Text>
         </TouchableOpacity>
-      )}
+      ) : null}
 
       <FlatList
         ref={flatListRef}

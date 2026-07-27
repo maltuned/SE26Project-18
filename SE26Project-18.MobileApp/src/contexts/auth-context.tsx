@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getUserById, UserInfo } from "../api/api";
+import { getUserMe, setAuthToken, refreshToken as apiRefreshToken } from "../api/api";
 
 type AuthContextType = {
   isLoggedIn: boolean;
-  currentUser: UserInfo | null;
+  currentUser: any | null;
   userId: number | null;
-  login: (userId: number) => void;
+  accessToken: string | null;
+  login: (accessToken: string, refreshToken: string, userId: number) => void;
   logout: () => void;
   refreshUser: () => void;
 };
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
   currentUser: null,
   userId: null,
+  accessToken: null,
   login: () => {},
   logout: () => {},
   refreshUser: () => {},
@@ -22,15 +24,58 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
 
+  const doLogout = () => {
+    setAuthToken(null);
+    setAccessToken(null);
+    setUserId(null);
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+    localStorage.removeItem("auth");
+  };
+
+  // 恢复 session
   useEffect(() => {
-    if (userId) {
-      getUserById(userId).then((user) => setCurrentUser(user));
+    const saved = localStorage.getItem("auth");
+    if (saved) {
+      try {
+        const { accessToken: tok, refreshToken: ref, userId: uid } = JSON.parse(saved);
+        setAuthToken(tok);
+        setAccessToken(tok);
+        setUserId(uid);
+        setIsLoggedIn(true);
+      } catch {
+        localStorage.removeItem("auth");
+      }
+    }
+  }, []);
+
+  // Token 变更时加载用户信息
+  useEffect(() => {
+    if (accessToken && userId) {
+      getUserMe()
+        .then((user) => setCurrentUser(user))
+        .catch(async () => {
+          // Token 过期，尝试刷新
+          try {
+            const saved = JSON.parse(localStorage.getItem("auth") || "{}");
+            if (saved.refreshToken) {
+              const newToken = await apiRefreshToken(saved.refreshToken);
+              setAuthToken(newToken);
+              setAccessToken(newToken);
+              const user = await getUserMe();
+              setCurrentUser(user);
+            }
+          } catch {
+            doLogout();
+          }
+        });
     } else {
       setCurrentUser(null);
     }
-  }, [userId]);
+  }, [accessToken, userId]);
 
   return (
     <AuthContext.Provider
@@ -38,17 +83,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoggedIn,
         currentUser,
         userId,
-        login: (id: number) => {
-          setUserId(id);
+        accessToken,
+        login: (accessToken: string, refreshToken: string, uid: number) => {
+          setAuthToken(accessToken);
+          setAccessToken(accessToken);
+          setUserId(uid);
           setIsLoggedIn(true);
+          localStorage.setItem(
+            "auth",
+            JSON.stringify({ accessToken, refreshToken, userId: uid })
+          );
         },
-        logout: () => {
-          setUserId(null);
-          setIsLoggedIn(false);
-        },
+        logout: doLogout,
         refreshUser: () => {
-          if (userId) {
-            getUserById(userId).then((user) => setCurrentUser(user));
+          if (accessToken) {
+            getUserMe().then((user) => setCurrentUser(user));
           }
         },
       }}
