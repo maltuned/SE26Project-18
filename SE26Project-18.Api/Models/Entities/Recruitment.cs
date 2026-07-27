@@ -17,6 +17,8 @@ internal class Recruitment
 
     public string Description { get; set; } = string.Empty;
 
+    public ICollection<RecruitmentTag> Tags { get; set; } = [];
+
     public int MaxParticipants { get; set; }
 
     public int CurrParticipants { get; set; } = 0;
@@ -51,5 +53,21 @@ internal class Recruitment
         Version++;
         if (CurrParticipants >= MaxParticipants)
             Status = RecruitmentStatus.Closed;
+    }
+
+    public void Update(
+        string title,
+        string description,
+        int maxParticipants,
+        DateTime expiresAt,
+        RecruitmentStatus status
+    )
+    {
+        Title = title;
+        Description = description;
+        MaxParticipants = maxParticipants;
+        ExpiresAt = expiresAt;
+        Status = status;
+        Version++;
     }
 }

@@ -9,13 +9,23 @@ internal sealed class AppDbContext : DbContext
         : base(options) { }
 
     public DbSet<Chat> Chats => Set<Chat>();
+
     public DbSet<Game> Games => Set<Game>();
+
     public DbSet<GameTag> GameTags => Set<GameTag>();
+
     public DbSet<Message> Messages => Set<Message>();
+
     public DbSet<Recruitment> Recruitments => Set<Recruitment>();
+
+    public DbSet<RecruitmentTag> RecruitmentTags => Set<RecruitmentTag>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     public DbSet<Response> Responses => Set<Response>();
+
     public DbSet<User> Users => Set<User>();
+
     public DbSet<UserTag> UserTags => Set<UserTag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -92,6 +102,13 @@ internal sealed class AppDbContext : DbContext
                 .WithOne()
                 .HasForeignKey("RecruitmentId")
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(r => r.Tags).WithMany();
+        });
+
+        modelBuilder.Entity<RecruitmentTag>(entity =>
+        {
+            entity.ToTable("recruitment_tags");
+            entity.HasKey(t => t.Id);
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

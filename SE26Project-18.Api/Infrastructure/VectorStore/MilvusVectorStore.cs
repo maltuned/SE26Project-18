@@ -7,7 +7,9 @@ namespace SE26Project_18.Api.Infrastructure.VectorStore;
 internal sealed class MilvusVectorStore : IVectorStore, IDisposable
 {
     private const string IdFieldName = "id";
+
     private const int MaximumSearchLimit = 16_384;
+
     private static readonly TimeSpan InitializationTimeout = TimeSpan.FromMinutes(5);
 
     private readonly MilvusClient _client;

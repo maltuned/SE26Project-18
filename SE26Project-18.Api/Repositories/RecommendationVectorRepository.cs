@@ -6,8 +6,11 @@ namespace SE26Project_18.Api.Repositories;
 internal sealed class RecommendationVectorRepository
 {
     private const string UserTagVectorFieldName = "user_tag_vector";
+
     private const string RecruitmentTagVectorFieldName = "recruitment_tag_vector";
+
     private const string GameTagVectorFieldName = "game_tag_vector";
+
     private const int VectorDimension = 1536;
 
     private static readonly VectorIndexDefinition UserIndex = new(
@@ -20,11 +23,13 @@ internal sealed class RecommendationVectorRepository
         },
         VectorDistanceMetric.Cosine
     );
+
     private static readonly VectorIndexDefinition GameIndex = new(
         "game_profiles",
         new[] { new VectorFieldDefinition(GameTagVectorFieldName, VectorDimension) },
         VectorDistanceMetric.Cosine
     );
+
     private static readonly VectorIndexDefinition RecruitmentIndex = new(
         "recruitment_profiles",
         new[] { new VectorFieldDefinition(RecruitmentTagVectorFieldName, VectorDimension) },
