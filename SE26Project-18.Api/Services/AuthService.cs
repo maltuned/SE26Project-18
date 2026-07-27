@@ -8,7 +8,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Services;
 
-public sealed class AuthService : IAuthService
+internal sealed class AuthService : IAuthService
 {
     private readonly AppDbContext _db;
 

@@ -1,6 +1,6 @@
 namespace SE26Project_18.Api.Models.Enums;
 
-public enum UserRole
+internal enum UserRole
 {
     User,
     Admin,

@@ -5,7 +5,7 @@ using SE26Project_18.Api.Models.Enums;
 namespace SE26Project_18.Api.Models.Entities;
 
 [Table("recruitments")]
-public class Recruitment
+internal class Recruitment
 {
     public long Id { get; private set; }
 

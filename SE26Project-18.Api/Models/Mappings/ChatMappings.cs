@@ -3,7 +3,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Models.Mappings;
 
-public static class ChatMappings
+internal static class ChatMappings
 {
     public static ChatResponse ToResponse(this Chat chat)
     {

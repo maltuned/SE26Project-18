@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace SE26Project_18.Api.Models.Entities;
 
 [Table("messages")]
-public class Message
+internal class Message
 {
     public long Id { get; private set; }
 

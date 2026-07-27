@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Messaging;
+using SE26Project_18.Api.Infrastructure.VectorStore;
+using SE26Project_18.Api.Repositories;
 using SE26Project_18.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -75,6 +78,20 @@ builder
     .AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
 
 builder.Services.AddSingleton<ITokenService, TokenService>();
+builder
+    .Services.AddOptions<RabbitMqOptions>()
+    .BindConfiguration(RabbitMqOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
+builder
+    .Services.AddOptions<MilvusOptions>()
+    .BindConfiguration(MilvusOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddSingleton<IVectorStore, MilvusVectorStore>();
+builder.Services.AddSingleton<RecommendationVectorRepository>();
+builder.Services.AddHostedService<RecommendationVectorStoreInitializer>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGameService, GameService>();

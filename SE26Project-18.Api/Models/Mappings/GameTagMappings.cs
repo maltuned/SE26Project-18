@@ -3,7 +3,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Models.Mappings;
 
-public static class GameTagMappings
+internal static class GameTagMappings
 {
     public static GameTagResponse ToResponse(this GameTag tag)
     {

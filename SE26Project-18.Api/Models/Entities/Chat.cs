@@ -4,7 +4,7 @@ using SE26Project_18.Api.Models.Enums;
 namespace SE26Project_18.Api.Models.Entities;
 
 [Table("chats")]
-public class Chat
+internal class Chat
 {
     public long Id { get; private set; }
 

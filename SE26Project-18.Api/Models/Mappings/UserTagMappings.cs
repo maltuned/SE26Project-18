@@ -3,7 +3,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Models.Mappings;
 
-public static class UserTagMappings
+internal static class UserTagMappings
 {
     public static UserTagResponse ToResponse(this UserTag tag)
     {

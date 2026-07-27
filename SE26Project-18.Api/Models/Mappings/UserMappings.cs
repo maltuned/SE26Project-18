@@ -4,7 +4,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Models.Mappings;
 
-public static class UserMappings
+internal static class UserMappings
 {
     public static void ApplyTo(
         this UpdateUserRequest request,
