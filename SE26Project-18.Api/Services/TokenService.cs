@@ -7,7 +7,7 @@ using SE26Project_18.Api.Models.Entities;
 
 namespace SE26Project_18.Api.Services;
 
-public sealed class TokenService : ITokenService
+internal sealed class TokenService : ITokenService
 {
     private readonly IConfiguration _configuration;
 

@@ -8,7 +8,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Services;
 
-public sealed class UserService : IUserService
+internal sealed class UserService : IUserService
 {
     private readonly AppDbContext _db;
 

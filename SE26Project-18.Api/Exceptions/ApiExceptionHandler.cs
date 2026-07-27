@@ -6,7 +6,7 @@ using SE26Project_18.Api.Models.Exceptions;
 
 namespace SE26Project_18.Api.Exceptions;
 
-public sealed class ApiExceptionHandler : IExceptionHandler
+internal sealed class ApiExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<ApiExceptionHandler> _logger;
 

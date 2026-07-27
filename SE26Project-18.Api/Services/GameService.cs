@@ -6,7 +6,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Services;
 
-public sealed class GameService : IGameService
+internal sealed class GameService : IGameService
 {
     private readonly AppDbContext _db;
 

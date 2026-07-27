@@ -6,7 +6,7 @@ using SE26Project_18.Api.Models.Exceptions;
 namespace SE26Project_18.Api.Models.Entities;
 
 [Table("responses")]
-public class Response
+internal class Response
 {
     public long Id { get; private set; }
 

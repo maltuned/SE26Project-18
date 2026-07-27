@@ -3,7 +3,7 @@ using SE26Project_18.Api.Models.Entities;
 
 namespace SE26Project_18.Api.Data;
 
-public sealed class AppDbContext : DbContext
+internal sealed class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options) { }

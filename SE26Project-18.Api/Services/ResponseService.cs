@@ -8,7 +8,7 @@ using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Services;
 
-public sealed class ResponseService : IResponseService
+internal sealed class ResponseService : IResponseService
 {
     private readonly AppDbContext _db;
 
