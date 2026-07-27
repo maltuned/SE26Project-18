@@ -181,14 +181,24 @@ export default function PersonalPageScreen() {
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
-            <ScrollView style={styles.recruitmentList}>
-              {userRecruitments.map((recruitment) => (
-                <RecruitmentViewCard
-                  key={recruitment.id}
-                  recruitment={recruitment}
-                  onPress={openCard}
-                />
-              ))}
+            <ScrollView style={styles.recruitmentList} contentContainerStyle={{ flexGrow: 1 }}>
+              {userRecruitments.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                    {isOwnPage
+                      ? "暂无发布招募，快去发布一个吧！"
+                      : "暂无发布招募"}
+                  </Text>
+                </View>
+              ) : (
+                userRecruitments.map((recruitment) => (
+                  <RecruitmentViewCard
+                    key={recruitment.id}
+                    recruitment={recruitment}
+                    onPress={openCard}
+                  />
+                ))
+              )}
             </ScrollView>
           )
         ) : (
@@ -343,4 +353,12 @@ const styles = StyleSheet.create({
   },
   reviewGame: { fontSize: 13 },
   reviewDate: { fontSize: 12 },
+  empty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 15,
+  },
 });

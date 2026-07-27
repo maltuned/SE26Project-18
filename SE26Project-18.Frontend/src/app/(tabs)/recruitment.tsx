@@ -94,7 +94,20 @@ export default function RecruitmentListScreen() {
         renderItem={({ item }) => (
           <RecruitmentManageCard recruitment={item} onPress={openCard} />
         )}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, !loading && filteredRecruitments.length === 0 && { flexGrow: 1 }]}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.empty}>
+              <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                {statusFilter === "全部"
+                  ? "暂无招募，快去发布一个吧！"
+                  : statusFilter === "招募中"
+                    ? "暂无进行中的招募"
+                    : "暂无已关闭的招募"}
+              </Text>
+            </View>
+          ) : null
+        }
       />
     </View>
   );
@@ -112,4 +125,12 @@ const styles = StyleSheet.create({
   },
   filterText: { fontSize: 13 },
   listContent: { padding: 16 },
+  empty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 15,
+  },
 });
