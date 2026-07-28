@@ -34,9 +34,13 @@ public sealed class UserPreferenceProfileBuilderTests
         );
         var response = new Response(recruitment, responder);
         if (accepted)
+        {
             response.Accept();
+        }
         else
+        {
             response.Reject();
+        }
         recruitment.Responses.Add(response);
         db.Recruitments.Add(recruitment);
         await db.SaveChangesAsync();

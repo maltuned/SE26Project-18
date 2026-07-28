@@ -54,6 +54,8 @@ internal class Response
     private void EnsurePending()
     {
         if (Type != ResponseType.Pending)
+        {
             throw new ResponseAlreadyProcessedException(Type);
+        }
     }
 }

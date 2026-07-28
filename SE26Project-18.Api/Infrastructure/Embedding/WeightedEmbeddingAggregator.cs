@@ -8,25 +8,33 @@ internal static class WeightedEmbeddingAggregator
     )
     {
         if (embeddings.Count == 0)
+        {
             throw new ArgumentException("At least one embedding is required.", nameof(embeddings));
+        }
 
         var sum = new double[dimension];
         var totalWeight = 0d;
         foreach (var (vector, weight) in embeddings)
         {
             if (vector.Length != dimension)
+            {
                 throw new ArgumentException(
                     "Embedding dimensions do not match.",
                     nameof(embeddings)
                 );
+            }
             if (weight <= 0d)
+            {
                 throw new ArgumentOutOfRangeException(
                     nameof(embeddings),
                     "Weights must be positive."
                 );
+            }
 
             for (var i = 0; i < dimension; i++)
+            {
                 sum[i] += vector.Span[i] * weight;
+            }
             totalWeight += weight;
         }
 
@@ -40,10 +48,14 @@ internal static class WeightedEmbeddingAggregator
 
         var norm = Math.Sqrt(squaredNorm);
         if (norm == 0d)
+        {
             throw new InvalidOperationException("Weighted embeddings produced a zero vector.");
+        }
 
         for (var i = 0; i < result.Length; i++)
+        {
             result[i] = (float)(result[i] / norm);
+        }
 
         return result;
     }

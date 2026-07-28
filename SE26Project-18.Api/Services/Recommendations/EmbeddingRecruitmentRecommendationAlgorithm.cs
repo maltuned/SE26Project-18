@@ -26,7 +26,9 @@ internal sealed class EmbeddingRecruitmentRecommendationAlgorithm
     )
     {
         if (candidates.Count == 0)
+        {
             return [];
+        }
 
         var profile = await _profileBuilder.BuildAsync(userId, ct);
         var recruiterIds = candidates

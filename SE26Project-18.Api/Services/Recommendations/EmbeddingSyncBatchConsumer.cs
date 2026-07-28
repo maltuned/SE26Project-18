@@ -31,9 +31,11 @@ internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<Embedding
         foreach (var message in events)
         {
             if (!Enum.IsDefined(message.Target) || message.EntityId <= 0 || message.Version <= 0)
+            {
                 throw new EmbeddingSyncValidationException(
                     "Embedding sync event contains an invalid target or entity ID."
                 );
+            }
         }
 
         var unique = events
@@ -51,7 +53,9 @@ internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<Embedding
     )
     {
         if (events.Count == 0)
+        {
             return;
+        }
 
         var versions = events.ToDictionary(message => message.EntityId, message => message.Version);
         var ids = versions.Keys.ToArray();
@@ -59,7 +63,9 @@ internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<Embedding
         var profiles = await _profileBuilder.BuildUsersAsync(ids, ct);
         await _repository.SynchronizeUserProfilesAsync(profiles, ct);
         foreach (var user in users)
+        {
             user.MarkEmbeddingApplied(versions[user.Id]);
+        }
         await _db.SaveChangesAsync(ct);
     }
 
@@ -69,7 +75,9 @@ internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<Embedding
     )
     {
         if (events.Count == 0)
+        {
             return;
+        }
 
         var versions = events.ToDictionary(message => message.EntityId, message => message.Version);
         var ids = versions.Keys.ToArray();
@@ -77,7 +85,9 @@ internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<Embedding
         var profiles = await _profileBuilder.BuildGamesAsync(ids, ct);
         await _repository.SynchronizeGameProfilesAsync(profiles, ct);
         foreach (var game in games)
+        {
             game.MarkEmbeddingApplied(versions[game.Id]);
+        }
         await _db.SaveChangesAsync(ct);
     }
 
@@ -87,7 +97,9 @@ internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<Embedding
     )
     {
         if (events.Count == 0)
+        {
             return;
+        }
 
         var versions = events.ToDictionary(message => message.EntityId, message => message.Version);
         var ids = versions.Keys.ToArray();
@@ -97,7 +109,9 @@ internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<Embedding
         var profiles = await _profileBuilder.BuildRecruitmentsAsync(ids, ct);
         await _repository.SynchronizeRecruitmentProfilesAsync(profiles, ct);
         foreach (var recruitment in recruitments)
+        {
             recruitment.MarkEmbeddingApplied(versions[recruitment.Id]);
+        }
         await _db.SaveChangesAsync(ct);
     }
 

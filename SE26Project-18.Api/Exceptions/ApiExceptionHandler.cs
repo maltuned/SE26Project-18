@@ -62,17 +62,21 @@ internal sealed class ApiExceptionHandler : IExceptionHandler
         };
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
+        {
             _logger.LogError(
                 exception,
                 "Unhandled exception while handling {Method} {Path}",
                 httpContext.Request.Method,
                 httpContext.Request.Path
             );
+        }
 
         httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/problem+json";
         if (statusCode == StatusCodes.Status401Unauthorized)
+        {
             httpContext.Response.Headers.WWWAuthenticate = "Bearer";
+        }
         await httpContext.Response.WriteAsJsonAsync(
             new ProblemDetails
             {

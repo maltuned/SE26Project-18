@@ -35,8 +35,12 @@ internal sealed class EmbeddingProfileBatchBuilder
         var existingIds = users.Select(user => user.Id).ToHashSet();
 
         foreach (var user in users)
-        foreach (var tag in user.Tags)
-            AddWeight(ownUserTags[user.Id], tag.Id, tag.Name, 1d);
+        {
+            foreach (var tag in user.Tags)
+            {
+                AddWeight(ownUserTags[user.Id], tag.Id, tag.Name, 1d);
+            }
+        }
 
         var published = await _db
             .Recruitments.Where(recruitment => ids.Contains(recruitment.Recruiter.Id))
@@ -51,19 +55,23 @@ internal sealed class EmbeddingProfileBatchBuilder
         {
             var userId = recruitment.Recruiter.Id;
             foreach (var tag in recruitment.Tags)
+            {
                 AddWeight(
                     recruitmentTags[userId],
                     tag.Id,
                     tag.Name,
                     RecommendationBehaviorWeights.Published
                 );
+            }
             foreach (var tag in recruitment.Game.Tags)
+            {
                 AddWeight(
                     gameTags[userId],
                     tag.Id,
                     tag.Name,
                     RecommendationBehaviorWeights.Published
                 );
+            }
         }
 
         var responses = await _db
@@ -84,26 +92,32 @@ internal sealed class EmbeddingProfileBatchBuilder
         {
             var userId = response.Responder.Id;
             foreach (var tag in response.Recruitment.Recruiter.Tags)
+            {
                 AddWeight(
                     interestedUserTags[userId],
                     tag.Id,
                     tag.Name,
                     RecommendationBehaviorWeights.Response
                 );
+            }
             foreach (var tag in response.Recruitment.Tags)
+            {
                 AddWeight(
                     recruitmentTags[userId],
                     tag.Id,
                     tag.Name,
                     RecommendationBehaviorWeights.Response
                 );
+            }
             foreach (var tag in response.Recruitment.Game.Tags)
+            {
                 AddWeight(
                     gameTags[userId],
                     tag.Id,
                     tag.Name,
                     RecommendationBehaviorWeights.Response
                 );
+            }
         }
 
         var views = await _db
@@ -125,11 +139,17 @@ internal sealed class EmbeddingProfileBatchBuilder
             var userId = view.User.Id;
             var weight = RecommendationBehaviorWeights.GetViewWeight(view.ViewCount);
             foreach (var tag in view.Recruitment.Recruiter.Tags)
+            {
                 AddWeight(interestedUserTags[userId], tag.Id, tag.Name, weight);
+            }
             foreach (var tag in view.Recruitment.Tags)
+            {
                 AddWeight(recruitmentTags[userId], tag.Id, tag.Name, weight);
+            }
             foreach (var tag in view.Recruitment.Game.Tags)
+            {
                 AddWeight(gameTags[userId], tag.Id, tag.Name, weight);
+            }
         }
 
         var accepted = await _db
@@ -148,12 +168,14 @@ internal sealed class EmbeddingProfileBatchBuilder
         {
             var userId = response.Recruitment.Recruiter.Id;
             foreach (var tag in response.Responder.Tags)
+            {
                 AddWeight(
                     interestedUserTags[userId],
                     tag.Id,
                     tag.Name,
                     RecommendationBehaviorWeights.Response
                 );
+            }
         }
 
         var ownVectors = await BuildVectorsAsync(ownUserTags, "user tag", ct);

@@ -73,7 +73,9 @@ internal sealed class EmbeddingSyncOutboxDispatcher : BackgroundService
             .ToListAsync(ct);
 
         if (candidateIds.Count == 0)
+        {
             return 0;
+        }
 
         var leaseId = Guid.NewGuid();
         var leaseExpiresAt = now.AddSeconds(_options.OutboxLeaseSeconds);
@@ -106,7 +108,9 @@ internal sealed class EmbeddingSyncOutboxDispatcher : BackgroundService
             foreach (var message in messages)
             {
                 if (heartbeat.IsFaulted)
+                {
                     await heartbeat;
+                }
                 try
                 {
                     await _publisher.PublishAsync(
@@ -210,9 +214,11 @@ internal sealed class EmbeddingSyncOutboxDispatcher : BackgroundService
                     ct
                 );
             if (affected == 0)
+            {
                 throw new InvalidOperationException(
                     $"Embedding sync outbox lease {leaseId} was lost."
                 );
+            }
         }
     }
 
@@ -228,16 +234,20 @@ internal sealed class EmbeddingSyncOutboxDispatcher : BackgroundService
             .Take(_options.OutboxPublishBatchSize)
             .ToListAsync(ct);
         if (ids.Count > 0)
+        {
             await db
                 .EmbeddingSyncOutbox.Where(message => ids.Contains(message.Id))
                 .ExecuteDeleteAsync(ct);
+        }
     }
 
     private static void EnsureLeaseOwned(int affectedRows, long messageId)
     {
         if (affectedRows != 1)
+        {
             throw new InvalidOperationException(
                 $"Embedding sync outbox lease was lost for message {messageId}."
             );
+        }
     }
 }

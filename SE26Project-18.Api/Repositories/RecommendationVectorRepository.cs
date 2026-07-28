@@ -228,9 +228,13 @@ internal sealed class RecommendationVectorRepository
             .ToList();
 
         foreach (var batch in upserts.Chunk(_batchSize))
+        {
             await _vectorStore.UpsertManyAsync(batch, ct);
+        }
         foreach (var batch in deletes.Chunk(_batchSize))
+        {
             await _vectorStore.DeleteAsync(index.Name, batch, ct);
+        }
     }
 
     private async Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
@@ -242,7 +246,9 @@ internal sealed class RecommendationVectorRepository
     {
         var ids = allowedIds.Distinct().ToArray();
         if (ids.Length == 0)
+        {
             return [];
+        }
 
         var tasks = ids.Chunk(1_000)
             .Select(chunk =>

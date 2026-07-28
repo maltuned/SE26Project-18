@@ -61,7 +61,9 @@ internal class Recruitment
         CurrParticipants++;
         Version++;
         if (CurrParticipants >= MaxParticipants)
+        {
             Status = RecruitmentStatus.Closed;
+        }
     }
 
     public void Update(
@@ -83,6 +85,8 @@ internal class Recruitment
     public void MarkEmbeddingApplied(long version)
     {
         if (version > AppliedEmbeddingVersion)
+        {
             AppliedEmbeddingVersion = version;
+        }
     }
 }

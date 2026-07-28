@@ -19,7 +19,9 @@ internal sealed class UserPreferenceProfileBuilder : IUserPreferenceProfileBuild
     public async Task<UserPreferenceProfile> BuildAsync(long userId, CancellationToken ct)
     {
         if (!await _db.Users.AnyAsync(user => user.Id == userId, ct))
+        {
             throw new NotFoundException("User not found.");
+        }
 
         var profile = (await _batchBuilder.BuildUsersAsync([userId], ct)).Single();
         return new UserPreferenceProfile(

@@ -50,7 +50,9 @@ public sealed class UserController : ControllerBase
     private long GetCurrentUserId()
     {
         if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
             throw new AuthenticationException("Token does not contain a valid user identifier.");
+        }
 
         return userId;
     }

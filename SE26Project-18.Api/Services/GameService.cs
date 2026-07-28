@@ -29,9 +29,11 @@ internal sealed class GameService : IGameService
         var query = _db.Games.Include(g => g.Tags).AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(request.Query))
+        {
             query = query.Where(g =>
                 g.Name.Contains(request.Query) || g.Description.Contains(request.Query)
             );
+        }
 
         if (request.TagIds is { Count: > 0 })
         {
@@ -54,7 +56,9 @@ internal sealed class GameService : IGameService
             .FirstOrDefaultAsync(g => g.Id == id, ct);
 
         if (game is null)
+        {
             return null;
+        }
 
         return game.ToResponse();
     }
@@ -64,7 +68,9 @@ internal sealed class GameService : IGameService
         ValidateName(request.Name);
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         if (await _db.Games.AnyAsync(game => game.Name == request.Name.Trim(), ct))
+        {
             throw new ConflictException("Game already exists.");
+        }
         var tags = await GetTagsAsync(request.TagIds, ct);
         var game = new Game(request.Name.Trim()) { Description = request.Description, Tags = tags };
         _db.Games.Add(game);
@@ -91,11 +97,15 @@ internal sealed class GameService : IGameService
             ValidateName(request.Name);
             var name = request.Name.Trim();
             if (await _db.Games.AnyAsync(item => item.Id != id && item.Name == name, ct))
+            {
                 throw new ConflictException("Game already exists.");
+            }
             game.Name = name;
         }
         if (request.Description is not null)
+        {
             game.Description = request.Description;
+        }
 
         if (request.TagIds is not null)
         {
@@ -119,7 +129,9 @@ internal sealed class GameService : IGameService
         var ids = requestedIds?.Distinct().ToArray() ?? [];
         var tags = await _db.GameTags.Where(tag => ids.Contains(tag.Id)).ToListAsync(ct);
         if (tags.Count != ids.Length)
+        {
             throw new NotFoundException("One or more game tags do not exist.");
+        }
         return tags;
     }
 
@@ -143,6 +155,8 @@ internal sealed class GameService : IGameService
     private static void ValidateName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
+        {
             throw new ValidationException("Game name is required.");
+        }
     }
 }

@@ -37,16 +37,24 @@ internal sealed class OpenAiEmbeddingService : IEmbeddingService
         {
             var key = GetCacheKey(text);
             if (_cache.TryGetValue<float[]>(key, out var cached) && cached is not null)
+            {
                 result[text] = cached;
+            }
             else
+            {
                 missingTexts.Add(text);
+            }
         }
 
         if (missingTexts.Count == 0)
+        {
             return result;
+        }
 
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
             throw new ServiceUnavailableException("Embedding API key is not configured.");
+        }
 
         foreach (var batch in missingTexts.Chunk(_options.RequestBatchSize))
         {
@@ -73,20 +81,26 @@ internal sealed class OpenAiEmbeddingService : IEmbeddingService
                     "Embedding API returned an empty response."
                 );
             if (payload.Data.Count != batch.Length)
+            {
                 throw new ServiceUnavailableException(
                     "Embedding API returned an unexpected result count."
                 );
+            }
 
             foreach (var item in payload.Data)
             {
                 if (item.Index < 0 || item.Index >= batch.Length)
+                {
                     throw new ServiceUnavailableException(
                         "Embedding API returned an invalid result index."
                     );
+                }
                 if (item.Embedding.Length != _options.Dimension)
+                {
                     throw new ServiceUnavailableException(
                         $"Embedding API returned dimension {item.Embedding.Length}; expected {_options.Dimension}."
                     );
+                }
 
                 var text = batch[item.Index];
                 _cache.Set(GetCacheKey(text), item.Embedding, TimeSpan.FromHours(12));

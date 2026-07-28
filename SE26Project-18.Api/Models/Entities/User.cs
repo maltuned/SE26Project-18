@@ -42,6 +42,8 @@ internal class User
     public void MarkEmbeddingApplied(long version)
     {
         if (version > AppliedEmbeddingVersion)
+        {
             AppliedEmbeddingVersion = version;
+        }
     }
 }

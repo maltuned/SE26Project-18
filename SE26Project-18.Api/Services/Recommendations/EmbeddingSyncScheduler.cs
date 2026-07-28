@@ -33,6 +33,8 @@ internal sealed class EmbeddingSyncScheduler : IEmbeddingSyncScheduler
     public void Schedule(EmbeddingTarget target, IEnumerable<long> entityIds)
     {
         foreach (var entityId in entityIds.Distinct())
+        {
             Schedule(target, entityId);
+        }
     }
 }

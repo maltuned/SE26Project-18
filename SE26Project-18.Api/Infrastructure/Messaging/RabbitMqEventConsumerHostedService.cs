@@ -175,7 +175,9 @@ internal sealed class RabbitMqEventConsumerHostedService<TEvent, TConsumer> : Ba
                     EventJsonSerializer.Options
                 );
                 if (deserializedPayload is null)
+                {
                     throw new JsonException("Event payload cannot be null.");
+                }
 
                 payload = deserializedPayload;
             }
@@ -313,7 +315,9 @@ internal sealed class RabbitMqEventConsumerHostedService<TEvent, TConsumer> : Ba
     private static int GetRetryCount(IDictionary<string, object?>? headers)
     {
         if (headers is null || !headers.TryGetValue("x-retry-count", out var value))
+        {
             return 0;
+        }
 
         return value switch
         {

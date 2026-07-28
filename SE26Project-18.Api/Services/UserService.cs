@@ -30,7 +30,9 @@ internal sealed class UserService : IUserService
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
         if (user is null)
+        {
             return null;
+        }
 
         return user.ToResponse();
     }

@@ -58,7 +58,9 @@ internal static class RecommendationScorer
     )
     {
         if (!score.HasValue)
+        {
             return;
+        }
 
         weightedScore += score.Value * weight;
         totalWeight += weight;

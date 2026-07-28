@@ -23,6 +23,8 @@ internal class Game
     public void MarkEmbeddingApplied(long version)
     {
         if (version > AppliedEmbeddingVersion)
+        {
             AppliedEmbeddingVersion = version;
+        }
     }
 }

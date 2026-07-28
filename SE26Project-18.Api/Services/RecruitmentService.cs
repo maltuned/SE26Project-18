@@ -48,7 +48,9 @@ internal sealed class RecruitmentService : IRecruitmentService
             ))
             .ToListAsync(ct);
         if (candidates.Count == 0)
+        {
             return new PagedResponse<RecruitmentResponse>([], request.Page, request.PageSize, 0, 0);
+        }
 
         var rankedIds = await _recommendationAlgorithm.RankAsync(userId, candidates, ct);
         var eligibleIds = new HashSet<long>();
@@ -175,35 +177,53 @@ internal sealed class RecruitmentService : IRecruitmentService
             ?? throw new NotFoundException("Recruitment not found.");
 
         if (recruitment.Recruiter.Id != recruiterId)
+        {
             throw new ForbiddenException("Only the recruitment recruiter can update it.");
+        }
 
         if (request.Title is not null)
+        {
             ValidateTitle(request.Title);
+        }
         if (request.ExpiresAt.HasValue)
+        {
             ValidateExpiry(request.ExpiresAt.Value);
+        }
         if (request.Status.HasValue && !Enum.IsDefined(request.Status.Value))
+        {
             throw new ValidationException("Recruitment status is invalid.");
+        }
         var maxParticipants = request.MaxParticipants ?? recruitment.MaxParticipants;
         var expiresAt = request.ExpiresAt ?? recruitment.ExpiresAt;
         var status = request.Status ?? recruitment.Status;
 
         if (maxParticipants < recruitment.CurrParticipants)
+        {
             throw new ValidationException(
                 "Maximum participants cannot be less than current participants."
             );
+        }
 
         if (status != RecruitmentStatus.Deleted && recruitment.CurrParticipants >= maxParticipants)
+        {
             status = RecruitmentStatus.Closed;
+        }
 
         if (status == RecruitmentStatus.Open && expiresAt <= DateTime.UtcNow)
+        {
             throw new ConflictException("An expired recruitment cannot be opened.");
+        }
 
         if (status == RecruitmentStatus.Open && recruitment.CurrParticipants >= maxParticipants)
+        {
             throw new ConflictException("A full recruitment cannot be opened.");
+        }
 
         var tagsChanged = request.RecruitmentTagIds is not null;
         if (tagsChanged)
+        {
             recruitment.Tags = await GetTagsAsync(request.RecruitmentTagIds, ct);
+        }
 
         recruitment.Update(
             request.Title?.Trim() ?? recruitment.Title,
@@ -253,7 +273,9 @@ internal sealed class RecruitmentService : IRecruitmentService
                     ?? throw new NotFoundException("Recruitment not found.");
 
                 if (recruitment.Recruiter.Id == userId)
+                {
                     return;
+                }
 
                 var user =
                     await _db.Users.FindAsync([userId], ct)
@@ -273,7 +295,9 @@ internal sealed class RecruitmentService : IRecruitmentService
                 }
 
                 if (view.ViewCount <= 3)
+                {
                     _embeddingSync.Schedule(EmbeddingTarget.User, userId);
+                }
 
                 await _db.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
@@ -284,7 +308,9 @@ internal sealed class RecruitmentService : IRecruitmentService
                 await transaction.RollbackAsync(ct);
                 _db.ChangeTracker.Clear();
                 if (attempt == maximumAttempts)
+                {
                     break;
+                }
                 await Task.Delay(TimeSpan.FromMilliseconds(10 * attempt), ct);
             }
         }
@@ -336,7 +362,9 @@ internal sealed class RecruitmentService : IRecruitmentService
         var tags = await _db.RecruitmentTags.Where(t => tagIds.Contains(t.Id)).ToListAsync(ct);
 
         if (tags.Count != tagIds.Length)
+        {
             throw new NotFoundException("One or more recruitment tags do not exist.");
+        }
 
         return tags;
     }
@@ -344,13 +372,17 @@ internal sealed class RecruitmentService : IRecruitmentService
     private static void ValidateTitle(string title)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             throw new ValidationException("Recruitment title is required.");
+        }
     }
 
     private static void ValidateExpiry(DateTime expiresAt)
     {
         if (expiresAt <= DateTime.UtcNow)
+        {
             throw new ValidationException("Recruitment expiry must be in the future.");
+        }
     }
 
     private static IQueryable<Recruitment> ApplySearchFilters(
@@ -368,11 +400,17 @@ internal sealed class RecruitmentService : IRecruitmentService
             && !recruitment.Responses.Any(response => response.Responder.Id == userId)
         );
         if (request.GameId.HasValue)
+        {
             query = query.Where(recruitment => recruitment.Game.Id == request.GameId.Value);
+        }
         foreach (var tagId in request.GameTagIds?.Distinct() ?? [])
+        {
             query = query.Where(recruitment => recruitment.Game.Tags.Any(tag => tag.Id == tagId));
+        }
         foreach (var tagId in request.RecruitmentTagIds?.Distinct() ?? [])
+        {
             query = query.Where(recruitment => recruitment.Tags.Any(tag => tag.Id == tagId));
+        }
         return query;
     }
 

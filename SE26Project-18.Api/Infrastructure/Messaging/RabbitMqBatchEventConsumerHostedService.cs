@@ -127,7 +127,9 @@ internal sealed class RabbitMqBatchEventConsumerHostedService<TEvent, TConsumer>
                     EventJsonSerializer.Options
                 );
                 if (payload is null)
+                {
                     throw new JsonException("Event payload cannot be null.");
+                }
 
                 await deliveries.Writer.WriteAsync(
                     new PendingDelivery(
@@ -160,7 +162,9 @@ internal sealed class RabbitMqBatchEventConsumerHostedService<TEvent, TConsumer>
             var lifetime = Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
             var completed = await Task.WhenAny(lifetime, batchWorker);
             if (completed == batchWorker)
+            {
                 await batchWorker;
+            }
             await lifetime;
         }
         finally
@@ -471,7 +475,9 @@ internal sealed class RabbitMqBatchEventConsumerHostedService<TEvent, TConsumer>
     private static int GetRetryCount(IDictionary<string, object?>? headers)
     {
         if (headers is null || !headers.TryGetValue("x-retry-count", out var value))
+        {
             return 0;
+        }
 
         return value switch
         {
