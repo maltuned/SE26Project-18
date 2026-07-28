@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { useTheme } from "../contexts/theme-context";
 import { tokenStorage } from "../api/tokenStorage";
+import { API_BASE } from "../api/config";
 
 const DEFAULT_AVATAR = require("../../assets/images/testImage.png");
 
@@ -42,8 +43,12 @@ export default function RemoteImage({ url, style, fallbackSource }: RemoteImageP
       try {
         const token = await tokenStorage.getAccessToken();
 
+        const resolvedUrl = url.startsWith("http://") || url.startsWith("https://")
+          ? url
+          : `${API_BASE}${url.startsWith("/") ? url : "/" + url}`;
+
         const xhr = new XMLHttpRequest();
-        xhr.open("GET", url);
+        xhr.open("GET", resolvedUrl);
         xhr.responseType = "arraybuffer";
         if (token) {
           xhr.setRequestHeader("Authorization", `Bearer ${token}`);

@@ -116,6 +116,9 @@ public class RecruitmentService : IRecruitmentService
         var r = await Query().FirstOrDefaultAsync(r => r.Id == id);
         if (r == null) return null;
 
+        if (r.Status == RecruitmentStatus.Deleted)
+            return _mapper.ToRecruitmentDetailDto(r);
+
         if (data.TryGetValue("title", out var title)) r.Title = GetStringValue(title);
         if (data.TryGetValue("description", out var desc)) r.Description = GetStringValue(desc);
         if (data.TryGetValue("status", out var status)) r.Status = GetStringValue(status).ToRecruitmentStatus();
@@ -169,5 +172,18 @@ public class RecruitmentService : IRecruitmentService
         r.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<List<RecruitmentDetailDto>> SearchRecruitmentsAsync(string query)
+    {
+        if (string.IsNullOrEmpty(query))
+            return await ToDtoList(Query().OrderByDescending(r => r.CreatedAt));
+
+        if (long.TryParse(query, out var id))
+            return await ToDtoList(Query().Where(r => r.Id == id));
+
+        return await ToDtoList(Query()
+            .Where(r => r.Title.Contains(query))
+            .OrderByDescending(r => r.CreatedAt));
     }
 }

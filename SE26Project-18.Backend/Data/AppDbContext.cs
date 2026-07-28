@@ -19,6 +19,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<Admin> Admins => Set<Admin>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -174,6 +175,12 @@ public sealed class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(r => r.ReporterId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Admin
+        modelBuilder.Entity<Admin>(entity =>
+        {
+            entity.HasIndex(a => a.Username).IsUnique();
         });
     }
 }

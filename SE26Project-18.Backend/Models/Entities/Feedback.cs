@@ -16,6 +16,12 @@ public class Feedback
 
     public string Content { get; set; } = string.Empty;
 
+    public FeedbackStatus Status { get; set; } = FeedbackStatus.Pending;
+
+    public DateTime? HandledAt { get; set; }
+
+    public long? HandledByAdminId { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public Feedback()

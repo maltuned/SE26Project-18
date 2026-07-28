@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "frontend-exporouter",
-    "slug": "frontend-exporouter",
+    "name": "gamemate-tool-app",
+    "slug": "gamemate-tool-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontendexporouter",
+    "scheme": "gamemate-tool-app",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"

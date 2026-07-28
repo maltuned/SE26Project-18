@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SE26Project_18.Backend.Data;
 using SE26Project_18.Backend.Hubs;
+using SE26Project_18.Backend.Models;
+using SE26Project_18.Backend.Models.Entities;
 using SE26Project_18.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +35,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSection["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(jwtSecret),
             ClockSkew = TimeSpan.Zero,
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         };
 
         options.Events = new JwtBearerEvents
@@ -68,6 +71,7 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
 // CORS - allow frontend
 builder.Services.AddCors(options =>
@@ -82,6 +86,8 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.Converters.Add(new EnumMemberJsonConverter());
     });
 builder.Services.AddOpenApi();
 
@@ -99,4 +105,16 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<ChatHub>("/chatHub");
+
+// Seed default admin
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (!db.Admins.Any())
+    {
+        db.Admins.Add(new Admin("admin", BCrypt.Net.BCrypt.HashPassword("123456")));
+        db.SaveChanges();
+    }
+}
+
 app.Run();

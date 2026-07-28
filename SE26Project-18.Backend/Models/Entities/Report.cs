@@ -20,6 +20,12 @@ public class Report
 
     public string Content { get; set; } = string.Empty;
 
+    public ReportStatus Status { get; set; } = ReportStatus.Pending;
+
+    public DateTime? HandledAt { get; set; }
+
+    public long? HandledByAdminId { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public Report()

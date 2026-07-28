@@ -18,7 +18,7 @@ public class ImageController : ControllerBase
     }
 
     [HttpPost("upload")]
-    public async Task<ActionResult<ApiResponse<string>>> Upload(IFormFile file, [FromForm] string folder = "general")
+    public async Task<ActionResult<ApiResponse<string>>> Upload(IFormFile file, [FromForm] string folder = "general", [FromForm] string? name = null)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<string>.Fail("请选择文件"));
@@ -36,8 +36,10 @@ public class ImageController : ControllerBase
             folder = "general";
 
         using var stream = file.OpenReadStream();
-        var objectName = await _imageService.UploadAsync(stream, file.FileName, file.ContentType, folder);
-        var url = $"{Request.Scheme}://{Request.Host}/api/Image/file/{objectName}";
+        var objectName = !string.IsNullOrEmpty(name)
+            ? await _imageService.UploadWithNameAsync(stream, $"{folder}/{name}{extension}", file.ContentType)
+            : await _imageService.UploadAsync(stream, file.FileName, file.ContentType, folder);
+        var url = $"/api/Image/file/{objectName}";
 
         return Ok(ApiResponse<string>.Success(url, "上传成功"));
     }
@@ -65,7 +67,7 @@ public class ImageController : ControllerBase
         using var stream = file.OpenReadStream();
         var objectName = $"avatars/{userId}{extension}";
         await _imageService.UploadWithNameAsync(stream, objectName, file.ContentType);
-        var url = $"{Request.Scheme}://{Request.Host}/api/Image/file/{objectName}";
+        var url = $"/api/Image/file/{objectName}";
 
         return Ok(ApiResponse<string>.Success(url, "上传成功"));
     }

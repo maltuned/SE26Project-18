@@ -62,4 +62,23 @@ public static class EnumExtensions
         "已删除" => ResponseStatus.Deleted,
         _ => ResponseStatus.Responded
     };
+
+    // ReportStatus
+    public static string ToDtoString(this ReportStatus value) => value.ToDisplayString();
+    public static ReportStatus ToReportStatus(this string value) => value switch
+    {
+        "待处理" or "pending" or "Pending" => ReportStatus.Pending,
+        "已处理" or "resolved" or "Resolved" => ReportStatus.Resolved,
+        "驳回" or "rejected" or "Rejected" => ReportStatus.Rejected,
+        _ => ReportStatus.Pending
+    };
+
+    // FeedbackStatus
+    public static string ToDtoString(this FeedbackStatus value) => value.ToDisplayString();
+    public static FeedbackStatus ToFeedbackStatus(this string value) => value switch
+    {
+        "待处理" or "pending" or "Pending" => FeedbackStatus.Pending,
+        "已处理" or "resolved" or "Resolved" => FeedbackStatus.Resolved,
+        _ => FeedbackStatus.Pending
+    };
 }

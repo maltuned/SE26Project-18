@@ -18,10 +18,18 @@ public class GameService : IGameService
 
     public async Task<List<GameDto>> GetGamesAsync(string query = "")
     {
-        var games = string.IsNullOrEmpty(query)
-            ? await _db.Games.Include(g => g.Tags).ToListAsync()
-            : await _db.Games.Include(g => g.Tags)
-                .Where(g => g.Name.Contains(query)).ToListAsync();
+        if (string.IsNullOrEmpty(query))
+            return (await _db.Games.Include(g => g.Tags).ToListAsync())
+                .Select(g => _mapper.ToGameDto(g)).ToList();
+
+        if (long.TryParse(query, out var id))
+        {
+            var game = await _db.Games.Include(g => g.Tags).FirstOrDefaultAsync(g => g.Id == id);
+            return game == null ? [] : [_mapper.ToGameDto(game)];
+        }
+
+        var games = await _db.Games.Include(g => g.Tags)
+            .Where(g => g.Name.Contains(query)).ToListAsync();
         return games.Select(g => _mapper.ToGameDto(g)).ToList();
     }
 
