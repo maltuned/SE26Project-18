@@ -48,6 +48,12 @@ export const setAuthExpiredHandler = (handler: () => void) => {
   onAuthExpired = handler;
 };
 
+let logoutInProgress = false;
+
+export const setLogoutInProgress = (value: boolean) => {
+  logoutInProgress = value;
+};
+
 // ==================== Fetch Helpers ====================
 
 const buildUrl = (endpoint: string, params?: Record<string, any>) => {
@@ -121,6 +127,9 @@ const apiGet = async <T>(endpoint: string, params?: Record<string, any>): Promis
   });
 
   if (res.status === 401) {
+    if (logoutInProgress) {
+      return { status: 401, data: null as any, message: "" };
+    }
     const refreshed = await tryRefreshToken();
     if (refreshed) {
       const retryHeaders = await getAuthHeaders();
@@ -148,6 +157,9 @@ const apiPost = async <T>(endpoint: string, body?: any): Promise<ApiResponse<T>>
   });
 
   if (res.status === 401) {
+    if (logoutInProgress) {
+      return { status: 401, data: null as any , message: "" };
+    }
     const refreshed = await tryRefreshToken();
     if (refreshed) {
       const retryHeaders = await getAuthHeaders();

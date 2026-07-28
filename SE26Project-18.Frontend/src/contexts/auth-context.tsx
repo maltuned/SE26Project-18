@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getMe, setAuthExpiredHandler, UserInfo } from "../api/api";
+import { getMe, setAuthExpiredHandler, setLogoutInProgress, UserInfo } from "../api/api";
 import { tokenStorage } from "../api/tokenStorage";
 
 type AuthContextType = {
   isLoggedIn: boolean;
   isRestoring: boolean;
+  loggingOut: boolean;
   currentUser: UserInfo | null;
   userId: number | null;
   login: (user: UserInfo) => void;
@@ -15,6 +16,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
   isRestoring: true,
+  loggingOut: false,
   currentUser: null,
   userId: null,
   login: () => {},
@@ -25,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
 
@@ -72,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         isLoggedIn,
         isRestoring,
+        loggingOut,
         currentUser,
         userId,
         login: (user: UserInfo) => {
@@ -80,10 +84,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setCurrentUser(user);
         },
         logout: async () => {
+          setLoggingOut(true);
+          setLogoutInProgress(true);
           await tokenStorage.clearTokens();
           setUserId(null);
           setIsLoggedIn(false);
           setCurrentUser(null);
+          setLoggingOut(false);
+          setLogoutInProgress(false);
         },
         refreshUser: () => {
           if (userId) {

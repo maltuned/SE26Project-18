@@ -30,6 +30,7 @@ export default function LoginScreen() {
     try {
       const result = await apiLogin(username, password);
       login(result.user);
+      router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("登录失败", error.message || "用户名或密码错误");
     } finally {

@@ -96,8 +96,8 @@ export default function ChatRoomScreen() {
         setMessages(chatMessages);
         setLoading(false);
         setTimeout(
-          () => flatListRef.current?.scrollToEnd({ animated: false }),
-          100,
+          () => flatListRef.current?.scrollToEnd({ animated: true }),
+          150,
         );
       });
     }
@@ -162,7 +162,7 @@ export default function ChatRoomScreen() {
         return [...prev, newMsg];
       });
 
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 150);
 
       if (userId) {
         markMessagesRead(chatId!, userId);

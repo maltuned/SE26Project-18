@@ -1,8 +1,6 @@
 import {
   Stack,
   useGlobalSearchParams,
-  useRootNavigationState,
-  useRouter,
   useSegments,
 } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,19 +27,20 @@ export default function RootLayout() {
 }
 
 function RootLayoutMain() {
+  const { isLoggedIn } = useAuth();
+
   useEffect(() => {
-    initTagCaches();
-  }, []);
+    if (isLoggedIn) {
+      initTagCaches();
+    }
+  }, [isLoggedIn]);
 
   return <RootLayoutNav />;
 }
 
 function RootLayoutNav() {
-  const { isLoggedIn, isRestoring, userId } = useAuth();
   const { colors } = useTheme();
   const segments = useSegments();
-  const router = useRouter();
-  const navState = useRootNavigationState();
   const insets = useSafeAreaInsets();
   const { onNewChatMessage } = useSignalR();
   const globalParams = useGlobalSearchParams();
@@ -88,18 +87,6 @@ function RootLayoutNav() {
     return unsub;
   }, [segments, globalParams.chatId, onNewChatMessage, showNextToast]);
 
-  useEffect(() => {
-    if (!navState?.key || isRestoring) return;
-
-    const inAuthGroup = segments[0] === "(auth)";
-
-    if (!isLoggedIn && !inAuthGroup) {
-      router.replace("/(auth)/login");
-    } else if (isLoggedIn && inAuthGroup) {
-      router.replace("/(tabs)");
-    }
-  }, [isLoggedIn, isRestoring, segments, navState?.key]);
-
   return (
     <View
       style={[
@@ -115,6 +102,7 @@ function RootLayoutNav() {
         barStyle={colors.statusBar as "light-content" | "dark-content"}
       />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="recruitment-edit" />

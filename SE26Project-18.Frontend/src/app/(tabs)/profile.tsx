@@ -18,6 +18,7 @@ export default function MoreScreen() {
   const handlePress = (key: string) => {
     if (key === "logout") {
       logout();
+      router.replace("/(auth)/login");
       return;
     }
     if (key === "personal") {
