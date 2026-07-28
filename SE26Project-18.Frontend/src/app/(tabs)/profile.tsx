@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import RemoteImage from "../../components/remote-image";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
@@ -13,7 +14,6 @@ export default function MoreScreen() {
   const { logout, currentUser } = useAuth();
   const router = useRouter();
   const { colors } = useTheme();
-  const testImage = require("../../../assets/images/testImage.png");
 
   const handlePress = (key: string) => {
     if (key === "logout") {
@@ -38,7 +38,7 @@ export default function MoreScreen() {
           { backgroundColor: colors.profileBackground },
         ]}
       >
-        <Image source={testImage} style={styles.avatar} />
+        <RemoteImage url={currentUser?.avatar} style={styles.avatar} />
         <Text style={[styles.nickname, { color: colors.text }]}>
           {currentUser?.nickname || currentUser?.username || "未登录"}
         </Text>

@@ -1,22 +1,25 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
-import { getUserById, updateUser, UserInfo } from "../api/api";
+import * as ImagePicker from "expo-image-picker";
+import { getUserById, updateUser, uploadAvatar, UserInfo } from "../api/api";
+import RemoteImage from "../components/remote-image";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
 export default function PersonalPageEditScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ userId?: string }>();
-  const { userId, refreshUser } = useAuth();
+  const { userId, refreshUser, currentUser } = useAuth();
   const { colors } = useTheme();
 
   const editUserId = params.userId ? Number(params.userId) : userId;
 
   const [nickname, setNickname] = useState("");
   const [bio, setBio] = useState("");
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const testImage = require("../../assets/images/testImage.png");
 
   useEffect(() => {
     if (editUserId) {
@@ -34,16 +37,47 @@ export default function PersonalPageEditScreen() {
     }
   }, [editUserId]);
 
+  const handlePickAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("提示", "需要相册权限才能更换头像");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      const { uri } = result.assets[0];
+      setUploading(true);
+      const url = await uploadAvatar(uri, editUserId!);
+      if (url) {
+        const urlWithVersion = `${url}?v=${Date.now()}`;
+        setAvatar(urlWithVersion);
+        await updateUser(editUserId!, { avatar: urlWithVersion });
+        refreshUser();
+      } else {
+        Alert.alert("错误", "头像上传失败，请稍后重试");
+      }
+      setUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!editUserId) {
       Alert.alert("提示", "请先登录");
       return;
     }
     try {
-      await updateUser(editUserId, {
+      const updateData: Record<string, any> = {
         nickname,
         signature: bio,
-      });
+      };
+      await updateUser(editUserId, updateData);
       refreshUser();
       router.back();
     } catch {
@@ -69,8 +103,16 @@ export default function PersonalPageEditScreen() {
       <View style={styles.body}>
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={styles.avatarRow}>
-            <TouchableOpacity>
-              <Image source={testImage} style={styles.avatar} />
+            <TouchableOpacity onPress={handlePickAvatar} disabled={uploading}>
+              <RemoteImage
+                url={avatar || currentUser?.avatar}
+                style={styles.avatar}
+              />
+              <View style={[styles.avatarOverlay, { backgroundColor: colors.overlay }]}>
+                <Text style={styles.avatarOverlayText}>
+                  {uploading ? "上传中..." : "更换头像"}
+                </Text>
+              </View>
             </TouchableOpacity>
             <TextInput
               style={[
@@ -140,6 +182,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
+  },
+  avatarOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 16,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarOverlayText: {
+    color: "#fff",
+    fontSize: 10,
   },
   nicknameInput: {
     flex: 1,

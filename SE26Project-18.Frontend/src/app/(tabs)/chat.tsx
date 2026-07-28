@@ -92,6 +92,7 @@ export default function ChatListScreen() {
   const mapToChatEntryInfo = (entry: ChatBrief): ChatEntryInfo => ({
     id: String(entry.id),
     name: entry.otherUserName,
+    avatar: entry.otherUserAvatar,
     lastMessage: entry.lastMessageContent,
     time: formatTime(entry.lastMessageAt),
     unreadCount: entry.unreadCount,

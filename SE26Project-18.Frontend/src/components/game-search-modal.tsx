@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -14,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { GameBrief, getGames } from "../api/api";
+import RemoteImage from "./remote-image";
 import { useTheme } from "../contexts/theme-context";
 import GameInfoModal from "./game-info-modal";
 
@@ -22,8 +22,6 @@ interface GameSearchModalProps {
   initialText: string;
   onClose: (text: string) => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function GameSearchModal({
   visible,
@@ -153,8 +151,8 @@ function GameSearchModal({
                     style={styles.suggestionLeft}
                     onPress={() => handleSelect(s)}
                   >
-                    <Image
-                      source={testImage}
+                    <RemoteImage
+                      url={s.icon}
                       style={[
                         styles.suggestionIcon,
                         { backgroundColor: colors.placeholder },

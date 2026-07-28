@@ -266,6 +266,8 @@ const mapRecruitmentDto = (dto: RecruitmentDto): RecruitmentData => ({
   publisherId: dto.publisher_id,
   gameId: dto.game_id,
   gameName: "",
+  gameCover: "",
+  gameIcon: "",
   title: dto.title,
   description: dto.description,
   gameTags: [],
@@ -286,6 +288,8 @@ const mapRecruitmentDetailDto = (dto: RecruitmentDetailDto): RecruitmentData => 
   publisherId: dto.publisher_id,
   gameId: dto.game_id,
   gameName: dto.game.name,
+  gameCover: dto.game.cover || "",
+  gameIcon: dto.game.icon || "",
   title: dto.title,
   description: dto.description,
   // 差异: backend gameTags是GameTagDto[], 前端需要string[]
@@ -858,4 +862,78 @@ export const submitFeedback = async (data: FeedbackDto): Promise<boolean> => {
 export const submitReport = async (data: ReportDto): Promise<boolean> => {
   const response = apiPost<boolean>("/Report", data);
   return handlePostResponse(response, (d: boolean) => d);
+};
+
+// ==================== Image Upload API ====================
+
+export const uploadImage = async (uri: string, folder: string = "avatars"): Promise<string | null> => {
+  return new Promise(async (resolve) => {
+    const formData = new FormData();
+    const filename = uri.split("/").pop() || "image.jpg";
+    formData.append("file", {
+      uri,
+      name: filename,
+      type: "image/jpeg",
+    } as any);
+    formData.append("folder", folder);
+
+    const token = await tokenStorage.getAccessToken();
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/Image/upload`);
+
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        try {
+          const data: ApiResponse<string> = JSON.parse(xhr.responseText);
+          resolve(data.status === 200 ? data.data : null);
+        } catch {
+          resolve(null);
+        }
+      } else {
+        resolve(null);
+      }
+    };
+    xhr.onerror = () => resolve(null);
+    xhr.send(formData);
+  });
+};
+
+export const uploadAvatar = async (uri: string, userId: number): Promise<string | null> => {
+  return new Promise(async (resolve) => {
+    const formData = new FormData();
+    const filename = uri.split("/").pop() || "avatar.jpg";
+    formData.append("file", {
+      uri,
+      name: filename,
+      type: "image/jpeg",
+    } as any);
+    formData.append("userId", String(userId));
+
+    const token = await tokenStorage.getAccessToken();
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/Image/upload-avatar`);
+
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        try {
+          const data: ApiResponse<string> = JSON.parse(xhr.responseText);
+          resolve(data.status === 200 ? data.data : null);
+        } catch {
+          resolve(null);
+        }
+      } else {
+        resolve(null);
+      }
+    };
+    xhr.onerror = () => resolve(null);
+    xhr.send(formData);
+  });
 };

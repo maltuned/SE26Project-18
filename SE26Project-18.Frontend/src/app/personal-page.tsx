@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
   RecruitmentData,
   UserInfo,
 } from "../api/api";
+import RemoteImage from "../components/remote-image";
 import RecruitmentViewCard from "../components/recruitment-view-card";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
@@ -97,8 +97,6 @@ export default function PersonalPageScreen() {
     });
   };
 
-  const testImage = require("../../assets/images/testImage.png");
-
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
       <TouchableOpacity style={styles.back} onPress={() => router.back()}>
@@ -128,8 +126,8 @@ export default function PersonalPageScreen() {
         ]}
       >
         <View style={styles.profileTop}>
-          <Image
-            source={testImage}
+          <RemoteImage
+            url={targetUser?.avatar}
             style={[styles.avatar, { backgroundColor: colors.primary }]}
           />
           <View style={styles.profileInfo}>
@@ -210,8 +208,7 @@ export default function PersonalPageScreen() {
               >
                 <View style={styles.reviewTop}>
                   <View style={styles.reviewerInfo}>
-                    <Image
-                      source={testImage}
+                    <RemoteImage
                       style={[
                         styles.reviewerAvatar,
                         { backgroundColor: colors.primary },

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,10 +22,9 @@ import {
   sendMessage,
 } from "../../api/api";
 import RecruitmentResponseModal from "../../components/recruitment-response-modal";
+import RemoteImage from "../../components/remote-image";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
-
-const testImage = require("../../../assets/images/testImage.png");
 
 export default function RecruitmentViewScreen() {
   const router = useRouter();
@@ -196,7 +194,7 @@ export default function RecruitmentViewScreen() {
       >
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
           <View style={styles.topRow}>
-            <Image source={testImage} style={styles.coverImage} />
+            <RemoteImage url={recruitment.gameCover} style={styles.coverImage} />
             <View style={styles.topRight}>
               <View style={styles.nameRow}>
                 <Text
@@ -236,8 +234,8 @@ export default function RecruitmentViewScreen() {
                   )
                 }
               >
-                <Image
-                  source={testImage}
+                <RemoteImage
+                  url={recruitment.publisher?.avatar}
                   style={[styles.avatar, { backgroundColor: colors.primary }]}
                 />
                 <Text

@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import {
   Animated,
-  Image,
   PanResponder,
   StyleSheet,
   Text,
@@ -11,9 +10,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import RemoteImage from "./remote-image";
 import { useTheme } from "../contexts/theme-context";
-
-const testImage = require("../../assets/images/testImage.png");
 
 type ToastMessage = {
   id: string;
@@ -165,8 +163,8 @@ export default function MessageToast({
           router.push(`/chat-room?chatId=${toast.chatId}`);
         }}
       >
-        <Image
-          source={testImage}
+        <RemoteImage
+          url={toast.senderAvatar}
           style={[styles.avatar, { backgroundColor: colors.primary }]}
         />
         <View style={styles.textContainer}>

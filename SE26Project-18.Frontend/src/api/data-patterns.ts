@@ -67,6 +67,8 @@ export interface RecruitmentData {
   publisherId: number;
   gameId: number;
   gameName: string;
+  gameCover: string;
+  gameIcon: string;
   title: string;
   description: string;
   gameTags: string[];

@@ -67,6 +67,7 @@ builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IImageService, ImageService>();
 
 // CORS - allow frontend
 builder.Services.AddCors(options =>

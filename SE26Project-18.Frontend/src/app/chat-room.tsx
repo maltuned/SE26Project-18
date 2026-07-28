@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
-    Image,
     Keyboard,
     KeyboardAvoidingView,
     Modal,
@@ -31,11 +30,10 @@ import {
 } from "../api/api";
 import { MessageDto } from "../api/dtos";
 import ChatMessage, { ChatMessageInfo } from "../components/chat-message";
+import RemoteImage from "../components/remote-image";
 import { useAuth } from "../contexts/auth-context";
 import { useSignalR } from "../contexts/signalr-context";
 import { useTheme } from "../contexts/theme-context";
-
-const testImage = require("../../assets/images/testImage.png");
 
 export default function ChatRoomScreen() {
   const router = useRouter();
@@ -280,8 +278,8 @@ export default function ChatRoomScreen() {
               router.push(`/personal-page?userId=${otherUserId}`);
           }}
         >
-          <Image
-            source={testImage}
+          <RemoteImage
+            url={otherUser?.avatar}
             style={[styles.headerAvatar, { backgroundColor: colors.primary }]}
           />
           <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -344,7 +342,7 @@ export default function ChatRoomScreen() {
           ]}
           onPress={handleRecruitmentPress}
         >
-          <Image source={testImage} style={styles.recruitmentIcon} />
+          <RemoteImage url={recruitment?.gameIcon} style={styles.recruitmentIcon} />
           <Text
             style={[styles.recruitmentTitle, { color: colors.textSecondary }]}
             numberOfLines={1}

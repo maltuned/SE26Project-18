@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { GameInfo, getGameById } from "../api/api";
+import RemoteImage from "./remote-image";
 import { useTheme } from "../contexts/theme-context";
 
 interface GameInfoModalProps {
@@ -20,8 +20,6 @@ interface GameInfoModalProps {
   onClose: () => void;
   onFeedback?: () => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function GameInfoModal({ visible, gameId, onClose, onFeedback }: GameInfoModalProps) {
   const { colors } = useTheme();
@@ -67,8 +65,8 @@ function GameInfoModal({ visible, gameId, onClose, onFeedback }: GameInfoModalPr
             ) : (
               <>
                 <View style={styles.body}>
-                  <Image
-                    source={testImage}
+                  <RemoteImage
+                    url={game?.cover}
                     style={[
                       styles.image,
                       { backgroundColor: colors.placeholder },

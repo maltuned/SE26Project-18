@@ -1,0 +1,5 @@
+frontend:
+- yarn expo start
+backend:
+- .\minio\minio.exe server .\minio\data --console-address :9001
+- dotnet run

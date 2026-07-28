@@ -1,9 +1,11 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import RemoteImage from "./remote-image";
 import { useTheme } from "../contexts/theme-context";
 
 export interface ChatEntryInfo {
   id: string;
   name: string;
+  avatar: string;
   lastMessage: string;
   time: string;
   unreadCount: number;
@@ -14,8 +16,6 @@ interface ChatEntryProps {
   onPress: (chat: ChatEntryInfo) => void;
 }
 
-const testImage = require("../../assets/images/testImage.png");
-
 function ChatEntry({ chat, onPress }: ChatEntryProps) {
   const { colors } = useTheme();
 
@@ -24,9 +24,8 @@ function ChatEntry({ chat, onPress }: ChatEntryProps) {
       style={[styles.chatItem, { borderBottomColor: colors.border }]}
       onPress={() => onPress(chat)}
     >
-      <Image
-        key={chat.id}
-        source={testImage}
+      <RemoteImage
+        url={chat.avatar}
         style={[styles.avatar, { backgroundColor: colors.primary }]}
       />
       <View style={styles.chatInfo}>

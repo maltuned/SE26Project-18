@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +20,7 @@ import {
   updateRecruitment,
 } from "../../api/api";
 import ResponseRejectModal from "../../components/response-reject-modal";
+import RemoteImage from "../../components/remote-image";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
@@ -98,8 +98,6 @@ export default function RecruitmentManageScreen() {
     setResponses((prev) => prev.filter((r) => r.id !== rejectingResponse.id));
   };
 
-  const testImage = require("../../../assets/images/testImage.png");
-
   if (fetching) {
     return (
       <View
@@ -176,7 +174,7 @@ export default function RecruitmentManageScreen() {
             </Text>
           </View>
           <View style={styles.topRow}>
-            <Image source={testImage} style={styles.coverImage} />
+            <RemoteImage url={recruitment.gameCover} style={styles.coverImage} />
             <View style={styles.topRight}>
               <Text style={[styles.gameName, { color: colors.textSecondary }]}>
                 {recruitment.gameName}
@@ -236,8 +234,8 @@ export default function RecruitmentManageScreen() {
                     router.push(`/personal-page?userId=${res.responserId}`)
                   }
                 >
-                  <Image
-                    source={testImage}
+                  <RemoteImage
+                    url={res.responser?.avatar}
                     style={[
                       styles.responderAvatar,
                       { backgroundColor: colors.primary },

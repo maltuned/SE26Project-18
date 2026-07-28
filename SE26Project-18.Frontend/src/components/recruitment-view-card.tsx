@@ -1,13 +1,12 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { RecruitmentData } from "../api/api";
+import RemoteImage from "./remote-image";
 import { useTheme } from "../contexts/theme-context";
 
 interface RecruitmentInfoCardProps {
   recruitment: RecruitmentData;
   onPress: (recruitment: RecruitmentData) => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function RecruitmentViewCard({
   recruitment: recruitment,
@@ -18,8 +17,8 @@ function RecruitmentViewCard({
   return (
     <TouchableOpacity onPress={() => onPress(recruitment)} activeOpacity={0.8}>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Image
-          source={testImage}
+        <RemoteImage
+          url={recruitment.gameCover}
           style={[styles.cardImage, { backgroundColor: colors.placeholder }]}
         />
         <View style={styles.cardRight}>

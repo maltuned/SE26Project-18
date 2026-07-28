@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { RecruitmentData, getResponses } from "../api/api";
+import RemoteImage from "./remote-image";
 import { useTheme } from "../contexts/theme-context";
 
 interface RecruitmentManageCardProps {
   recruitment: RecruitmentData;
   onPress: (recruitment: RecruitmentData) => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function RecruitmentManageCard({
   recruitment,
@@ -38,8 +37,8 @@ function RecruitmentManageCard({
   return (
     <TouchableOpacity onPress={() => onPress(recruitment)} activeOpacity={0.8}>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Image
-          source={testImage}
+        <RemoteImage
+          url={recruitment.gameCover}
           style={[styles.cardImage, { backgroundColor: colors.placeholder }]}
         />
         <View style={styles.cardRight}>

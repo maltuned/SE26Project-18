@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -24,6 +23,7 @@ import {
 } from "../api/api";
 import GameInfoModal from "../components/game-info-modal";
 import GameSearchModal from "../components/game-search-modal";
+import RemoteImage from "../components/remote-image";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
@@ -45,8 +45,6 @@ export default function RecruitmentEditScreen() {
   const [tags, setTags] = useState<RecruitmentTag[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchingRecruitment, setFetchingRecruitment] = useState(false);
-
-  const testImage = require("../../assets/images/testImage.png");
 
   useEffect(() => {
     getRecruitmentTags().then((data) => {
@@ -178,7 +176,7 @@ export default function RecruitmentEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.topRow}>
-            <Image source={testImage} style={styles.coverImage} />
+            <RemoteImage url={selectedGame?.cover} style={styles.coverImage} />
             <View style={styles.topRight}>
               <TouchableOpacity
                 style={[
