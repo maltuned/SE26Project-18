@@ -22,6 +22,8 @@ internal class User
 
     public UserRole Role { get; private init; }
 
+    public long AppliedEmbeddingVersion { get; private set; }
+
     public ICollection<UserTag> Tags { get; set; } = [];
 
     public ICollection<Recruitment> Recruitments { get; set; } = [];
@@ -35,5 +37,11 @@ internal class User
         Username = username;
         PasswordHashed = passwordHashed;
         Role = role;
+    }
+
+    public void MarkEmbeddingApplied(long version)
+    {
+        if (version > AppliedEmbeddingVersion)
+            AppliedEmbeddingVersion = version;
     }
 }

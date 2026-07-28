@@ -32,6 +32,8 @@ internal class Recruitment
 
     public DateTime ExpiresAt { get; set; }
 
+    public long AppliedEmbeddingVersion { get; private set; }
+
     public Recruitment(
         Game game,
         User recruiter,
@@ -45,6 +47,13 @@ internal class Recruitment
         Title = title;
         MaxParticipants = maxParticipants;
         ExpiresAt = expiresAt;
+    }
+
+    private Recruitment()
+    {
+        Game = null!;
+        Recruiter = null!;
+        Title = string.Empty;
     }
 
     public void AddParticipant()
@@ -69,5 +78,11 @@ internal class Recruitment
         ExpiresAt = expiresAt;
         Status = status;
         Version++;
+    }
+
+    public void MarkEmbeddingApplied(long version)
+    {
+        if (version > AppliedEmbeddingVersion)
+            AppliedEmbeddingVersion = version;
     }
 }

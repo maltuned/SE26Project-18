@@ -1,20 +1,25 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Mappings;
 using SE26Project_18.Api.Models.Responses;
+using SE26Project_18.Api.Services.Recommendations;
 
 namespace SE26Project_18.Api.Services;
 
 internal sealed class ResponseService : IResponseService
 {
     private readonly AppDbContext _db;
+    private readonly IEmbeddingSyncScheduler _embeddingSync;
 
-    public ResponseService(AppDbContext db)
+    public ResponseService(AppDbContext db, IEmbeddingSyncScheduler embeddingSync)
     {
         _db = db;
+        _embeddingSync = embeddingSync;
     }
 
     public async Task<ResponseResponse> CreateAsync(
@@ -23,7 +28,10 @@ internal sealed class ResponseService : IResponseService
         CancellationToken ct
     )
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            ct
+        );
         var recruitment =
             await _db
                 .Recruitments.Include(r => r.Recruiter)
@@ -63,6 +71,8 @@ internal sealed class ResponseService : IResponseService
         else
             chat.Recruitment = recruitment;
 
+        _embeddingSync.Schedule(EmbeddingTarget.User, userId);
+
         await _db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
@@ -96,6 +106,7 @@ internal sealed class ResponseService : IResponseService
 
         response.Accept();
         response.Recruitment.AddParticipant();
+        _embeddingSync.Schedule(EmbeddingTarget.User, recruiterId);
 
         await _db.SaveChangesAsync(ct);
 

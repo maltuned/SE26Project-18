@@ -282,7 +282,7 @@ internal sealed class RabbitMqEventConsumerHostedService<TEvent, TConsumer> : Ba
             await channel.BasicPublishAsync(
                 retryExchangeName,
                 queueName,
-                mandatory: false,
+                mandatory: true,
                 new BasicProperties
                 {
                     ContentType = eventArgs.BasicProperties.ContentType,

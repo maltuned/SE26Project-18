@@ -10,6 +10,10 @@ internal class Response
 {
     public long Id { get; private set; }
 
+    public long RecruitmentId { get; private set; }
+
+    public long ResponderId { get; private set; }
+
     public Recruitment Recruitment { get; private init; }
 
     public User Responder { get; private init; }
@@ -23,6 +27,14 @@ internal class Response
     {
         Recruitment = recruitment;
         Responder = responder;
+        RecruitmentId = recruitment.Id;
+        ResponderId = responder.Id;
+    }
+
+    private Response()
+    {
+        Recruitment = null!;
+        Responder = null!;
     }
 
     public void Accept()

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Infrastructure.VectorStore;
@@ -18,14 +17,14 @@ public sealed class EmbeddingRecruitmentRecommendationAlgorithmTests
         );
         var repository = new RecommendationVectorRepository(
             vectorStore,
-            Options.Create(new EmbeddingOptions { Dimension = 2 })
+            Options.Create(new EmbeddingOptions { Dimension = 2 }),
+            Options.Create(new EmbeddingSyncOptions { MilvusBatchSize = 100 })
         );
         var algorithm = new EmbeddingRecruitmentRecommendationAlgorithm(
             repository,
             new StubProfileBuilder(
                 new UserPreferenceProfile(null, null, new float[] { 1f, 0f }, null)
-            ),
-            NullLogger<EmbeddingRecruitmentRecommendationAlgorithm>.Instance
+            )
         );
         var candidates = new[]
         {
@@ -59,11 +58,21 @@ public sealed class EmbeddingRecruitmentRecommendationAlgorithmTests
             return Task.CompletedTask;
         }
 
+        public Task UpsertManyAsync(
+            IReadOnlyCollection<VectorRecord> records,
+            CancellationToken ct
+        )
+        {
+            return Task.CompletedTask;
+        }
+
         public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
             VectorSearchRequest request,
             CancellationToken ct
         )
         {
+            Assert.NotNull(request.AllowedIds);
+            Assert.All(results, result => Assert.Contains(result.Id, request.AllowedIds!));
             return Task.FromResult(results);
         }
 

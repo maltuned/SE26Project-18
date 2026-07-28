@@ -7,21 +7,16 @@ namespace SE26Project_18.Api.Services.Recommendations;
 internal sealed class EmbeddingRecruitmentRecommendationAlgorithm
     : IRecruitmentRecommendationAlgorithm
 {
-    private const int MaximumSearchLimit = 16_384;
-
     private readonly RecommendationVectorRepository _vectorRepository;
     private readonly IUserPreferenceProfileBuilder _profileBuilder;
-    private readonly ILogger<EmbeddingRecruitmentRecommendationAlgorithm> _logger;
 
     public EmbeddingRecruitmentRecommendationAlgorithm(
         RecommendationVectorRepository vectorRepository,
-        IUserPreferenceProfileBuilder profileBuilder,
-        ILogger<EmbeddingRecruitmentRecommendationAlgorithm> logger
+        IUserPreferenceProfileBuilder profileBuilder
     )
     {
         _vectorRepository = vectorRepository;
         _profileBuilder = profileBuilder;
-        _logger = logger;
     }
 
     public async Task<IReadOnlyList<long>> RankAsync(
@@ -33,36 +28,37 @@ internal sealed class EmbeddingRecruitmentRecommendationAlgorithm
         if (candidates.Count == 0)
             return [];
 
-        var profile = await TryBuildProfileAsync(userId, ct);
-        var searchLimit = Math.Min(Math.Max(candidates.Count * 5, 100), MaximumSearchLimit);
+        var profile = await _profileBuilder.BuildAsync(userId, ct);
+        var recruiterIds = candidates
+            .Select(candidate => candidate.RecruiterId)
+            .Distinct()
+            .ToArray();
+        var recruitmentIds = candidates.Select(candidate => candidate.Id).ToArray();
+        var gameIds = candidates.Select(candidate => candidate.GameId).Distinct().ToArray();
 
         var ownToInterestedTask = profile.OwnUserTagVector.HasValue
             ? _vectorRepository.SearchUsersByInterestedTagAsync(
                 profile.OwnUserTagVector.Value,
-                searchLimit,
+                recruiterIds,
                 ct
             )
             : EmptySearchAsync();
         var interestedToOwnTask = profile.InterestedUserTagVector.HasValue
             ? _vectorRepository.SearchUsersByOwnTagAsync(
                 profile.InterestedUserTagVector.Value,
-                searchLimit,
+                recruiterIds,
                 ct
             )
             : EmptySearchAsync();
         var recruitmentTask = profile.RecruitmentTagVector.HasValue
             ? _vectorRepository.SearchRecruitmentsByRecruitmentTagAsync(
                 profile.RecruitmentTagVector.Value,
-                searchLimit,
+                recruitmentIds,
                 ct
             )
             : EmptySearchAsync();
         var gameTask = profile.GameTagVector.HasValue
-            ? _vectorRepository.SearchGamesByGameTagAsync(
-                profile.GameTagVector.Value,
-                searchLimit,
-                ct
-            )
+            ? _vectorRepository.SearchGamesByGameTagAsync(profile.GameTagVector.Value, gameIds, ct)
             : EmptySearchAsync();
 
         await Task.WhenAll(ownToInterestedTask, interestedToOwnTask, recruitmentTask, gameTask);
@@ -101,20 +97,20 @@ internal sealed class EmbeddingRecruitmentRecommendationAlgorithm
     )
     {
         double? ownToInterested = profile.OwnUserTagVector.HasValue
-            ? GetScore(ownToInterestedScores, candidate.RecruiterId)
+            ? GetScoreOrNull(ownToInterestedScores, candidate.RecruiterId)
             : null;
         double? interestedToOwn = profile.InterestedUserTagVector.HasValue
-            ? GetScore(interestedToOwnScores, candidate.RecruiterId)
+            ? GetScoreOrNull(interestedToOwnScores, candidate.RecruiterId)
             : null;
         var userCompatibility = RecommendationScorer.CombineUserCompatibility(
             ownToInterested,
             interestedToOwn
         );
         double? recruitmentSimilarity = profile.RecruitmentTagVector.HasValue
-            ? GetScore(recruitmentScores, candidate.Id)
+            ? GetScoreOrNull(recruitmentScores, candidate.Id)
             : null;
         double? gameSimilarity = profile.GameTagVector.HasValue
-            ? GetScore(gameScores, candidate.GameId)
+            ? GetScoreOrNull(gameScores, candidate.GameId)
             : null;
 
         return RecommendationScorer.Combine(
@@ -122,27 +118,6 @@ internal sealed class EmbeddingRecruitmentRecommendationAlgorithm
             recruitmentSimilarity,
             gameSimilarity
         );
-    }
-
-    private async Task<UserPreferenceProfile> TryBuildProfileAsync(
-        long userId,
-        CancellationToken ct
-    )
-    {
-        try
-        {
-            return await _profileBuilder.BuildAsync(userId, ct);
-        }
-        catch (Exception exception)
-            when (exception is HttpRequestException or InvalidOperationException)
-        {
-            _logger.LogWarning(
-                exception,
-                "Recommendation embeddings are unavailable for user {UserId}; using newest-first fallback",
-                userId
-            );
-            return new UserPreferenceProfile(null, null, null, null);
-        }
     }
 
     private static Task<IReadOnlyList<VectorSearchResult>> EmptySearchAsync()
@@ -158,8 +133,8 @@ internal sealed class EmbeddingRecruitmentRecommendationAlgorithm
         );
     }
 
-    private static double GetScore(IReadOnlyDictionary<long, double> scores, long id)
+    private static double? GetScoreOrNull(IReadOnlyDictionary<long, double> scores, long id)
     {
-        return scores.GetValueOrDefault(id);
+        return scores.TryGetValue(id, out var score) ? score : null;
     }
 }

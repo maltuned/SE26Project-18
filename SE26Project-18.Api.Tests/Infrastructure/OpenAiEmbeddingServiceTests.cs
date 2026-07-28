@@ -2,12 +2,35 @@ using System.Net;
 using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Infrastructure.Embedding;
 
 namespace SE26Project_18.Api.Tests.Infrastructure;
 
 public sealed class OpenAiEmbeddingServiceTests
 {
+    [Fact]
+    public async Task EmbedAsync_ThrowsServiceUnavailableWhenApiKeyIsMissing()
+    {
+        var service = new OpenAiEmbeddingService(
+            new HttpClient(new StubHandler(_ => throw new InvalidOperationException())),
+            new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(
+                new EmbeddingOptions
+                {
+                    BaseUrl = "https://example.test/v1/",
+                    ApiKey = string.Empty,
+                    Model = "test-model",
+                    Dimension = 2,
+                }
+            )
+        );
+
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() =>
+            service.EmbedAsync(["game tag: RPG"], CancellationToken.None)
+        );
+    }
+
     [Fact]
     public async Task EmbedAsync_PreservesBaseUrlPathWithoutTrailingSlash()
     {
@@ -42,6 +65,43 @@ public sealed class OpenAiEmbeddingServiceTests
 
         Assert.Equal("https://example.test/v1/embeddings", requestedUri?.ToString());
         Assert.Equal(2, result["game tag: RPG"].Length);
+    }
+
+    [Fact]
+    public async Task EmbedAsync_SplitsRequestsAtConfiguredBatchSize()
+    {
+        var requestCount = 0;
+        var handler = new StubHandler(_ =>
+        {
+            requestCount++;
+            var responseBody =
+                requestCount == 1
+                    ? """{"data":[{"index":0,"embedding":[1,0]},{"index":1,"embedding":[0,1]}]}"""
+                    : """{"data":[{"index":0,"embedding":[1,1]}]}""";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+            };
+        });
+        var service = new OpenAiEmbeddingService(
+            new HttpClient(handler),
+            new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(
+                new EmbeddingOptions
+                {
+                    BaseUrl = "https://example.test/v1",
+                    ApiKey = "test-key",
+                    Model = "test-model",
+                    Dimension = 2,
+                    RequestBatchSize = 2,
+                }
+            )
+        );
+
+        var result = await service.EmbedAsync(["one", "two", "three"], CancellationToken.None);
+
+        Assert.Equal(2, requestCount);
+        Assert.Equal(3, result.Count);
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)

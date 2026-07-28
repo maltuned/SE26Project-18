@@ -1,6 +1,9 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
+using MySqlConnector;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Mappings;
@@ -15,14 +18,17 @@ internal sealed class RecruitmentService : IRecruitmentService
 {
     private readonly AppDbContext _db;
     private readonly IRecruitmentRecommendationAlgorithm _recommendationAlgorithm;
+    private readonly IEmbeddingSyncScheduler _embeddingSync;
 
     public RecruitmentService(
         AppDbContext db,
-        IRecruitmentRecommendationAlgorithm recommendationAlgorithm
+        IRecruitmentRecommendationAlgorithm recommendationAlgorithm,
+        IEmbeddingSyncScheduler embeddingSync
     )
     {
         _db = db;
         _recommendationAlgorithm = recommendationAlgorithm;
+        _embeddingSync = embeddingSync;
     }
 
     public async Task<PagedResponse<RecruitmentResponse>> SearchAsync(
@@ -32,24 +38,7 @@ internal sealed class RecruitmentService : IRecruitmentService
     )
     {
         var now = DateTime.UtcNow;
-        var query = _db
-            .Recruitments.AsNoTracking()
-            .Where(r =>
-                r.Status == RecruitmentStatus.Open
-                && r.ExpiresAt > now
-                && r.CurrParticipants < r.MaxParticipants
-                && r.Recruiter.Id != userId
-                && !r.Responses.Any(response => response.Responder.Id == userId)
-            );
-
-        if (request.GameId.HasValue)
-            query = query.Where(r => r.Game.Id == request.GameId.Value);
-
-        foreach (var tagId in request.GameTagIds?.Distinct() ?? [])
-            query = query.Where(r => r.Game.Tags.Any(t => t.Id == tagId));
-
-        foreach (var tagId in request.RecruitmentTagIds?.Distinct() ?? [])
-            query = query.Where(r => r.Tags.Any(t => t.Id == tagId));
+        var query = ApplySearchFilters(_db.Recruitments.AsNoTracking(), userId, request, now);
 
         var candidates = await query
             .Select(recruitment => new RecruitmentRecommendationCandidate(
@@ -62,23 +51,41 @@ internal sealed class RecruitmentService : IRecruitmentService
             return new PagedResponse<RecruitmentResponse>([], request.Page, request.PageSize, 0, 0);
 
         var rankedIds = await _recommendationAlgorithm.RankAsync(userId, candidates, ct);
-
+        var eligibleIds = new HashSet<long>();
+        foreach (var idBatch in rankedIds.Chunk(1_000))
+        {
+            var batchIds = await ApplySearchFilters(
+                    _db.Recruitments.AsNoTracking(),
+                    userId,
+                    request,
+                    DateTime.UtcNow
+                )
+                .Where(recruitment => idBatch.Contains(recruitment.Id))
+                .Select(recruitment => recruitment.Id)
+                .ToListAsync(ct);
+            eligibleIds.UnionWith(batchIds);
+        }
+        rankedIds = rankedIds.Where(eligibleIds.Contains).ToList();
         var totalCount = rankedIds.Count;
-        var pageIds = rankedIds
-            .Skip((request.Page - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .ToList();
-        var pageOrder = pageIds
-            .Select((id, index) => (id, index))
-            .ToDictionary(item => item.id, item => item.index);
-        var items = await BaseQuery()
-            .Where(recruitment => pageIds.Contains(recruitment.Id))
-            .AsSplitQuery()
-            .ToListAsync(ct);
-        var responses = items
-            .OrderBy(recruitment => pageOrder[recruitment.Id])
-            .Select(recruitment => recruitment.ToResponse())
-            .ToList();
+        var responses = new List<RecruitmentResponse>(request.PageSize);
+        var offset = (request.Page - 1) * request.PageSize;
+        while (responses.Count < request.PageSize && offset < rankedIds.Count)
+        {
+            var pageIds = rankedIds.Skip(offset).Take(request.PageSize - responses.Count).ToList();
+            offset += pageIds.Count;
+            var pageOrder = pageIds
+                .Select((id, index) => (id, index))
+                .ToDictionary(item => item.id, item => item.index);
+            var items = await ApplySearchFilters(BaseQuery(), userId, request, DateTime.UtcNow)
+                .Where(recruitment => pageIds.Contains(recruitment.Id))
+                .AsSplitQuery()
+                .ToListAsync(ct);
+            responses.AddRange(
+                items
+                    .OrderBy(recruitment => pageOrder[recruitment.Id])
+                    .Select(recruitment => recruitment.ToResponse())
+            );
+        }
 
         return new PagedResponse<RecruitmentResponse>(
             responses,
@@ -99,7 +106,7 @@ internal sealed class RecruitmentService : IRecruitmentService
         var query = BaseQuery()
             .Where(r => r.Recruiter.Id == recruiterId && r.Status != RecruitmentStatus.Deleted);
 
-        return await ToPagedResponseAsync(query, page, pageSize, ct);
+        return await ToPagedResponseAsync(query.AsSplitQuery(), page, pageSize, ct);
     }
 
     public async Task<RecruitmentResponse> GetByIdAsync(long id, CancellationToken ct)
@@ -118,6 +125,7 @@ internal sealed class RecruitmentService : IRecruitmentService
         CancellationToken ct
     )
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         ValidateTitle(request.Title);
         ValidateExpiry(request.ExpiresAt);
 
@@ -143,6 +151,10 @@ internal sealed class RecruitmentService : IRecruitmentService
 
         _db.Recruitments.Add(recruitment);
         await _db.SaveChangesAsync(ct);
+        _embeddingSync.Schedule(EmbeddingTarget.Recruitment, recruitment.Id);
+        _embeddingSync.Schedule(EmbeddingTarget.User, recruiterId);
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         return await GetByIdAsync(recruitment.Id, ct);
     }
@@ -169,6 +181,8 @@ internal sealed class RecruitmentService : IRecruitmentService
             ValidateTitle(request.Title);
         if (request.ExpiresAt.HasValue)
             ValidateExpiry(request.ExpiresAt.Value);
+        if (request.Status.HasValue && !Enum.IsDefined(request.Status.Value))
+            throw new ValidationException("Recruitment status is invalid.");
         var maxParticipants = request.MaxParticipants ?? recruitment.MaxParticipants;
         var expiresAt = request.ExpiresAt ?? recruitment.ExpiresAt;
         var status = request.Status ?? recruitment.Status;
@@ -187,7 +201,8 @@ internal sealed class RecruitmentService : IRecruitmentService
         if (status == RecruitmentStatus.Open && recruitment.CurrParticipants >= maxParticipants)
             throw new ConflictException("A full recruitment cannot be opened.");
 
-        if (request.RecruitmentTagIds is not null)
+        var tagsChanged = request.RecruitmentTagIds is not null;
+        if (tagsChanged)
             recruitment.Tags = await GetTagsAsync(request.RecruitmentTagIds, ct);
 
         recruitment.Update(
@@ -197,6 +212,19 @@ internal sealed class RecruitmentService : IRecruitmentService
             expiresAt,
             status
         );
+
+        if (tagsChanged)
+        {
+            _embeddingSync.Schedule(EmbeddingTarget.Recruitment, recruitment.Id);
+            _embeddingSync.Schedule(
+                EmbeddingTarget.User,
+                await GetUsersAffectedByRecruitmentAsync(recruitment.Id, recruiterId, ct)
+            );
+        }
+        else if (request.Status.HasValue)
+        {
+            _embeddingSync.Schedule(EmbeddingTarget.Recruitment, recruitment.Id);
+        }
         await _db.SaveChangesAsync(ct);
 
         return recruitment.ToResponse();
@@ -204,36 +232,64 @@ internal sealed class RecruitmentService : IRecruitmentService
 
     public async Task RecordViewAsync(long userId, long recruitmentId, CancellationToken ct)
     {
-        var recruitment =
-            await _db
-                .Recruitments.Include(r => r.Recruiter)
-                .FirstOrDefaultAsync(
-                    r => r.Id == recruitmentId && r.Status != RecruitmentStatus.Deleted,
+        const int maximumAttempts = 5;
+        for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                ct
+            );
+            try
+            {
+                var recruitment =
+                    await _db
+                        .Recruitments.Include(item => item.Recruiter)
+                        .FirstOrDefaultAsync(
+                            item =>
+                                item.Id == recruitmentId
+                                && item.Status != RecruitmentStatus.Deleted,
+                            ct
+                        )
+                    ?? throw new NotFoundException("Recruitment not found.");
+
+                if (recruitment.Recruiter.Id == userId)
+                    return;
+
+                var user =
+                    await _db.Users.FindAsync([userId], ct)
+                    ?? throw new NotFoundException("User not found.");
+                var view = await _db.RecruitmentViews.FirstOrDefaultAsync(
+                    item => item.UserId == userId && item.RecruitmentId == recruitmentId,
                     ct
-                )
-            ?? throw new NotFoundException("Recruitment not found.");
+                );
+                if (view is null)
+                {
+                    view = new RecruitmentView(user, recruitment);
+                    _db.RecruitmentViews.Add(view);
+                }
+                else
+                {
+                    view.RecordView();
+                }
 
-        if (recruitment.Recruiter.Id == userId)
-            return;
+                if (view.ViewCount <= 3)
+                    _embeddingSync.Schedule(EmbeddingTarget.User, userId);
 
-        var view = await _db.RecruitmentViews.FirstOrDefaultAsync(
-            v => v.User.Id == userId && v.Recruitment.Id == recruitmentId,
-            ct
-        );
-
-        if (view is null)
-        {
-            var user =
-                await _db.Users.FindAsync([userId], ct)
-                ?? throw new NotFoundException("User not found.");
-            _db.RecruitmentViews.Add(new RecruitmentView(user, recruitment));
+                await _db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return;
+            }
+            catch (Exception exception) when (IsViewConcurrencyFailure(exception))
+            {
+                await transaction.RollbackAsync(ct);
+                _db.ChangeTracker.Clear();
+                if (attempt == maximumAttempts)
+                    break;
+                await Task.Delay(TimeSpan.FromMilliseconds(10 * attempt), ct);
+            }
         }
-        else
-        {
-            view.RecordView();
-        }
 
-        await _db.SaveChangesAsync(ct);
+        throw new ConflictException("The recruitment view could not be recorded concurrently.");
     }
 
     private IQueryable<Recruitment> BaseQuery(bool tracking = false)
@@ -295,5 +351,56 @@ internal sealed class RecruitmentService : IRecruitmentService
     {
         if (expiresAt <= DateTime.UtcNow)
             throw new ValidationException("Recruitment expiry must be in the future.");
+    }
+
+    private static IQueryable<Recruitment> ApplySearchFilters(
+        IQueryable<Recruitment> query,
+        long userId,
+        RecruitmentQueryRequest request,
+        DateTime now
+    )
+    {
+        query = query.Where(recruitment =>
+            recruitment.Status == RecruitmentStatus.Open
+            && recruitment.ExpiresAt > now
+            && recruitment.CurrParticipants < recruitment.MaxParticipants
+            && recruitment.Recruiter.Id != userId
+            && !recruitment.Responses.Any(response => response.Responder.Id == userId)
+        );
+        if (request.GameId.HasValue)
+            query = query.Where(recruitment => recruitment.Game.Id == request.GameId.Value);
+        foreach (var tagId in request.GameTagIds?.Distinct() ?? [])
+            query = query.Where(recruitment => recruitment.Game.Tags.Any(tag => tag.Id == tagId));
+        foreach (var tagId in request.RecruitmentTagIds?.Distinct() ?? [])
+            query = query.Where(recruitment => recruitment.Tags.Any(tag => tag.Id == tagId));
+        return query;
+    }
+
+    private static bool IsViewConcurrencyFailure(Exception exception)
+    {
+        return exception
+            is DbUpdateConcurrencyException
+                or DbUpdateException
+                {
+                    InnerException: MySqlException { Number: 1062 or 1205 or 1213 }
+                }
+                or MySqlException { Number: 1205 or 1213 };
+    }
+
+    private async Task<IReadOnlyCollection<long>> GetUsersAffectedByRecruitmentAsync(
+        long recruitmentId,
+        long recruiterId,
+        CancellationToken ct
+    )
+    {
+        var responders = _db
+            .Responses.Where(response => response.Recruitment.Id == recruitmentId)
+            .Select(response => response.Responder.Id);
+        var viewers = _db
+            .RecruitmentViews.Where(view => view.Recruitment.Id == recruitmentId)
+            .Select(view => view.User.Id);
+        var users = await responders.Concat(viewers).Distinct().ToListAsync(ct);
+        users.Add(recruiterId);
+        return users;
     }
 }

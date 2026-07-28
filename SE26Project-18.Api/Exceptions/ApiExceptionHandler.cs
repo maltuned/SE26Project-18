@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Milvus.Client;
 using MySqlConnector;
 using SE26Project_18.Api.Models.Exceptions;
 
@@ -42,6 +43,16 @@ internal sealed class ApiExceptionHandler : IExceptionHandler
                 StatusCodes.Status409Conflict,
                 "Persistence conflict",
                 "The operation conflicts with existing data."
+            ),
+            HttpRequestException => (
+                StatusCodes.Status503ServiceUnavailable,
+                "External dependency unavailable",
+                "The embedding service is currently unavailable."
+            ),
+            MilvusException => (
+                StatusCodes.Status503ServiceUnavailable,
+                "Vector store unavailable",
+                "The vector store is currently unavailable."
             ),
             _ => (
                 StatusCodes.Status500InternalServerError,

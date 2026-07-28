@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using SE26Project_18.Api.Exceptions;
 
 namespace SE26Project_18.Api.Infrastructure.Embedding;
 
@@ -45,45 +46,52 @@ internal sealed class OpenAiEmbeddingService : IEmbeddingService
             return result;
 
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
-            throw new InvalidOperationException("Embedding API key is not configured.");
+            throw new ServiceUnavailableException("Embedding API key is not configured.");
 
-        var normalizedBaseUrl = _options.BaseUrl.EndsWith('/')
-            ? _options.BaseUrl
-            : $"{_options.BaseUrl}/";
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            new Uri(new Uri(normalizedBaseUrl), "embeddings")
-        );
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
-        request.Content = JsonContent.Create(
-            new EmbeddingRequest(_options.Model, missingTexts, _options.Dimension)
-        );
-
-        using var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
-        var payload =
-            await response.Content.ReadFromJsonAsync<EmbeddingResponse>(cancellationToken: ct)
-            ?? throw new InvalidOperationException("Embedding API returned an empty response.");
-
-        if (payload.Data.Count != missingTexts.Count)
-            throw new InvalidOperationException(
-                "Embedding API returned an unexpected result count."
+        foreach (var batch in missingTexts.Chunk(_options.RequestBatchSize))
+        {
+            var normalizedBaseUrl = _options.BaseUrl.EndsWith('/')
+                ? _options.BaseUrl
+                : $"{_options.BaseUrl}/";
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                new Uri(new Uri(normalizedBaseUrl), "embeddings")
+            );
+            request.Headers.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                _options.ApiKey
+            );
+            request.Content = JsonContent.Create(
+                new EmbeddingRequest(_options.Model, batch, _options.Dimension)
             );
 
-        foreach (var item in payload.Data)
-        {
-            if (item.Index < 0 || item.Index >= missingTexts.Count)
-                throw new InvalidOperationException(
-                    "Embedding API returned an invalid result index."
+            using var response = await _httpClient.SendAsync(request, ct);
+            response.EnsureSuccessStatusCode();
+            var payload =
+                await response.Content.ReadFromJsonAsync<EmbeddingResponse>(cancellationToken: ct)
+                ?? throw new ServiceUnavailableException(
+                    "Embedding API returned an empty response."
                 );
-            if (item.Embedding.Length != _options.Dimension)
-                throw new InvalidOperationException(
-                    $"Embedding API returned dimension {item.Embedding.Length}; expected {_options.Dimension}."
+            if (payload.Data.Count != batch.Length)
+                throw new ServiceUnavailableException(
+                    "Embedding API returned an unexpected result count."
                 );
 
-            var text = missingTexts[item.Index];
-            _cache.Set(GetCacheKey(text), item.Embedding, TimeSpan.FromHours(12));
-            result[text] = item.Embedding;
+            foreach (var item in payload.Data)
+            {
+                if (item.Index < 0 || item.Index >= batch.Length)
+                    throw new ServiceUnavailableException(
+                        "Embedding API returned an invalid result index."
+                    );
+                if (item.Embedding.Length != _options.Dimension)
+                    throw new ServiceUnavailableException(
+                        $"Embedding API returned dimension {item.Embedding.Length}; expected {_options.Dimension}."
+                    );
+
+                var text = batch[item.Index];
+                _cache.Set(GetCacheKey(text), item.Embedding, TimeSpan.FromHours(12));
+                result[text] = item.Embedding;
+            }
         }
 
         return result;

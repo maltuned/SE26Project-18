@@ -8,6 +8,6 @@ public sealed record UpdateRecruitmentRequest(
     [StringLength(4000)] string? Description = null,
     [Range(1, int.MaxValue)] int? MaxParticipants = null,
     DateTime? ExpiresAt = null,
-    RecruitmentStatus? Status = null,
+    [EnumDataType(typeof(RecruitmentStatus))] RecruitmentStatus? Status = null,
     IReadOnlyCollection<long>? RecruitmentTagIds = null
 );

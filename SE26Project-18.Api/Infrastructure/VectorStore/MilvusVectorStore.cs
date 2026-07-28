@@ -125,20 +125,52 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
         }
     }
 
-    public async Task UpsertAsync(VectorRecord record, CancellationToken ct)
+    public Task UpsertAsync(VectorRecord record, CancellationToken ct)
+    {
+        return UpsertManyAsync([record], ct);
+    }
+
+    public async Task UpsertManyAsync(
+        IReadOnlyCollection<VectorRecord> records,
+        CancellationToken ct
+    )
     {
         ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(record);
-        var definition = GetEnsuredDefinition(record.IndexName);
-        ValidateRecord(record, definition);
+        ArgumentNullException.ThrowIfNull(records);
+        if (records.Count == 0)
+            return;
 
-        var data = new List<FieldData> { FieldData.Create(IdFieldName, new[] { record.Id }) };
-        foreach (var field in definition.Fields)
+        var recordList = records.ToList();
+        var definition = GetEnsuredDefinition(recordList[0].IndexName);
+        var ids = new HashSet<long>();
+        foreach (var record in recordList)
         {
-            data.Add(FieldData.CreateFloatVector(field.Name, new[] { record.Vectors[field.Name] }));
+            ArgumentNullException.ThrowIfNull(record);
+            if (record.IndexName != definition.Name)
+                throw new ArgumentException(
+                    "Every record in a batch must target the same index.",
+                    nameof(records)
+                );
+            if (!ids.Add(record.Id))
+                throw new ArgumentException("Batch record IDs must be unique.", nameof(records));
+            ValidateRecord(record, definition);
         }
 
-        await _client.GetCollection(record.IndexName).UpsertAsync(data, cancellationToken: ct);
+        var data = new List<FieldData>
+        {
+            FieldData.Create(IdFieldName, recordList.Select(record => record.Id).ToArray()),
+        };
+        foreach (var field in definition.Fields)
+        {
+            data.Add(
+                FieldData.CreateFloatVector(
+                    field.Name,
+                    recordList.Select(record => record.Vectors[field.Name]).ToArray()
+                )
+            );
+        }
+
+        await _client.GetCollection(definition.Name).UpsertAsync(data, cancellationToken: ct);
     }
 
     public async Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
@@ -158,6 +190,12 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 new[] { request.QueryVector },
                 ToMilvusMetric(definition.Metric),
                 request.Limit,
+                new SearchParameters
+                {
+                    Expression = request.AllowedIds is { Count: > 0 }
+                        ? $"{IdFieldName} in [{string.Join(",", request.AllowedIds)}]"
+                        : null,
+                },
                 cancellationToken: ct
             );
         var ids = result.Ids.LongIds;
@@ -432,6 +470,9 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 $"Search limit must be between 1 and {MaximumSearchLimit}."
             );
         }
+
+        if (request.AllowedIds is { Count: 0 })
+            throw new ArgumentException("Allowed search IDs cannot be empty.", nameof(request));
     }
 
     private static bool DefinitionsMatch(VectorIndexDefinition first, VectorIndexDefinition second)

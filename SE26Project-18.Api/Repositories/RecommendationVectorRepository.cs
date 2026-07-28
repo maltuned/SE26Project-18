@@ -14,13 +14,16 @@ internal sealed class RecommendationVectorRepository
     private readonly VectorIndexDefinition _userGameTagIndex;
     private readonly VectorIndexDefinition _gameIndex;
     private readonly VectorIndexDefinition _recruitmentIndex;
+    private readonly int _batchSize;
 
     public RecommendationVectorRepository(
         IVectorStore vectorStore,
-        IOptions<EmbeddingOptions> options
+        IOptions<EmbeddingOptions> options,
+        IOptions<EmbeddingSyncOptions> syncOptions
     )
     {
         _vectorStore = vectorStore;
+        _batchSize = syncOptions.Value.MilvusBatchSize;
         var dimension = options.Value.Dimension;
         _userOwnTagIndex = CreateIndex("user_own_tag_profiles", "user_tag_vector", dimension);
         _userInterestedTagIndex = CreateIndex(
@@ -56,29 +59,12 @@ internal sealed class RecommendationVectorRepository
 
     public Task UpsertUserProfileAsync(UserVectorProfile profile, CancellationToken ct)
     {
-        var operations = new List<Task>(4);
-        AddUpsert(operations, _userOwnTagIndex, profile.UserId, profile.OwnUserTagVector, ct);
-        AddUpsert(
-            operations,
-            _userInterestedTagIndex,
-            profile.UserId,
-            profile.InterestedUserTagVector,
-            ct
-        );
-        AddUpsert(
-            operations,
-            _userRecruitmentTagIndex,
-            profile.UserId,
-            profile.RecruitmentTagVector,
-            ct
-        );
-        AddUpsert(operations, _userGameTagIndex, profile.UserId, profile.GameTagVector, ct);
-        return Task.WhenAll(operations);
+        return SynchronizeUserProfilesAsync([profile], ct);
     }
 
     public Task UpsertGameProfileAsync(GameVectorProfile profile, CancellationToken ct)
     {
-        return UpsertAsync(_gameIndex, profile.GameId, profile.GameTagVector, ct);
+        return SynchronizeGameProfilesAsync([profile], ct);
     }
 
     public Task UpsertRecruitmentProfileAsync(
@@ -86,10 +72,70 @@ internal sealed class RecommendationVectorRepository
         CancellationToken ct
     )
     {
-        return UpsertAsync(
+        return SynchronizeRecruitmentProfilesAsync([profile], ct);
+    }
+
+    public Task SynchronizeUserProfilesAsync(
+        IReadOnlyCollection<UserVectorProfile> profiles,
+        CancellationToken ct
+    )
+    {
+        return Task.WhenAll(
+            SynchronizeIndexAsync(
+                _userOwnTagIndex,
+                profiles,
+                profile => profile.UserId,
+                profile => profile.OwnUserTagVector,
+                ct
+            ),
+            SynchronizeIndexAsync(
+                _userInterestedTagIndex,
+                profiles,
+                profile => profile.UserId,
+                profile => profile.InterestedUserTagVector,
+                ct
+            ),
+            SynchronizeIndexAsync(
+                _userRecruitmentTagIndex,
+                profiles,
+                profile => profile.UserId,
+                profile => profile.RecruitmentTagVector,
+                ct
+            ),
+            SynchronizeIndexAsync(
+                _userGameTagIndex,
+                profiles,
+                profile => profile.UserId,
+                profile => profile.GameTagVector,
+                ct
+            )
+        );
+    }
+
+    public Task SynchronizeGameProfilesAsync(
+        IReadOnlyCollection<GameVectorProfile> profiles,
+        CancellationToken ct
+    )
+    {
+        return SynchronizeIndexAsync(
+            _gameIndex,
+            profiles,
+            profile => profile.GameId,
+            profile => profile.GameTagVector,
+            ct
+        );
+    }
+
+    public Task SynchronizeRecruitmentProfilesAsync(
+        IReadOnlyCollection<RecruitmentVectorProfile> profiles,
+        CancellationToken ct
+    )
+    {
+        return SynchronizeIndexAsync(
             _recruitmentIndex,
-            profile.RecruitmentId,
-            profile.RecruitmentTagVector,
+            profiles,
+            profile => profile.RecruitmentId,
+            profile => profile.RecruitmentTagVector,
             ct
         );
     }
@@ -112,39 +158,39 @@ internal sealed class RecommendationVectorRepository
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchUsersByOwnTagAsync(
         ReadOnlyMemory<float> queryVector,
-        int limit,
+        IReadOnlyCollection<long> allowedIds,
         CancellationToken ct
-    ) => SearchAsync(_userOwnTagIndex, queryVector, limit, ct);
+    ) => SearchAsync(_userOwnTagIndex, queryVector, allowedIds, ct);
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchUsersByInterestedTagAsync(
         ReadOnlyMemory<float> queryVector,
-        int limit,
+        IReadOnlyCollection<long> allowedIds,
         CancellationToken ct
-    ) => SearchAsync(_userInterestedTagIndex, queryVector, limit, ct);
+    ) => SearchAsync(_userInterestedTagIndex, queryVector, allowedIds, ct);
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchUsersByRecruitmentTagAsync(
         ReadOnlyMemory<float> queryVector,
-        int limit,
+        IReadOnlyCollection<long> allowedIds,
         CancellationToken ct
-    ) => SearchAsync(_userRecruitmentTagIndex, queryVector, limit, ct);
+    ) => SearchAsync(_userRecruitmentTagIndex, queryVector, allowedIds, ct);
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchUsersByGameTagAsync(
         ReadOnlyMemory<float> queryVector,
-        int limit,
+        IReadOnlyCollection<long> allowedIds,
         CancellationToken ct
-    ) => SearchAsync(_userGameTagIndex, queryVector, limit, ct);
+    ) => SearchAsync(_userGameTagIndex, queryVector, allowedIds, ct);
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchGamesByGameTagAsync(
         ReadOnlyMemory<float> queryVector,
-        int limit,
+        IReadOnlyCollection<long> allowedIds,
         CancellationToken ct
-    ) => SearchAsync(_gameIndex, queryVector, limit, ct);
+    ) => SearchAsync(_gameIndex, queryVector, allowedIds, ct);
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchRecruitmentsByRecruitmentTagAsync(
         ReadOnlyMemory<float> queryVector,
-        int limit,
+        IReadOnlyCollection<long> allowedIds,
         CancellationToken ct
-    ) => SearchAsync(_recruitmentIndex, queryVector, limit, ct);
+    ) => SearchAsync(_recruitmentIndex, queryVector, allowedIds, ct);
 
     private static VectorIndexDefinition CreateIndex(string name, string fieldName, int dimension)
     {
@@ -155,49 +201,67 @@ internal sealed class RecommendationVectorRepository
         );
     }
 
-    private void AddUpsert(
-        ICollection<Task> operations,
+    private async Task SynchronizeIndexAsync<TProfile>(
         VectorIndexDefinition index,
-        long id,
-        ReadOnlyMemory<float>? vector,
+        IReadOnlyCollection<TProfile> profiles,
+        Func<TProfile, long> getId,
+        Func<TProfile, ReadOnlyMemory<float>?> getVector,
         CancellationToken ct
     )
     {
-        if (vector.HasValue)
-            operations.Add(UpsertAsync(index, id, vector.Value, ct));
-    }
-
-    private Task UpsertAsync(
-        VectorIndexDefinition index,
-        long id,
-        ReadOnlyMemory<float> vector,
-        CancellationToken ct
-    )
-    {
-        return _vectorStore.UpsertAsync(
-            new VectorRecord(
+        var fieldName = index.Fields.Single().Name;
+        var upserts = profiles
+            .Where(profile => getVector(profile).HasValue)
+            .Select(profile => new VectorRecord(
                 index.Name,
-                id,
+                getId(profile),
                 new Dictionary<string, ReadOnlyMemory<float>>
                 {
-                    [index.Fields.Single().Name] = vector,
+                    [fieldName] = getVector(profile)!.Value,
                 }
-            ),
-            ct
-        );
+            ))
+            .ToList();
+        var deletes = profiles
+            .Where(profile => !getVector(profile).HasValue)
+            .Select(getId)
+            .Distinct()
+            .ToList();
+
+        foreach (var batch in upserts.Chunk(_batchSize))
+            await _vectorStore.UpsertManyAsync(batch, ct);
+        foreach (var batch in deletes.Chunk(_batchSize))
+            await _vectorStore.DeleteAsync(index.Name, batch, ct);
     }
 
-    private Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
+    private async Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
         VectorIndexDefinition index,
         ReadOnlyMemory<float> queryVector,
-        int limit,
+        IReadOnlyCollection<long> allowedIds,
         CancellationToken ct
     )
     {
-        return _vectorStore.SearchAsync(
-            new VectorSearchRequest(index.Name, index.Fields.Single().Name, queryVector, limit),
-            ct
-        );
+        var ids = allowedIds.Distinct().ToArray();
+        if (ids.Length == 0)
+            return [];
+
+        var tasks = ids.Chunk(1_000)
+            .Select(chunk =>
+                _vectorStore.SearchAsync(
+                    new VectorSearchRequest(
+                        index.Name,
+                        index.Fields.Single().Name,
+                        queryVector,
+                        chunk.Length,
+                        chunk
+                    ),
+                    ct
+                )
+            );
+        var results = await Task.WhenAll(tasks);
+        return results
+            .SelectMany(result => result)
+            .OrderByDescending(result => result.Score)
+            .ToList();
     }
 
     private Task DeleteAsync(VectorIndexDefinition index, long id, CancellationToken ct)
