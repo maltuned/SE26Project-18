@@ -27,7 +27,9 @@ internal sealed class AuthService : IAuthService
     {
         var exists = await _db.Users.AnyAsync(u => u.Username == request.Username, ct);
         if (exists)
+        {
             throw new ConflictException("Username already exists.");
+        }
 
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         var passwordHashed = BCrypt.Net.BCrypt.HashPassword(request.Password);
@@ -46,10 +48,14 @@ internal sealed class AuthService : IAuthService
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username, ct);
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHashed))
+        {
             throw new AuthenticationException("Invalid username or password.");
+        }
 
         if (user.Status == UserStatus.Suspended)
+        {
             throw new AuthenticationException("User account is suspended.");
+        }
 
         var tokens = IssueTokens(user);
         await _db.SaveChangesAsync(ct);
@@ -68,10 +74,14 @@ internal sealed class AuthService : IAuthService
             .FirstOrDefaultAsync(rt => rt.TokenHashed == tokenHashed, ct);
 
         if (storedToken is null || storedToken.IsRevoked || storedToken.ExpiresAt <= now)
+        {
             throw new AuthenticationException("Invalid or expired refresh token.");
+        }
 
         if (storedToken.User.Status == UserStatus.Suspended)
+        {
             throw new AuthenticationException("User account is suspended.");
+        }
 
         var consumed = await _db
             .RefreshTokens.Where(rt =>
@@ -79,7 +89,9 @@ internal sealed class AuthService : IAuthService
             )
             .ExecuteUpdateAsync(setters => setters.SetProperty(rt => rt.IsRevoked, true), ct);
         if (consumed != 1)
+        {
             throw new AuthenticationException("Invalid or expired refresh token.");
+        }
 
         await CleanupStaleTokensAsync(storedToken.UserId, ct);
         var newTokens = IssueTokens(storedToken.User);

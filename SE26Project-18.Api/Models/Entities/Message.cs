@@ -19,4 +19,10 @@ internal class Message
         Content = content;
         SentAt = sentAt;
     }
+
+    private Message()
+    {
+        Sender = null!;
+        Content = string.Empty;
+    }
 }

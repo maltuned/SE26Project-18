@@ -31,7 +31,9 @@ public sealed class ChatController : ControllerBase
         var currentUserId = GetCurrentUserId();
 
         if (userId == currentUserId)
+        {
             throw new ValidationException("UserId must identify another user.");
+        }
 
         var chat = await _chatService.GetChatByUserAsync(currentUserId, userId, ct);
         return Ok(chat ?? throw new NotFoundException("Chat not found."));
@@ -42,7 +44,9 @@ public sealed class ChatController : ControllerBase
     {
         var chat = await _chatService.GetChatByIdAsync(id, GetCurrentUserId(), ct);
         if (chat is null)
+        {
             throw new NotFoundException("Chat not found.");
+        }
 
         return Ok(chat);
     }
@@ -50,7 +54,9 @@ public sealed class ChatController : ControllerBase
     private long GetCurrentUserId()
     {
         if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
             throw new AuthenticationException("Token does not contain a valid user identifier.");
+        }
 
         return userId;
     }

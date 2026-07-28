@@ -11,4 +11,8 @@ public interface IGameService
     );
 
     Task<GameResponse?> GetById(long id, CancellationToken ct);
+
+    Task<GameResponse> CreateAsync(CreateGameRequest request, CancellationToken ct);
+
+    Task<GameResponse> UpdateAsync(long id, UpdateGameRequest request, CancellationToken ct);
 }

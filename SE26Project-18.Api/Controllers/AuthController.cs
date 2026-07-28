@@ -53,7 +53,9 @@ public sealed class AuthController : ControllerBase
     )
     {
         if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
             throw new AuthenticationException("Token does not contain a valid user identifier.");
+        }
 
         await _authService.LogoutAsync(userId, request.RefreshToken, ct);
         return NoContent();

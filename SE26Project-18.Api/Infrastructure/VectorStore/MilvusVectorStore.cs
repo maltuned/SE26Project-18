@@ -7,7 +7,9 @@ namespace SE26Project_18.Api.Infrastructure.VectorStore;
 internal sealed class MilvusVectorStore : IVectorStore, IDisposable
 {
     private const string IdFieldName = "id";
+
     private const int MaximumSearchLimit = 16_384;
+
     private static readonly TimeSpan InitializationTimeout = TimeSpan.FromMinutes(5);
 
     private readonly MilvusClient _client;
@@ -97,7 +99,9 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 catch (MilvusException)
                 {
                     if (!await _client.HasCollectionAsync(definition.Name, cancellationToken: ct))
+                    {
                         throw;
+                    }
 
                     await ValidateExistingSchemaAsync(collection, definition, ct);
                 }
@@ -123,20 +127,58 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
         }
     }
 
-    public async Task UpsertAsync(VectorRecord record, CancellationToken ct)
+    public Task UpsertAsync(VectorRecord record, CancellationToken ct)
+    {
+        return UpsertManyAsync([record], ct);
+    }
+
+    public async Task UpsertManyAsync(
+        IReadOnlyCollection<VectorRecord> records,
+        CancellationToken ct
+    )
     {
         ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(record);
-        var definition = GetEnsuredDefinition(record.IndexName);
-        ValidateRecord(record, definition);
-
-        var data = new List<FieldData> { FieldData.Create(IdFieldName, new[] { record.Id }) };
-        foreach (var field in definition.Fields)
+        ArgumentNullException.ThrowIfNull(records);
+        if (records.Count == 0)
         {
-            data.Add(FieldData.CreateFloatVector(field.Name, new[] { record.Vectors[field.Name] }));
+            return;
         }
 
-        await _client.GetCollection(record.IndexName).UpsertAsync(data, cancellationToken: ct);
+        var recordList = records.ToList();
+        var definition = GetEnsuredDefinition(recordList[0].IndexName);
+        var ids = new HashSet<long>();
+        foreach (var record in recordList)
+        {
+            ArgumentNullException.ThrowIfNull(record);
+            if (record.IndexName != definition.Name)
+            {
+                throw new ArgumentException(
+                    "Every record in a batch must target the same index.",
+                    nameof(records)
+                );
+            }
+            if (!ids.Add(record.Id))
+            {
+                throw new ArgumentException("Batch record IDs must be unique.", nameof(records));
+            }
+            ValidateRecord(record, definition);
+        }
+
+        var data = new List<FieldData>
+        {
+            FieldData.Create(IdFieldName, recordList.Select(record => record.Id).ToArray()),
+        };
+        foreach (var field in definition.Fields)
+        {
+            data.Add(
+                FieldData.CreateFloatVector(
+                    field.Name,
+                    recordList.Select(record => record.Vectors[field.Name]).ToArray()
+                )
+            );
+        }
+
+        await _client.GetCollection(definition.Name).UpsertAsync(data, cancellationToken: ct);
     }
 
     public async Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
@@ -156,19 +198,29 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 new[] { request.QueryVector },
                 ToMilvusMetric(definition.Metric),
                 request.Limit,
+                new SearchParameters
+                {
+                    Expression = request.AllowedIds is { Count: > 0 }
+                        ? $"{IdFieldName} in [{string.Join(",", request.AllowedIds)}]"
+                        : null,
+                },
                 cancellationToken: ct
             );
         var ids = result.Ids.LongIds;
 
         if (ids is null)
+        {
             throw new InvalidOperationException(
                 $"The index '{request.IndexName}' did not return Int64 primary keys."
             );
+        }
 
         if (ids.Count != result.Scores.Count)
+        {
             throw new InvalidOperationException(
                 $"The index '{request.IndexName}' returned mismatched search IDs and scores."
             );
+        }
 
         var matches = new List<VectorSearchResult>(ids.Count);
         for (var i = 0; i < ids.Count; i++)
@@ -189,7 +241,9 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
         ArgumentNullException.ThrowIfNull(ids);
         ct.ThrowIfCancellationRequested();
         if (ids.Count == 0)
+        {
             return;
+        }
 
         _ = GetEnsuredDefinition(indexName);
         var expression = $"{IdFieldName} in [{string.Join(",", ids)}]";
@@ -199,7 +253,9 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
             return;
+        }
 
         _client.Dispose();
 
@@ -273,7 +329,9 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
     private VectorIndexDefinition GetEnsuredDefinition(string indexName)
     {
         if (string.IsNullOrWhiteSpace(indexName))
+        {
             throw new ArgumentException("An index name is required.", nameof(indexName));
+        }
 
         return _definitions.TryGetValue(indexName, out var definition)
             ? definition
@@ -287,13 +345,17 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
         ArgumentNullException.ThrowIfNull(definition.Fields);
 
         if (string.IsNullOrWhiteSpace(definition.Name))
+        {
             throw new ArgumentException("An index name is required.", nameof(definition));
+        }
 
         if (definition.Fields.Count == 0)
+        {
             throw new ArgumentException(
                 "An index must contain at least one vector field.",
                 nameof(definition)
             );
+        }
 
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var field in definition.Fields)
@@ -301,25 +363,33 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
             ArgumentNullException.ThrowIfNull(field);
 
             if (string.IsNullOrWhiteSpace(field.Name))
+            {
                 throw new ArgumentException("A vector field name is required.", nameof(definition));
+            }
 
             if (field.Name == IdFieldName)
+            {
                 throw new ArgumentException(
                     $"'{IdFieldName}' is reserved for the primary key field.",
                     nameof(definition)
                 );
+            }
 
             if (field.Dimension <= 0)
+            {
                 throw new ArgumentException(
                     "A vector field dimension must be positive.",
                     nameof(definition)
                 );
+            }
 
             if (!names.Add(field.Name))
+            {
                 throw new ArgumentException(
                     "Vector field names must be unique.",
                     nameof(definition)
                 );
+            }
         }
     }
 
@@ -430,6 +500,11 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 $"Search limit must be between 1 and {MaximumSearchLimit}."
             );
         }
+
+        if (request.AllowedIds is { Count: 0 })
+        {
+            throw new ArgumentException("Allowed search IDs cannot be empty.", nameof(request));
+        }
     }
 
     private static bool DefinitionsMatch(VectorIndexDefinition first, VectorIndexDefinition second)
@@ -495,7 +570,9 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 indexes = await collection.DescribeIndexAsync(field.Name, cancellationToken: ct);
                 index = indexes.SingleOrDefault(candidate => candidate.IndexName == indexName);
                 if (index is null)
+                {
                     throw;
+                }
             }
 
             indexes = await collection.DescribeIndexAsync(field.Name, cancellationToken: ct);

@@ -86,7 +86,9 @@ internal sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
+        {
             return;
+        }
 
         await _gate.WaitAsync();
         try
@@ -108,10 +110,14 @@ internal sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
         }
 
         if (_channel is { IsOpen: true })
+        {
             return _channel;
+        }
 
         if (_channel is not null)
+        {
             await _channel.DisposeAsync();
+        }
 
         _channel = await _connection.CreateChannelAsync(
             new CreateChannelOptions(

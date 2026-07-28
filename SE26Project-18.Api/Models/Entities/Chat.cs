@@ -28,4 +28,11 @@ internal class Chat
         User1 = user1;
         User2 = user2;
     }
+
+    private Chat()
+    {
+        Recruitment = null!;
+        User1 = null!;
+        User2 = null!;
+    }
 }
