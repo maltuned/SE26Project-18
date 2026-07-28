@@ -25,3 +25,6 @@ internal sealed class NotFoundException(string message)
 
 internal sealed class ConflictException(string message)
     : ApiException(message, StatusCodes.Status409Conflict);
+
+internal sealed class ServiceUnavailableException(string message)
+    : ApiException(message, StatusCodes.Status503ServiceUnavailable);

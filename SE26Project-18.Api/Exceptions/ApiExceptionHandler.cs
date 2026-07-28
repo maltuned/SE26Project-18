@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Milvus.Client;
 using MySqlConnector;
 using SE26Project_18.Api.Models.Exceptions;
 
@@ -43,6 +44,16 @@ internal sealed class ApiExceptionHandler : IExceptionHandler
                 "Persistence conflict",
                 "The operation conflicts with existing data."
             ),
+            HttpRequestException => (
+                StatusCodes.Status503ServiceUnavailable,
+                "External dependency unavailable",
+                "The embedding service is currently unavailable."
+            ),
+            MilvusException => (
+                StatusCodes.Status503ServiceUnavailable,
+                "Vector store unavailable",
+                "The vector store is currently unavailable."
+            ),
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "Internal server error",
@@ -51,17 +62,21 @@ internal sealed class ApiExceptionHandler : IExceptionHandler
         };
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
+        {
             _logger.LogError(
                 exception,
                 "Unhandled exception while handling {Method} {Path}",
                 httpContext.Request.Method,
                 httpContext.Request.Path
             );
+        }
 
         httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/problem+json";
         if (statusCode == StatusCodes.Status401Unauthorized)
+        {
             httpContext.Response.Headers.WWWAuthenticate = "Bearer";
+        }
         await httpContext.Response.WriteAsJsonAsync(
             new ProblemDetails
             {

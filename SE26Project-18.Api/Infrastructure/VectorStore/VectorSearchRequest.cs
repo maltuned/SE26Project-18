@@ -4,5 +4,6 @@ internal sealed record VectorSearchRequest(
     string IndexName,
     string VectorFieldName,
     ReadOnlyMemory<float> QueryVector,
-    int Limit
+    int Limit,
+    IReadOnlyCollection<long>? AllowedIds = null
 );

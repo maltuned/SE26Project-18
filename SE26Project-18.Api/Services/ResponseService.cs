@@ -1,20 +1,25 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Mappings;
 using SE26Project_18.Api.Models.Responses;
+using SE26Project_18.Api.Services.Recommendations;
 
 namespace SE26Project_18.Api.Services;
 
 internal sealed class ResponseService : IResponseService
 {
     private readonly AppDbContext _db;
+    private readonly IEmbeddingSyncScheduler _embeddingSync;
 
-    public ResponseService(AppDbContext db)
+    public ResponseService(AppDbContext db, IEmbeddingSyncScheduler embeddingSync)
     {
         _db = db;
+        _embeddingSync = embeddingSync;
     }
 
     public async Task<ResponseResponse> CreateAsync(
@@ -23,7 +28,10 @@ internal sealed class ResponseService : IResponseService
         CancellationToken ct
     )
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            ct
+        );
         var recruitment =
             await _db
                 .Recruitments.Include(r => r.Recruiter)
@@ -33,7 +41,9 @@ internal sealed class ResponseService : IResponseService
         EnsureRecruitmentCanProcess(recruitment);
 
         if (recruitment.Recruiter.Id == userId)
+        {
             throw new ConflictException("Recruiters cannot respond to their own recruitment.");
+        }
 
         var responder =
             await _db.Users.FindAsync([userId], ct)
@@ -44,7 +54,9 @@ internal sealed class ResponseService : IResponseService
             ct
         );
         if (exists)
+        {
             throw new ConflictException("A response already exists for this recruitment.");
+        }
 
         var response = new Response(recruitment, responder);
         recruitment.Responses.Add(response);
@@ -59,9 +71,15 @@ internal sealed class ResponseService : IResponseService
         );
 
         if (chat is null)
+        {
             _db.Chats.Add(new Chat(recruitment, user1, user2));
+        }
         else
+        {
             chat.Recruitment = recruitment;
+        }
+
+        _embeddingSync.Schedule(EmbeddingTarget.User, userId);
 
         await _db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -80,7 +98,9 @@ internal sealed class ResponseService : IResponseService
             ?? throw new NotFoundException("Response not found.");
 
         if (response.Responder.Id != userId && response.Recruitment.Recruiter.Id != userId)
+        {
             throw new ForbiddenException("You are not a participant in this response.");
+        }
 
         return response.ToResponse();
     }
@@ -96,6 +116,7 @@ internal sealed class ResponseService : IResponseService
 
         response.Accept();
         response.Recruitment.AddParticipant();
+        _embeddingSync.Schedule(EmbeddingTarget.User, recruiterId);
 
         await _db.SaveChangesAsync(ct);
 
@@ -128,7 +149,9 @@ internal sealed class ResponseService : IResponseService
             ?? throw new NotFoundException("Response not found.");
 
         if (response.Recruitment.Recruiter.Id != recruiterId)
+        {
             throw new ForbiddenException("Only the recruitment recruiter can process responses.");
+        }
 
         return response;
     }
@@ -136,13 +159,19 @@ internal sealed class ResponseService : IResponseService
     private static void EnsureRecruitmentCanProcess(Recruitment recruitment)
     {
         if (recruitment.Status != RecruitmentStatus.Open)
+        {
             throw new ConflictException("Recruitment is closed.");
+        }
 
         if (recruitment.ExpiresAt <= DateTime.UtcNow)
+        {
             throw new ConflictException("Recruitment has expired.");
+        }
 
         if (recruitment.CurrParticipants >= recruitment.MaxParticipants)
+        {
             throw new ConflictException("Recruitment is full.");
+        }
     }
 
     private IQueryable<Response> BaseQuery(bool tracking = false)

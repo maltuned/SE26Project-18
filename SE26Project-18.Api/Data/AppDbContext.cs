@@ -9,13 +9,28 @@ internal sealed class AppDbContext : DbContext
         : base(options) { }
 
     public DbSet<Chat> Chats => Set<Chat>();
+
+    public DbSet<EmbeddingSyncOutboxMessage> EmbeddingSyncOutbox =>
+        Set<EmbeddingSyncOutboxMessage>();
+
     public DbSet<Game> Games => Set<Game>();
+
     public DbSet<GameTag> GameTags => Set<GameTag>();
+
     public DbSet<Message> Messages => Set<Message>();
+
     public DbSet<Recruitment> Recruitments => Set<Recruitment>();
+
+    public DbSet<RecruitmentTag> RecruitmentTags => Set<RecruitmentTag>();
+
+    public DbSet<RecruitmentView> RecruitmentViews => Set<RecruitmentView>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     public DbSet<Response> Responses => Set<Response>();
+
     public DbSet<User> Users => Set<User>();
+
     public DbSet<UserTag> UserTags => Set<UserTag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -53,13 +68,23 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("games");
             entity.HasKey(g => g.Id);
+            entity.HasIndex(g => g.Name).IsUnique();
             entity.HasMany(g => g.Tags).WithMany();
+        });
+
+        modelBuilder.Entity<EmbeddingSyncOutboxMessage>(entity =>
+        {
+            entity.ToTable("embedding_sync_outbox");
+            entity.HasKey(message => message.Id);
+            entity.HasIndex(message => new { message.PublishedAt, message.LeaseExpiresAt });
+            entity.Property(message => message.LastError).HasMaxLength(2_000);
         });
 
         modelBuilder.Entity<GameTag>(entity =>
         {
             entity.ToTable("game_tags");
             entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.Name).IsUnique();
         });
 
         modelBuilder.Entity<Message>(entity =>
@@ -89,9 +114,34 @@ internal sealed class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
             entity
                 .HasMany(r => r.Responses)
-                .WithOne()
-                .HasForeignKey("RecruitmentId")
+                .WithOne(response => response.Recruitment)
+                .HasForeignKey(response => response.RecruitmentId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(r => r.Tags).WithMany();
+        });
+
+        modelBuilder.Entity<RecruitmentTag>(entity =>
+        {
+            entity.ToTable("recruitment_tags");
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<RecruitmentView>(entity =>
+        {
+            entity.ToTable("recruitment_views");
+            entity.HasKey(v => v.Id);
+            entity
+                .HasOne(v => v.User)
+                .WithMany()
+                .HasForeignKey(v => v.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(v => v.Recruitment)
+                .WithMany()
+                .HasForeignKey(v => v.RecruitmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(v => new { v.UserId, v.RecruitmentId }).IsUnique();
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>
@@ -113,9 +163,9 @@ internal sealed class AppDbContext : DbContext
             entity
                 .HasOne(r => r.Responder)
                 .WithMany()
-                .HasForeignKey("ResponderId")
+                .HasForeignKey(r => r.ResponderId)
                 .OnDelete(DeleteBehavior.Restrict);
-            entity.HasIndex("RecruitmentId", "ResponderId").IsUnique();
+            entity.HasIndex(r => new { r.RecruitmentId, r.ResponderId }).IsUnique();
         });
 
         modelBuilder.Entity<User>(entity =>
@@ -130,6 +180,7 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("user_tags");
             entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.Name).IsUnique();
         });
     }
 }

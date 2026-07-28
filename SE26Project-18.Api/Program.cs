@@ -5,17 +5,26 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Infrastructure.Messaging;
 using SE26Project_18.Api.Infrastructure.VectorStore;
 using SE26Project_18.Api.Repositories;
 using SE26Project_18.Api.Services;
+using SE26Project_18.Api.Services.Recommendations;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString =
+    builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException(
+        "The default database connection string is not configured."
+    );
+var serverVersion = ServerVersion.AutoDetect(connectionString);
+MariaDbCompatibility.Validate(serverVersion);
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("Default");
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    options.UseMySql(connectionString, serverVersion);
 });
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
@@ -85,6 +94,18 @@ builder
     .ValidateOnStart();
 builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
 builder
+    .Services.AddOptions<EmbeddingOptions>()
+    .BindConfiguration(EmbeddingOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder
+    .Services.AddOptions<EmbeddingSyncOptions>()
+    .BindConfiguration(EmbeddingSyncOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IEmbeddingService, OpenAiEmbeddingService>();
+builder
     .Services.AddOptions<MilvusOptions>()
     .BindConfiguration(MilvusOptions.SectionName)
     .ValidateDataAnnotations()
@@ -92,11 +113,26 @@ builder
 builder.Services.AddSingleton<IVectorStore, MilvusVectorStore>();
 builder.Services.AddSingleton<RecommendationVectorRepository>();
 builder.Services.AddHostedService<RecommendationVectorStoreInitializer>();
+builder.Services.AddRabbitMqBatchConsumer<EmbeddingSyncRequested, EmbeddingSyncBatchConsumer>(
+    EmbeddingSyncRequested.EventName,
+    EmbeddingSyncRequested.QueueName
+);
+builder.Services.AddHostedService<EmbeddingSyncOutboxDispatcher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGameService, GameService>();
+builder.Services.AddScoped<IRecruitmentService, RecruitmentService>();
+builder.Services.AddScoped<
+    IRecruitmentRecommendationAlgorithm,
+    EmbeddingRecruitmentRecommendationAlgorithm
+>();
+builder.Services.AddScoped<IUserPreferenceProfileBuilder, UserPreferenceProfileBuilder>();
+builder.Services.AddScoped<IEmbeddingSyncScheduler, EmbeddingSyncScheduler>();
+builder.Services.AddScoped<TagEmbeddingBuilder>();
+builder.Services.AddScoped<EmbeddingProfileBatchBuilder>();
 builder.Services.AddScoped<IResponseService, ResponseService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITagCatalogService, TagCatalogService>();
 
 builder.Services.AddCors(options =>
 {

@@ -28,10 +28,29 @@ public sealed class GameController : ControllerBase
         return Ok(games);
     }
 
-    [HttpGet("{id:long}")]
+    [HttpGet("{id:long}", Name = "GetGameById")]
     public async Task<IActionResult> GetById(long id, CancellationToken ct)
     {
         var game = await _gameService.GetById(id, ct);
         return Ok(game ?? throw new NotFoundException("Game not found."));
+    }
+
+    [HttpPost]
+    [Authorize(Policy = "RequireAdmin")]
+    public async Task<IActionResult> Create(CreateGameRequest request, CancellationToken ct)
+    {
+        var game = await _gameService.CreateAsync(request, ct);
+        return CreatedAtRoute("GetGameById", new { id = game.Id }, game);
+    }
+
+    [HttpPatch("{id:long}")]
+    [Authorize(Policy = "RequireAdmin")]
+    public async Task<IActionResult> Update(
+        long id,
+        UpdateGameRequest request,
+        CancellationToken ct
+    )
+    {
+        return Ok(await _gameService.UpdateAsync(id, request, ct));
     }
 }

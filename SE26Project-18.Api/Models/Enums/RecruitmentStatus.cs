@@ -1,6 +1,6 @@
 namespace SE26Project_18.Api.Models.Enums;
 
-internal enum RecruitmentStatus
+public enum RecruitmentStatus
 {
     Open,
     Closed,

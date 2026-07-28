@@ -6,6 +6,8 @@ internal interface IVectorStore
 
     Task UpsertAsync(VectorRecord record, CancellationToken ct);
 
+    Task UpsertManyAsync(IReadOnlyCollection<VectorRecord> records, CancellationToken ct);
+
     Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
         VectorSearchRequest request,
         CancellationToken ct
