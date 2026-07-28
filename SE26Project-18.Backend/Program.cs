@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SE26Project_18.Backend.Data;
+using SE26Project_18.Backend.Hubs;
 using SE26Project_18.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,9 +34,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(jwtSecret),
             ClockSkew = TimeSpan.Zero,
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddSignalR();
 
 // Services
 builder.Services.AddSingleton<ITokenService, TokenService>();
@@ -80,4 +97,5 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<ChatHub>("/chatHub");
 app.Run();

@@ -23,13 +23,16 @@ import {
     getMessagesByChatId,
     getRecruitmentById,
     getUserById,
+    markMessagesRead,
     MessageData,
     RecruitmentData,
     sendMessage,
     UserInfo,
 } from "../api/api";
+import { MessageDto } from "../api/dtos";
 import ChatMessage, { ChatMessageInfo } from "../components/chat-message";
 import { useAuth } from "../contexts/auth-context";
+import { useSignalR } from "../contexts/signalr-context";
 import { useTheme } from "../contexts/theme-context";
 
 const testImage = require("../../assets/images/testImage.png");
@@ -39,6 +42,7 @@ export default function ChatRoomScreen() {
   const params = useLocalSearchParams<{ chatId?: string }>();
   const { colors } = useTheme();
   const { userId } = useAuth();
+  const { joinChat, leaveChat, onReceiveMessage, isConnected } = useSignalR();
   const statusBarHeight =
     Platform.OS === "ios" ? 0 : StatusBar.currentHeight || 0;
   const flatListRef = useRef<FlatList>(null);
@@ -125,6 +129,48 @@ export default function ChatRoomScreen() {
       hideSub.remove();
     };
   }, [currentScrollOffset]);
+
+  useEffect(() => {
+    if (!chatId || !userId) return;
+    joinChat(chatId);
+    markMessagesRead(chatId, userId);
+    return () => {
+      leaveChat(chatId);
+    };
+  }, [chatId, userId, joinChat, leaveChat]);
+
+  useEffect(() => {
+    if (isConnected && chatId) {
+      joinChat(chatId);
+    }
+  }, [isConnected, chatId, joinChat]);
+
+  useEffect(() => {
+    const unsub = onReceiveMessage((msg: MessageDto) => {
+      if (msg.chat_id !== chatId) return;
+      if (msg.sender_id === userId) return;
+
+      const newMsg: ChatMessageInfo = {
+        id: String(msg.id),
+        text: msg.content,
+        sender: "other",
+        created_at: msg.created_at,
+      };
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
+      if (userId) {
+        markMessagesRead(chatId!, userId);
+      }
+    });
+
+    return unsub;
+  }, [chatId, userId, onReceiveMessage]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || !userId || !chatId || !otherUserId) return;

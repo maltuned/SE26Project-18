@@ -121,6 +121,7 @@ export interface ChatBriefDto {
   other_user_name: string;
   last_message_content: string;
   last_message_at: string;
+  unread_count: number;
   created_at: string;
 }
 

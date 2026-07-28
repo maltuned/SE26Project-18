@@ -6,6 +6,7 @@ export interface ChatEntryInfo {
   name: string;
   lastMessage: string;
   time: string;
+  unreadCount: number;
 }
 
 interface ChatEntryProps {
@@ -37,12 +38,21 @@ function ChatEntry({ chat, onPress }: ChatEntryProps) {
             {chat.time}
           </Text>
         </View>
-        <Text
-          style={[styles.lastMessage, { color: colors.textTertiary }]}
-          numberOfLines={1}
-        >
-          {chat.lastMessage}
-        </Text>
+        <View style={styles.chatBottom}>
+          <Text
+            style={[styles.lastMessage, { color: colors.textTertiary }]}
+            numberOfLines={1}
+          >
+            {chat.lastMessage}
+          </Text>
+          {chat.unreadCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.badgeText}>
+                {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -81,6 +91,25 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 14,
+    flex: 1,
+  },
+  chatBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
   },
 });
 

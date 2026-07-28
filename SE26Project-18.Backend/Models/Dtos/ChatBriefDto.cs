@@ -19,6 +19,9 @@ public class ChatBriefDto
     [JsonPropertyName("last_message_at")]
     public string LastMessageAt { get; set; } = string.Empty;
 
+    [JsonPropertyName("unread_count")]
+    public int UnreadCount { get; set; }
+
     [JsonPropertyName("created_at")]
     public string CreatedAt { get; set; } = string.Empty;
 }

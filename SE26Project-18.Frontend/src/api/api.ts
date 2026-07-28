@@ -32,6 +32,7 @@ import type {
   UserInfo
 } from "./data-patterns";
 import { tokenStorage } from "./tokenStorage";
+import { API_BASE } from "./config";
 
 // Re-export frontend data patterns for convenience
 export type {
@@ -40,8 +41,6 @@ export type {
 } from "./data-patterns";
 
 // ==================== Config ====================
-
-const API_BASE = "http://10.109.121.199:5111";
 
 let onAuthExpired: (() => void) | null = null;
 
@@ -349,6 +348,7 @@ const mapChatBriefDto = (dto: ChatBriefDto): ChatBrief => ({
   otherUserName: dto.other_user_name,
   lastMessageContent: dto.last_message_content,
   lastMessageAt: dto.last_message_at,
+  unreadCount: dto.unread_count,
   createdAt: dto.created_at,
 });
 
@@ -817,6 +817,17 @@ export const sendMessage = (data: {
     content: data.content,
   });
   return handlePostResponse(response, mapMessageDto);
+};
+
+export const markMessagesRead = async (
+  chatId: number,
+  userId: number,
+): Promise<boolean> => {
+  const response = apiPost<boolean>("/Messages/mark-read", {
+    chat_id: chatId,
+    user_id: userId,
+  });
+  return handlePostResponse(response, (d: boolean) => d);
 };
 
 // ==================== Tag Cache Init ====================

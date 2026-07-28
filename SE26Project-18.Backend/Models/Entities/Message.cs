@@ -17,6 +17,8 @@ public class Message
 
     public DateTime CreatedAt { get; set; }
 
+    public bool IsRead { get; set; }
+
     public Chat Chat { get; set; } = null!;
 
     public User Sender { get; set; } = null!;
@@ -26,6 +28,6 @@ public class Message
     public Message(string content)
     {
         Content = content;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = DateTime.Now;
     }
 }

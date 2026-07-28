@@ -42,6 +42,13 @@ public class MessagesController : ControllerBase
             return Ok(ApiResponse<MessageDto>.Fail(ex.Message, 403));
         }
     }
+
+    [HttpPost("mark-read")]
+    public async Task<ActionResult<ApiResponse<bool>>> MarkAsRead([FromBody] MarkReadRequest request)
+    {
+        await _messageService.MarkAsReadAsync(request.ChatId, request.UserId);
+        return Ok(ApiResponse<bool>.Success(true));
+    }
 }
 
 public class SendMessageRequest
@@ -57,4 +64,13 @@ public class SendMessageRequest
 
     [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
+}
+
+public class MarkReadRequest
+{
+    [JsonPropertyName("chat_id")]
+    public long ChatId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    public long UserId { get; set; }
 }

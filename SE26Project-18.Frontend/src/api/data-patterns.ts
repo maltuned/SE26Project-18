@@ -100,6 +100,7 @@ export interface ChatBrief {
   otherUserName: string;
   lastMessageContent: string;
   lastMessageAt: string;
+  unreadCount: number;
   createdAt: string;
 }
 

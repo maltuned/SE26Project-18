@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -7,19 +7,22 @@ import {
     Text,
     View,
 } from "react-native";
-import { ChatBrief, getChats } from "../../api/api";
+import { ChatBrief, getChats, markMessagesRead } from "../../api/api";
+import { MessageDto } from "../../api/dtos";
 import ChatEntry, { ChatEntryInfo } from "../../components/chat-entry";
 import { useAuth } from "../../contexts/auth-context";
+import { useSignalR } from "../../contexts/signalr-context";
 import { useTheme } from "../../contexts/theme-context";
 
 export default function ChatListScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { userId } = useAuth();
+  const { onNewChatMessage } = useSignalR();
   const [chats, setChats] = useState<ChatBrief[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadChats = React.useCallback(() => {
+  const loadChats = useCallback(() => {
     setLoading(true);
     getChats(userId!).then((data) => {
       const sorted = [...data].sort((a, b) => {
@@ -42,14 +45,47 @@ export default function ChatListScreen() {
   }, [userId, loadChats]);
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       if (userId) {
         loadChats();
       }
     }, [userId, loadChats]),
   );
 
+  useEffect(() => {
+    const unsub = onNewChatMessage((msg: MessageDto) => {
+      setChats((prev) => {
+        const exists = prev.some((c) => c.id === msg.chat_id);
+        if (!exists) {
+          loadChats();
+          return prev;
+        }
+        return prev
+          .map((c) =>
+            c.id === msg.chat_id
+              ? {
+                  ...c,
+                  lastMessageContent: msg.content,
+                  lastMessageAt: msg.created_at,
+                  unreadCount: c.unreadCount + 1,
+                }
+              : c,
+          )
+          .sort((a, b) => {
+            const timeA = a.lastMessageAt || "";
+            const timeB = b.lastMessageAt || "";
+            return new Date(timeB).getTime() - new Date(timeA).getTime();
+          });
+      });
+    });
+
+    return unsub;
+  }, [onNewChatMessage, loadChats]);
+
   const openChat = (chat: ChatBrief) => {
+    if (chat.unreadCount > 0 && userId) {
+      markMessagesRead(chat.id, userId);
+    }
     router.push(`/chat-room?chatId=${chat.id}`);
   };
 
@@ -58,6 +94,7 @@ export default function ChatListScreen() {
     name: entry.otherUserName,
     lastMessage: entry.lastMessageContent,
     time: formatTime(entry.lastMessageAt),
+    unreadCount: entry.unreadCount,
   });
 
   const formatTime = (createdAt?: string): string => {

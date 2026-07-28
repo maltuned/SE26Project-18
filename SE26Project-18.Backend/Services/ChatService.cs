@@ -32,7 +32,19 @@ public class ChatService : IChatService
             .Where(c => c.RecruiterId == userId || c.ResponserId == userId)
             .OrderByDescending(c => c.NewMessageAt ?? c.CreatedAt)
             .ToListAsync();
-        return chats.Select(c => _mapper.ToChatBriefDto(c, userId)).ToList();
+
+        var unreadCounts = await _db.Messages
+            .Where(m => m.ReceiverId == userId && !m.IsRead)
+            .GroupBy(m => m.ChatId)
+            .Select(g => new { ChatId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ChatId, x => x.Count);
+
+        return chats.Select(c =>
+        {
+            var dto = _mapper.ToChatBriefDto(c, userId);
+            dto.UnreadCount = unreadCounts.GetValueOrDefault(c.Id, 0);
+            return dto;
+        }).ToList();
     }
 
     public async Task<ChatDto?> GetChatByIdAsync(long chatId, long currentUserId)

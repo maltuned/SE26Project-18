@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Backend.Data;
+using SE26Project_18.Backend.Hubs;
 using SE26Project_18.Backend.Models.Dtos;
 using SE26Project_18.Backend.Models.Entities;
 using SE26Project_18.Backend.Models.Enums;
@@ -10,11 +12,13 @@ public class MessageService : IMessageService
 {
     private readonly AppDbContext _db;
     private readonly MapperService _mapper;
+    private readonly IHubContext<ChatHub> _hubContext;
 
-    public MessageService(AppDbContext db, MapperService mapper)
+    public MessageService(AppDbContext db, MapperService mapper, IHubContext<ChatHub> hubContext)
     {
         _db = db;
         _mapper = mapper;
+        _hubContext = hubContext;
     }
 
     IQueryable<Message> Query()
@@ -75,6 +79,17 @@ public class MessageService : IMessageService
         _db.Messages.Add(message);
         await _db.SaveChangesAsync();
 
-        return _mapper.ToMessageDto(message);
+        var dto = _mapper.ToMessageDto(message);
+        await _hubContext.Clients.Group($"chat_{chatId}").SendAsync("ReceiveMessage", dto);
+        await _hubContext.Clients.Group($"user_{receiverId}").SendAsync("NewChatMessage", dto);
+
+        return dto;
+    }
+
+    public async Task MarkAsReadAsync(long chatId, long userId)
+    {
+        await _db.Messages
+            .Where(m => m.ChatId == chatId && m.ReceiverId == userId && !m.IsRead)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.IsRead, true));
     }
 }
