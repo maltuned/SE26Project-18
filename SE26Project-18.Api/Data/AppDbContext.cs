@@ -20,6 +20,8 @@ internal sealed class AppDbContext : DbContext
 
     public DbSet<RecruitmentTag> RecruitmentTags => Set<RecruitmentTag>();
 
+    public DbSet<RecruitmentView> RecruitmentViews => Set<RecruitmentView>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<Response> Responses => Set<Response>();
@@ -109,6 +111,23 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("recruitment_tags");
             entity.HasKey(t => t.Id);
+        });
+
+        modelBuilder.Entity<RecruitmentView>(entity =>
+        {
+            entity.ToTable("recruitment_views");
+            entity.HasKey(v => v.Id);
+            entity
+                .HasOne(v => v.User)
+                .WithMany()
+                .HasForeignKey("UserId")
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(v => v.Recruitment)
+                .WithMany()
+                .HasForeignKey("RecruitmentId")
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex("UserId", "RecruitmentId").IsUnique();
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

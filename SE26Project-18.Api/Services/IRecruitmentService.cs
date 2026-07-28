@@ -6,6 +6,7 @@ namespace SE26Project_18.Api.Services;
 public interface IRecruitmentService
 {
     Task<PagedResponse<RecruitmentResponse>> SearchAsync(
+        long userId,
         RecruitmentQueryRequest request,
         CancellationToken ct
     );
@@ -31,4 +32,6 @@ public interface IRecruitmentService
         UpdateRecruitmentRequest request,
         CancellationToken ct
     );
+
+    Task RecordViewAsync(long userId, long recruitmentId, CancellationToken ct);
 }

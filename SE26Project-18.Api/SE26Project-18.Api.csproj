@@ -10,6 +10,8 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.*" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.*" />
     <PackageReference Include="Microsoft.OpenApi" Version="2.*" />
     <PackageReference Include="Milvus.Client" Version="2.3.0-preview.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.*">

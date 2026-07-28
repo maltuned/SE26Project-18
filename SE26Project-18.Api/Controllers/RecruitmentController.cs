@@ -33,7 +33,7 @@ public sealed class RecruitmentController : ControllerBase
         CancellationToken ct
     )
     {
-        return Ok(await _recruitmentService.SearchAsync(request, ct));
+        return Ok(await _recruitmentService.SearchAsync(GetCurrentUserId(), request, ct));
     }
 
     [HttpGet("recruiters/{recruiterId:long}")]
@@ -78,6 +78,13 @@ public sealed class RecruitmentController : ControllerBase
     {
         var response = await _responseService.CreateAsync(GetCurrentUserId(), id, ct);
         return CreatedAtRoute("GetResponseById", new { id = response.Id }, response);
+    }
+
+    [HttpPost("{id:long}/views")]
+    public async Task<IActionResult> RecordView(long id, CancellationToken ct)
+    {
+        await _recruitmentService.RecordViewAsync(GetCurrentUserId(), id, ct);
+        return NoContent();
     }
 
     private long GetCurrentUserId()

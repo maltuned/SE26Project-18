@@ -5,10 +5,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Infrastructure.Messaging;
 using SE26Project_18.Api.Infrastructure.VectorStore;
 using SE26Project_18.Api.Repositories;
 using SE26Project_18.Api.Services;
+using SE26Project_18.Api.Services.Recommendations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -85,6 +87,13 @@ builder
     .ValidateOnStart();
 builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
 builder
+    .Services.AddOptions<EmbeddingOptions>()
+    .BindConfiguration(EmbeddingOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IEmbeddingService, OpenAiEmbeddingService>();
+builder
     .Services.AddOptions<MilvusOptions>()
     .BindConfiguration(MilvusOptions.SectionName)
     .ValidateDataAnnotations()
@@ -96,6 +105,11 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGameService, GameService>();
 builder.Services.AddScoped<IRecruitmentService, RecruitmentService>();
+builder.Services.AddScoped<
+    IRecruitmentRecommendationAlgorithm,
+    EmbeddingRecruitmentRecommendationAlgorithm
+>();
+builder.Services.AddScoped<IUserPreferenceProfileBuilder, UserPreferenceProfileBuilder>();
 builder.Services.AddScoped<IResponseService, ResponseService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
