@@ -45,6 +45,10 @@ internal class Recruitment
         ExpiresAt = expiresAt;
     }
 
+#pragma warning disable CS8618
+    private Recruitment() { } // EF Core
+#pragma warning restore CS8618
+
     public void AddParticipant()
     {
         CurrParticipants++;

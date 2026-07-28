@@ -19,13 +19,7 @@ internal static class ChatMappings
             chat.Status,
             chat.NewMsgsCntForUser1,
             chat.NewMsgsCntForUser2,
-            lastMessage is null
-                ? null
-                : new MessageResponse(
-                    lastMessage.Sender.Id,
-                    lastMessage.Content,
-                    lastMessage.SentAt
-                )
+            lastMessage?.ToResponse()
         );
     }
 }

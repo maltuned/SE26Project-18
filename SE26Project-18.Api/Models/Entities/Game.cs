@@ -17,4 +17,8 @@ internal class Game
     {
         Name = name;
     }
+
+#pragma warning disable CS8618
+    private Game() { } // EF Core
+#pragma warning restore CS8618
 }

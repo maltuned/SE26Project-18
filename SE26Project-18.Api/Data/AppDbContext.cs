@@ -67,10 +67,20 @@ internal sealed class AppDbContext : DbContext
             entity.ToTable("messages");
             entity.HasKey(m => m.Id);
             entity
+                .HasOne(m => m.Chat)
+                .WithMany(c => c.Messages)
+                .HasForeignKey("ChatId")
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
                 .HasOne(m => m.Sender)
                 .WithMany()
                 .HasForeignKey("SenderId")
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(m => m.Receiver)
+                .WithMany()
+                .HasForeignKey("ReceiverId")
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Recruitment>(entity =>

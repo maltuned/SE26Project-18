@@ -25,6 +25,10 @@ internal class Response
         Responder = responder;
     }
 
+#pragma warning disable CS8618
+    private Response() { } // EF Core
+#pragma warning restore CS8618
+
     public void Accept()
     {
         EnsurePending();

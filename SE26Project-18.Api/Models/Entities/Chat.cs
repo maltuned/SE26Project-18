@@ -28,4 +28,8 @@ internal class Chat
         User1 = user1;
         User2 = user2;
     }
+
+#pragma warning disable CS8618
+    private Chat() { } // EF Core
+#pragma warning restore CS8618
 }
