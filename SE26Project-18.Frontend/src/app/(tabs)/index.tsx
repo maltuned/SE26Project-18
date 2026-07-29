@@ -56,6 +56,10 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setSearchText("");
+      setSelectedGameTags([]);
+      setSelectedRecruitmentTags([]);
+      setRecruitmentTagsExpanded(false);
       loadData();
     }, []),
   );

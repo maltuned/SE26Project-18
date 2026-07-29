@@ -25,6 +25,9 @@ public class GameDto
     [JsonPropertyName("tags_id")]
     public long[] TagsId { get; set; } = [];
 
+    [JsonPropertyName("tags")]
+    public GameTagDto[] Tags { get; set; } = [];
+
     [JsonPropertyName("created_at")]
     public string CreatedAt { get; set; } = string.Empty;
 

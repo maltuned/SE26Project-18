@@ -66,6 +66,21 @@ public class TagService : ITagService
     {
         var tag = await _db.GameTags.FindAsync(id);
         if (tag == null) return false;
+
+        var games = await _db.Games.Include(g => g.Tags)
+            .Where(g => g.Tags.Any(t => t.Id == id)).ToListAsync();
+        foreach (var game in games)
+        {
+            game.Tags.Remove(tag);
+        }
+
+        var recruitments = await _db.Recruitments.Include(r => r.GameTags)
+            .Where(r => r.GameTags.Any(t => t.Id == id)).ToListAsync();
+        foreach (var rec in recruitments)
+        {
+            rec.GameTags.Remove(tag);
+        }
+
         _db.GameTags.Remove(tag);
         await _db.SaveChangesAsync();
         return true;
@@ -75,6 +90,14 @@ public class TagService : ITagService
     {
         var tag = await _db.RecruitmentTags.FindAsync(id);
         if (tag == null) return false;
+
+        var recruitments = await _db.Recruitments.Include(r => r.RecruitmentTags)
+            .Where(r => r.RecruitmentTags.Any(t => t.Id == id)).ToListAsync();
+        foreach (var rec in recruitments)
+        {
+            rec.RecruitmentTags.Remove(tag);
+        }
+
         _db.RecruitmentTags.Remove(tag);
         await _db.SaveChangesAsync();
         return true;

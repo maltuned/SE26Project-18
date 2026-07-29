@@ -106,6 +106,30 @@ export const createGame = (data: Record<string, unknown>) =>
 export const deleteGame = (id: number) =>
   api.delete(`/games/${id}`).then(r => r.data);
 
+export const getGameTags = () =>
+  api.get('/game-tags').then(r => r.data);
+
+export const createGameTag = (name: string) =>
+  api.post('/game-tags', { name }).then(r => r.data);
+
+export const updateGameTag = (id: number, name: string) =>
+  api.put(`/game-tags/${id}`, { name }).then(r => r.data);
+
+export const deleteGameTag = (id: number) =>
+  api.delete(`/game-tags/${id}`).then(r => r.data);
+
+export const getRecruitmentTags = () =>
+  api.get('/recruitment-tags').then(r => r.data);
+
+export const createRecruitmentTag = (name: string) =>
+  api.post('/recruitment-tags', { name }).then(r => r.data);
+
+export const updateRecruitmentTag = (id: number, name: string) =>
+  api.put(`/recruitment-tags/${id}`, { name }).then(r => r.data);
+
+export const deleteRecruitmentTag = (id: number) =>
+  api.delete(`/recruitment-tags/${id}`).then(r => r.data);
+
 export const uploadImage = (file: File, folder: string, name?: string) => {
   const form = new FormData();
   form.append('file', file);

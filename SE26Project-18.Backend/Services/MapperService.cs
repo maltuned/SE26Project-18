@@ -45,6 +45,7 @@ public class MapperService
             Cover = game.Cover,
             Icon = game.Icon,
             TagsId = tagsId ?? game.Tags.Select(t => t.Id).ToArray(),
+            Tags = game.Tags.Select(t => new GameTagDto { Id = t.Id, Name = t.Name }).ToArray(),
             CreatedAt = game.CreatedAt.ToString("o"),
             UpdatedAt = game.UpdatedAt.ToString("o"),
         };

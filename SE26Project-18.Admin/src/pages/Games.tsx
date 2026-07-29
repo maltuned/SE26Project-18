@@ -1,11 +1,11 @@
 import React from 'react';
-import { Table, Input, Button, Modal, Form, Upload, message, Typography, Space } from 'antd';
+import { Table, Input, Button, Modal, Form, Upload, message, Typography, Space, Select, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile, RcFile } from 'antd/es/upload';
 import { ArrowLeftOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import ImgCrop from 'antd-img-crop';
-import { searchGames, updateGame, createGame, deleteGame, uploadImage, imageApi } from '../api';
+import { searchGames, updateGame, createGame, deleteGame, uploadImage, imageApi, getGameTags } from '../api';
 
 import { API_BASE } from '../config';
 
@@ -41,6 +41,11 @@ const AuthImage: React.FC<{ src: string; width?: number; height?: number }> = ({
   return <img src={blobUrl} alt="" width={width} height={height} style={{ borderRadius: 4, objectFit: 'cover' }} />;
 };
 
+interface GameTagItem {
+  id: number;
+  name: string;
+}
+
 interface Game {
   id: number;
   name?: string;
@@ -48,6 +53,8 @@ interface Game {
   description?: string;
   cover?: string;
   icon?: string;
+  tags?: GameTagItem[];
+  tags_id?: number[];
 }
 
 const Games: React.FC = () => {
@@ -61,6 +68,7 @@ const Games: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [coverFile, setCoverFile] = React.useState<UploadFile[]>([]);
   const [iconFile, setIconFile] = React.useState<UploadFile[]>([]);
+  const [allTags, setAllTags] = React.useState<GameTagItem[]>([]);
 
   const fetchData = async (q: string) => {
     setLoading(true);
@@ -82,20 +90,25 @@ const Games: React.FC = () => {
     return res.data || '';
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
     setEditingGame(null);
     form.resetFields();
     setCoverFile([]);
     setIconFile([]);
+    try {
+      const res = await getGameTags();
+      setAllTags(res.data || []);
+    } catch { /* ignore */ }
     setModalOpen(true);
   };
 
-  const openEditModal = (game: Game) => {
+  const openEditModal = async (game: Game) => {
     setEditingGame(game);
     form.setFieldsValue({
       name: game.name,
       company: game.company,
       description: game.description,
+      tags: game.tags_id || [],
     });
     setCoverFile(
       game.cover ? [{ uid: '-1', name: 'cover', status: 'done', url: game.cover }] : []
@@ -103,6 +116,10 @@ const Games: React.FC = () => {
     setIconFile(
       game.icon ? [{ uid: '-2', name: 'icon', status: 'done', url: game.icon }] : []
     );
+    try {
+      const res = await getGameTags();
+      setAllTags(res.data || []);
+    } catch { /* ignore */ }
     setModalOpen(true);
   };
 
@@ -117,7 +134,7 @@ const Games: React.FC = () => {
         description: values.description ?? '',
         cover: editingGame?.cover ?? '',
         icon: editingGame?.icon ?? '',
-        tagsId: [],
+        tagsId: values.tags || [],
       };
 
       let gameId = editingGame?.id ?? 0;
@@ -185,6 +202,12 @@ const Games: React.FC = () => {
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: '厂商', dataIndex: 'company', key: 'company' },
     {
+      title: '标签', dataIndex: 'tags', key: 'tags', width: 200,
+      render: (_, r) => (r.tags && r.tags.length > 0)
+        ? r.tags.map(t => <Tag key={t.id}>{t.name}</Tag>)
+        : '-',
+    },
+    {
       title: '操作',
       key: 'action',
       width: 150,
@@ -247,6 +270,13 @@ const Games: React.FC = () => {
           </Form.Item>
           <Form.Item name="description" label="描述">
             <Input.TextArea rows={4} />
+          </Form.Item>
+          <Form.Item name="tags" label="标签">
+            <Select
+              mode="multiple"
+              placeholder="选择游戏标签"
+              options={allTags.map(t => ({ value: t.id, label: t.name }))}
+            />
           </Form.Item>
           <Form.Item label="封面">
             <ImgCrop rotationSlider aspect={80 / 110}>

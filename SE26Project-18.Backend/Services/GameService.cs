@@ -65,6 +65,13 @@ public class GameService : IGameService
         var tags = await _db.GameTags.Where(t => request.TagsId.Contains(t.Id)).ToListAsync();
         game.UpdateTags(tags);
 
+        var recruitments = await _db.Recruitments.Include(r => r.GameTags)
+            .Where(r => r.GameId == id).ToListAsync();
+        foreach (var rec in recruitments)
+        {
+            rec.GameTags = [.. tags];
+        }
+
         await _db.SaveChangesAsync();
         return _mapper.ToGameDto(game);
     }

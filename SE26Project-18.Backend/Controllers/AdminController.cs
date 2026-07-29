@@ -26,6 +26,7 @@ public class AdminController : ControllerBase
     private readonly IMessageService _messageService;
     private readonly INotificationService _notificationService;
     private readonly IReviewService _reviewService;
+    private readonly ITagService _tagService;
 
     public AdminController(
         IAdminService adminService,
@@ -37,7 +38,8 @@ public class AdminController : ControllerBase
         IChatService chatService,
         IMessageService messageService,
         INotificationService notificationService,
-        IReviewService reviewService)
+        IReviewService reviewService,
+        ITagService tagService)
     {
         _adminService = adminService;
         _reportService = reportService;
@@ -49,6 +51,7 @@ public class AdminController : ControllerBase
         _messageService = messageService;
         _notificationService = notificationService;
         _reviewService = reviewService;
+        _tagService = tagService;
     }
 
     private long GetAdminId()
@@ -387,6 +390,74 @@ public class AdminController : ControllerBase
         if (!ok)
             return Ok(ApiResponse<object>.Fail("游戏不存在", 404));
         return Ok(ApiResponse<object>.Success(new { }, "已删除"));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("game-tags")]
+    public async Task<ActionResult<ApiResponse<List<GameTagDto>>>> GetGameTags()
+    {
+        var tags = await _tagService.GetGameTagsAsync();
+        return Ok(ApiResponse<List<GameTagDto>>.Success(tags));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost("game-tags")]
+    public async Task<ActionResult<ApiResponse<GameTagDto>>> CreateGameTag([FromBody] CreateTagRequest request)
+    {
+        var tag = await _tagService.CreateGameTagAsync(request.Name);
+        return Ok(ApiResponse<GameTagDto>.Success(tag, "标签创建成功"));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("game-tags/{id}")]
+    public async Task<ActionResult<ApiResponse<GameTagDto>>> UpdateGameTag(long id, [FromBody] CreateTagRequest request)
+    {
+        var tag = await _tagService.UpdateGameTagAsync(id, request.Name);
+        if (tag == null)
+            return Ok(ApiResponse<GameTagDto>.Fail("标签不存在", 404));
+        return Ok(ApiResponse<GameTagDto>.Success(tag, "标签更新成功"));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("game-tags/{id}")]
+    public async Task<ActionResult<ApiResponse<bool>>> DeleteGameTag(long id)
+    {
+        var result = await _tagService.DeleteGameTagAsync(id);
+        return Ok(ApiResponse<bool>.Success(result, result ? "删除成功" : "标签不存在"));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("recruitment-tags")]
+    public async Task<ActionResult<ApiResponse<List<RecruitmentTagDto>>>> GetRecruitmentTags()
+    {
+        var tags = await _tagService.GetRecruitmentTagsAsync();
+        return Ok(ApiResponse<List<RecruitmentTagDto>>.Success(tags));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost("recruitment-tags")]
+    public async Task<ActionResult<ApiResponse<RecruitmentTagDto>>> CreateRecruitmentTag([FromBody] CreateTagRequest request)
+    {
+        var tag = await _tagService.CreateRecruitmentTagAsync(request.Name);
+        return Ok(ApiResponse<RecruitmentTagDto>.Success(tag, "标签创建成功"));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("recruitment-tags/{id}")]
+    public async Task<ActionResult<ApiResponse<RecruitmentTagDto>>> UpdateRecruitmentTag(long id, [FromBody] CreateTagRequest request)
+    {
+        var tag = await _tagService.UpdateRecruitmentTagAsync(id, request.Name);
+        if (tag == null)
+            return Ok(ApiResponse<RecruitmentTagDto>.Fail("标签不存在", 404));
+        return Ok(ApiResponse<RecruitmentTagDto>.Success(tag, "标签更新成功"));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("recruitment-tags/{id}")]
+    public async Task<ActionResult<ApiResponse<bool>>> DeleteRecruitmentTag(long id)
+    {
+        var result = await _tagService.DeleteRecruitmentTagAsync(id);
+        return Ok(ApiResponse<bool>.Success(result, result ? "删除成功" : "标签不存在"));
     }
 
     [Authorize(Roles = "Admin")]

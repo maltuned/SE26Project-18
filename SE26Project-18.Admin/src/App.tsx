@@ -19,6 +19,7 @@ import {
   DashboardOutlined,
   NotificationOutlined,
   StarOutlined,
+  TagsOutlined,
 } from "@ant-design/icons";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -29,6 +30,7 @@ import Users from "./pages/Users";
 import Recruitments from "./pages/Recruitments";
 import Games from "./pages/Games";
 import Reviews from "./pages/Reviews";
+import Tags from "./pages/Tags";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -61,6 +63,7 @@ const AdminLayout: React.FC = () => {
     { key: "/admin/recruitments", icon: <TeamOutlined />, label: "招募" },
     { key: "/admin/games", icon: <AppstoreOutlined />, label: "游戏" },
     { key: "/admin/reviews", icon: <StarOutlined />, label: "评价" },
+    { key: "/admin/tags", icon: <TagsOutlined />, label: "标签" },
   ];
 
   const handleLogout = () => {
@@ -154,6 +157,7 @@ const App: React.FC = () => {
             <Route path="recruitments" element={<Recruitments />} />
             <Route path="games" element={<Games />} />
             <Route path="reviews" element={<Reviews />} />
+          <Route path="tags" element={<Tags />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />

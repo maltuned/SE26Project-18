@@ -57,6 +57,7 @@ export interface GameDto {
   cover: string;
   icon: string;
   tags_id: number[];
+  tags: GameTagDto[];
   created_at: string;
   updated_at: string;
 }
