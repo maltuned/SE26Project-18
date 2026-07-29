@@ -182,7 +182,11 @@ export default function RecruitmentManageScreen() {
               <Text style={[styles.title, { color: colors.text }]}>
                 {recruitment.title}
               </Text>
-              <View style={styles.tagsRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.tagsRow}
+              >
                 {recruitment.recruitmentTags?.map((tag: RecruitmentTag) => (
                   <View
                     key={tag.id}
@@ -196,7 +200,7 @@ export default function RecruitmentManageScreen() {
                     </Text>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
               <Text
                 style={[styles.publishTime, { color: colors.textQuaternary }]}
               >
@@ -369,7 +373,9 @@ const styles = StyleSheet.create({
   tag: {
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 10,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
     marginRight: 6,
   },
   tagText: {

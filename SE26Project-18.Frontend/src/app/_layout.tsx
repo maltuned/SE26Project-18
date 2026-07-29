@@ -115,6 +115,7 @@ function RootLayoutNav() {
         <Stack.Screen name="personal-page-edit" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="feedback" />
+        <Stack.Screen name="game-info" />
         <Stack.Screen name="report" />
         <Stack.Screen name="notification" />
       </Stack>

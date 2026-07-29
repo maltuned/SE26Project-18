@@ -227,6 +227,13 @@ export default function HomeScreen() {
             <RecruitmentViewCard recruitment={item} onPress={openCard} />
           )}
           contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                暂无招募，试试调整筛选条件或稍后再来
+              </Text>
+            </View>
+          }
         />
       )}
 
@@ -263,6 +270,12 @@ const styles = StyleSheet.create({
   tagText: { fontSize: 13 },
   expandButton: { paddingHorizontal: 10, paddingVertical: 4, marginTop: 4 },
   expandButtonText: { fontSize: 13 },
-  listContent: { padding: 16 },
+  listContent: { padding: 16, flexGrow: 1 },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: { fontSize: 15, textAlign: "center" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

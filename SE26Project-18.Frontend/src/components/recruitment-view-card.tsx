@@ -29,7 +29,7 @@ function RecruitmentViewCard({
             {recruitment.title}
           </Text>
           <View style={styles.cardTags}>
-            {recruitment.recruitmentTags.map((tag) => (
+            {recruitment.recruitmentTags.slice(0, 3).map((tag) => (
               <View
                 key={tag.id}
                 style={[
@@ -42,6 +42,11 @@ function RecruitmentViewCard({
                 </Text>
               </View>
             ))}
+            {recruitment.recruitmentTags.length > 3 && (
+              <Text style={[styles.cardTagMore, { color: colors.textTertiary }]}>
+                ...
+              </Text>
+            )}
           </View>
           <Text style={[styles.cardTime, { color: colors.textQuaternary }]}>
             {recruitment.createdAt}
@@ -84,11 +89,17 @@ const styles = StyleSheet.create({
   cardTag: {
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 10,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
     marginRight: 6,
   },
   cardTagText: {
     fontSize: 12,
+  },
+  cardTagMore: {
+    fontSize: 16,
+    marginLeft: 2,
   },
   cardTime: {
     fontSize: 12,

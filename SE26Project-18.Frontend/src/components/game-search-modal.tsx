@@ -15,7 +15,6 @@ import { useRouter } from "expo-router";
 import { GameBrief, getGames } from "../api/api";
 import RemoteImage from "./remote-image";
 import { useTheme } from "../contexts/theme-context";
-import GameInfoModal from "./game-info-modal";
 
 interface GameSearchModalProps {
   visible: boolean;
@@ -34,8 +33,6 @@ function GameSearchModal({
   const [searchText, setSearchText] = useState(initialText);
   const [results, setResults] = useState<GameBrief[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
-  const [gameInfoVisible, setGameInfoVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,8 +69,8 @@ function GameSearchModal({
   };
 
   const handleOpenGameInfo = (game: GameBrief) => {
-    setSelectedGameId(game.id);
-    setGameInfoVisible(true);
+    onClose(game.name);
+    setTimeout(() => router.push(`/game-info?gameId=${game.id}` as any), 200);
   };
 
   return (
@@ -195,17 +192,6 @@ function GameSearchModal({
             </TouchableOpacity>
           </View>
         </View>
-
-        <GameInfoModal
-          visible={gameInfoVisible}
-          gameId={selectedGameId}
-          onClose={() => setGameInfoVisible(false)}
-          onFeedback={() => {
-            setGameInfoVisible(false);
-            handleClose();
-            setTimeout(() => router.push("/feedback" as any), 200);
-          }}
-        />
       </Pressable>
     </Modal>
   );
@@ -289,11 +275,10 @@ export const styles = StyleSheet.create({
     fontSize: 15,
   },
   suggestionArrow: {
-    paddingLeft: 12,
-    paddingVertical: 12,
+    paddingLeft: 16,
   },
   suggestionArrowText: {
-    fontSize: 20,
+    fontSize: 24,
   },
   footer: {
     alignItems: "center",

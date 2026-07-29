@@ -21,7 +21,6 @@ import {
   getRecruitmentTags,
   saveRecruitment,
 } from "../api/api";
-import GameInfoModal from "../components/game-info-modal";
 import GameSearchModal from "../components/game-search-modal";
 import RemoteImage from "../components/remote-image";
 import { useAuth } from "../contexts/auth-context";
@@ -40,7 +39,6 @@ export default function RecruitmentEditScreen() {
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [description, setDescription] = useState("");
   const [selectedGame, setSelectedGame] = useState<GameInfo | null>(null);
-  const [gameModalVisible, setGameModalVisible] = useState(false);
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [tags, setTags] = useState<RecruitmentTag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +63,8 @@ export default function RecruitmentEditScreen() {
             setSelectedGame({
               id: data.gameId,
               name: data.gameName || "",
+              nameEn: "",
+              aliases: "",
               icon: "",
               company: "",
               description: "",
@@ -103,6 +103,8 @@ export default function RecruitmentEditScreen() {
         setSelectedGame({
           id: games[0].id,
           name: games[0].name,
+          nameEn: games[0].nameEn || "",
+          aliases: "",
           icon: games[0].icon,
           company: "",
           description: "",
@@ -274,12 +276,6 @@ export default function RecruitmentEditScreen() {
           <Text style={styles.footerButtonText}>发布</Text>
         </TouchableOpacity>
       </View>
-
-      <GameInfoModal
-        visible={gameModalVisible}
-        gameId={selectedGame?.id || null}
-        onClose={() => setGameModalVisible(false)}
-      />
 
       <GameSearchModal
         visible={searchModalVisible}

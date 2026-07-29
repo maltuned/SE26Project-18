@@ -10,12 +10,10 @@ import {
     View,
 } from "react-native";
 import { register as apiRegister } from "../../api/api";
-import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,8 +35,10 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      const result = await apiRegister(username, password);
-      login(result.user);
+      await apiRegister(username, password);
+      Alert.alert("注册成功", "请返回登录页面进行登录", [
+        { text: "确定", onPress: () => router.back() },
+      ]);
     } catch (error: any) {
       Alert.alert("注册失败", error.message || "用户名可能已存在");
     } finally {

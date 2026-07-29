@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
     Alert,
@@ -20,8 +20,9 @@ const FEEDBACK_TYPES = [
 
 export default function FeedbackScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ prefill?: string }>();
   const [selectedType, setSelectedType] = useState("内容反馈");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(params.prefill || "");
   const [submitting, setSubmitting] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const { colors } = useTheme();

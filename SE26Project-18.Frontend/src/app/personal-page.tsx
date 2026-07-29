@@ -116,16 +116,18 @@ export default function PersonalPageScreen() {
         <View style={styles.profileTop}>
           <RemoteImage
             url={targetUser?.avatar}
-            style={[styles.avatar, { backgroundColor: colors.placeholder }] }
+            style={[styles.avatar, { backgroundColor: colors.placeholder }]}
           />
           <View style={styles.profileInfo}>
             <Text style={[styles.nickname, { color: colors.nicknameText }]}>
-              {targetUser?.nickname ? `${targetUser.nickname}` : `@${targetUser?.username}` || "空用户名"}
+              {targetUser?.nickname
+                ? `${targetUser.nickname}`
+                : `@${targetUser?.username}` || "空用户名"}
             </Text>
             {targetUser?.nickname && (
-            <Text style={[styles.username, { color: colors.textTertiary }]}>
-              {`@${targetUser?.username}` || "空用户名"}
-            </Text>
+              <Text style={[styles.username, { color: colors.textTertiary }]}>
+                {`@${targetUser?.username}` || "空用户名"}
+              </Text>
             )}
           </View>
         </View>
@@ -167,10 +169,15 @@ export default function PersonalPageScreen() {
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
-            <ScrollView style={styles.recruitmentList} contentContainerStyle={{ flexGrow: 1 }}>
+            <ScrollView
+              style={styles.recruitmentList}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
               {userRecruitments.length === 0 ? (
                 <View style={styles.empty}>
-                  <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                  <Text
+                    style={[styles.emptyText, { color: colors.textTertiary }]}
+                  >
                     {isOwnPage
                       ? "暂无发布招募，快去发布一个吧！"
                       : "暂无发布招募"}
@@ -188,11 +195,16 @@ export default function PersonalPageScreen() {
             </ScrollView>
           )
         ) : (
-          <ScrollView style={styles.reviewList}>
+          <ScrollView
+            style={styles.reviewList}
+            contentContainerStyle={{ flexGrow: 1 }}
+          >
             {reviews.length === 0 ? (
               <View style={styles.empty}>
-                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-                  暂无评价
+                <Text
+                  style={[styles.emptyText, { color: colors.textTertiary }]}
+                >
+                  暂无收到评价
                 </Text>
               </View>
             ) : (
