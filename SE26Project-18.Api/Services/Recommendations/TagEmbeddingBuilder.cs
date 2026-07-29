@@ -6,6 +6,7 @@ namespace SE26Project_18.Api.Services.Recommendations;
 internal sealed class TagEmbeddingBuilder
 {
     private readonly IEmbeddingService _embeddingService;
+
     private readonly int _dimension;
 
     public TagEmbeddingBuilder(

@@ -7,6 +7,7 @@ using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Infrastructure.Messaging;
+using SE26Project_18.Api.Infrastructure.Realtime;
 using SE26Project_18.Api.Infrastructure.VectorStore;
 using SE26Project_18.Api.Repositories;
 using SE26Project_18.Api.Services;
@@ -86,13 +87,11 @@ builder
     .Services.AddAuthorizationBuilder()
     .AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
 
-builder.Services.AddSingleton<ITokenService, TokenService>();
 builder
     .Services.AddOptions<RabbitMqOptions>()
     .BindConfiguration(RabbitMqOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
-builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
 builder
     .Services.AddOptions<EmbeddingOptions>()
     .BindConfiguration(EmbeddingOptions.SectionName)
@@ -103,25 +102,38 @@ builder
     .BindConfiguration(EmbeddingSyncOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
-builder.Services.AddMemoryCache();
-builder.Services.AddHttpClient<IEmbeddingService, OpenAiEmbeddingService>();
 builder
     .Services.AddOptions<MilvusOptions>()
     .BindConfiguration(MilvusOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
+
+builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
 builder.Services.AddSingleton<IVectorStore, MilvusVectorStore>();
 builder.Services.AddSingleton<RecommendationVectorRepository>();
-builder.Services.AddHostedService<RecommendationVectorStoreInitializer>();
+builder.Services.AddSingleton<IMessageConnectionManager, WebSocketMessageConnectionManager>();
+builder.Services.AddSingleton<IMessageWebSocketHandler, MessageWebSocketHandler>();
+
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IEmbeddingService, OpenAiEmbeddingService>();
+
 builder.Services.AddRabbitMqBatchConsumer<EmbeddingSyncRequested, EmbeddingSyncBatchConsumer>(
     EmbeddingSyncRequested.EventName,
     EmbeddingSyncRequested.QueueName
 );
+builder.Services.AddHostedService<RecommendationVectorStoreInitializer>();
 builder.Services.AddHostedService<EmbeddingSyncOutboxDispatcher>();
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGameService, GameService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IRecruitmentService, RecruitmentService>();
+builder.Services.AddScoped<IResponseService, ResponseService>();
+builder.Services.AddScoped<ITagCatalogService, TagCatalogService>();
+builder.Services.AddScoped<IUserService, UserService>();
+
 builder.Services.AddScoped<
     IRecruitmentRecommendationAlgorithm,
     EmbeddingRecruitmentRecommendationAlgorithm
@@ -130,9 +142,6 @@ builder.Services.AddScoped<IUserPreferenceProfileBuilder, UserPreferenceProfileB
 builder.Services.AddScoped<IEmbeddingSyncScheduler, EmbeddingSyncScheduler>();
 builder.Services.AddScoped<TagEmbeddingBuilder>();
 builder.Services.AddScoped<EmbeddingProfileBatchBuilder>();
-builder.Services.AddScoped<IResponseService, ResponseService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ITagCatalogService, TagCatalogService>();
 
 builder.Services.AddCors(options =>
 {
@@ -179,5 +188,6 @@ app.UseCors();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseWebSockets();
 app.MapControllers();
 app.Run();

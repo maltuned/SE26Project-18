@@ -8,6 +8,7 @@ namespace SE26Project_18.Api.Services.Recommendations;
 internal sealed class EmbeddingProfileBatchBuilder
 {
     private readonly AppDbContext _db;
+
     private readonly TagEmbeddingBuilder _tagEmbeddingBuilder;
 
     public EmbeddingProfileBatchBuilder(AppDbContext db, TagEmbeddingBuilder tagEmbeddingBuilder)

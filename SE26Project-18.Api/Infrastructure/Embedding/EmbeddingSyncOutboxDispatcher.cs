@@ -8,8 +8,11 @@ namespace SE26Project_18.Api.Infrastructure.Embedding;
 internal sealed class EmbeddingSyncOutboxDispatcher : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+
     private readonly IEventPublisher _publisher;
+
     private readonly EmbeddingSyncOptions _options;
+
     private readonly ILogger<EmbeddingSyncOutboxDispatcher> _logger;
 
     public EmbeddingSyncOutboxDispatcher(

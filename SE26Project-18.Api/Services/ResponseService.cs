@@ -14,6 +14,7 @@ namespace SE26Project_18.Api.Services;
 internal sealed class ResponseService : IResponseService
 {
     private readonly AppDbContext _db;
+
     private readonly IEmbeddingSyncScheduler _embeddingSync;
 
     public ResponseService(AppDbContext db, IEmbeddingSyncScheduler embeddingSync)

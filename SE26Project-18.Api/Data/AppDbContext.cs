@@ -91,6 +91,7 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("messages");
             entity.HasKey(m => m.Id);
+            entity.Property(m => m.Content).HasMaxLength(4000);
             entity
                 .HasOne(m => m.Sender)
                 .WithMany()

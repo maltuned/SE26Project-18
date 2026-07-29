@@ -9,7 +9,9 @@ namespace SE26Project_18.Api.Services.Recommendations;
 internal sealed class EmbeddingSyncBatchConsumer : IBatchEventConsumer<EmbeddingSyncRequested>
 {
     private readonly EmbeddingProfileBatchBuilder _profileBuilder;
+
     private readonly RecommendationVectorRepository _repository;
+
     private readonly AppDbContext _db;
 
     public EmbeddingSyncBatchConsumer(

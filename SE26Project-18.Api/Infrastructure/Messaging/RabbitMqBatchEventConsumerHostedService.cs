@@ -12,10 +12,15 @@ internal sealed class RabbitMqBatchEventConsumerHostedService<TEvent, TConsumer>
     where TConsumer : class, IBatchEventConsumer<TEvent>
 {
     private readonly ConnectionFactory _connectionFactory;
+
     private readonly RabbitMqOptions _rabbitOptions;
+
     private readonly EmbeddingSyncOptions _batchOptions;
+
     private readonly IServiceScopeFactory _scopeFactory;
+
     private readonly RabbitMqBatchConsumerRegistration<TEvent, TConsumer> _registration;
+
     private readonly ILogger<RabbitMqBatchEventConsumerHostedService<TEvent, TConsumer>> _logger;
 
     public RabbitMqBatchEventConsumerHostedService(

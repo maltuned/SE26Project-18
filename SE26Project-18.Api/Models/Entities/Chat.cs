@@ -35,4 +35,35 @@ internal class Chat
         User1 = null!;
         User2 = null!;
     }
+
+    public bool MarkAsRead(long userId)
+    {
+        if (User1.Id == userId)
+        {
+            var hadUnreadMessages = NewMsgsCntForUser1 > 0;
+            NewMsgsCntForUser1 = 0;
+            return hadUnreadMessages;
+        }
+
+        if (User2.Id == userId)
+        {
+            var hadUnreadMessages = NewMsgsCntForUser2 > 0;
+            NewMsgsCntForUser2 = 0;
+            return hadUnreadMessages;
+        }
+
+        return false;
+    }
+
+    public void RecordUnreadMessage(long senderId)
+    {
+        if (User1.Id == senderId)
+        {
+            NewMsgsCntForUser2++;
+        }
+        else if (User2.Id == senderId)
+        {
+            NewMsgsCntForUser1++;
+        }
+    }
 }
