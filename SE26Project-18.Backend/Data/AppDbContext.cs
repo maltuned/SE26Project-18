@@ -21,6 +21,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<Admin> Admins => Set<Admin>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<Review> Reviews => Set<Review>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -182,6 +183,22 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<Admin>(entity =>
         {
             entity.HasIndex(a => a.Username).IsUnique();
+        });
+
+        // Review
+        modelBuilder.Entity<Review>(entity =>
+        {
+            entity.HasOne(r => r.Reviewer)
+                .WithMany()
+                .HasForeignKey(r => r.ReviewerId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(r => r.Reviewee)
+                .WithMany()
+                .HasForeignKey(r => r.RevieweeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(r => new { r.ReviewerId, r.RevieweeId }).IsUnique();
         });
     }
 }

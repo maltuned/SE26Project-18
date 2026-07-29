@@ -25,6 +25,7 @@ public class AdminController : ControllerBase
     private readonly IChatService _chatService;
     private readonly IMessageService _messageService;
     private readonly INotificationService _notificationService;
+    private readonly IReviewService _reviewService;
 
     public AdminController(
         IAdminService adminService,
@@ -35,7 +36,8 @@ public class AdminController : ControllerBase
         IGameService gameService,
         IChatService chatService,
         IMessageService messageService,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IReviewService reviewService)
     {
         _adminService = adminService;
         _reportService = reportService;
@@ -46,6 +48,7 @@ public class AdminController : ControllerBase
         _chatService = chatService;
         _messageService = messageService;
         _notificationService = notificationService;
+        _reviewService = reviewService;
     }
 
     private long GetAdminId()
@@ -117,6 +120,7 @@ public class AdminController : ControllerBase
                 ReportTargetType.Recruitment => "招募",
                 ReportTargetType.User => "用户",
                 ReportTargetType.Chat => "聊天",
+                ReportTargetType.Review => "评价",
                 _ => report.TargetType.ToString()
             };
             var statusText = reportStatus switch
@@ -148,6 +152,7 @@ public class AdminController : ControllerBase
             ReportTargetType.User => await _userService.GetUserByIdAsync(report.TargetId)
                 is UserDto u ? u : "用户不存在",
             ReportTargetType.Chat => await GetChatTargetAsync(report.TargetId),
+            ReportTargetType.Review => await GetReviewTargetAsync(report.TargetId),
             _ => new { report.TargetId, report.TargetType }
         };
 
@@ -182,6 +187,13 @@ public class AdminController : ControllerBase
         };
     }
 
+    private async Task<object> GetReviewTargetAsync(long reviewId)
+    {
+        var content = await _reviewService.GetReviewContentAsync(reviewId);
+        if (content == null) return "评价不存在";
+        return new { reviewId, content };
+    }
+
     private async Task<string> ResolveTargetNameAsync(ReportTargetType targetType, long targetId)
     {
         return targetType switch
@@ -189,8 +201,16 @@ public class AdminController : ControllerBase
             ReportTargetType.Recruitment => (await _recruitmentService.GetRecruitmentByIdAsync(targetId))?.Title ?? "招募",
             ReportTargetType.User => (await _userService.GetUserByIdAsync(targetId))?.Nickname ?? "用户",
             ReportTargetType.Chat => (await _chatService.GetChatByIdAsync(targetId, 0))?.OtherUser?.Nickname ?? "用户",
+            ReportTargetType.Review => await ResolveReviewTargetNameAsync(targetId),
             _ => targetType.ToString()
         };
+    }
+
+    private async Task<string> ResolveReviewTargetNameAsync(long reviewId)
+    {
+        var content = await _reviewService.GetReviewContentAsync(reviewId);
+        if (content == null) return "评价";
+        return content.Length > 20 ? content[..20] + "..." : content;
     }
 
     [Authorize(Roles = "Admin")]
@@ -230,12 +250,17 @@ public class AdminController : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpGet("users")]
-    public async Task<ActionResult<ApiResponse<List<UserDto>>>> SearchUsers([FromQuery] string? search)
+    public async Task<ActionResult<ApiResponse<List<UserDto>>>> SearchUsers([FromQuery] long? id)
     {
-        if (string.IsNullOrEmpty(search))
-            return Ok(ApiResponse<List<UserDto>>.Success(await _userService.GetUsersAsync()));
+        if (id.HasValue)
+        {
+            var user = await _userService.GetUserByIdAsync(id.Value);
+            return user == null
+                ? Ok(ApiResponse<List<UserDto>>.Success(new List<UserDto>()))
+                : Ok(ApiResponse<List<UserDto>>.Success(new List<UserDto> { user }));
+        }
 
-        var users = await _userService.SearchUsersAsync(search);
+        var users = await _userService.GetUsersAsync();
         return Ok(ApiResponse<List<UserDto>>.Success(users));
     }
 
@@ -271,9 +296,18 @@ public class AdminController : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpGet("recruitments")]
-    public async Task<ActionResult<ApiResponse<List<RecruitmentDetailDto>>>> SearchRecruitments([FromQuery] string? search)
+    public async Task<ActionResult<ApiResponse<List<RecruitmentDetailDto>>>> SearchRecruitments([FromQuery] long? id)
     {
-        var recruitments = await _recruitmentService.SearchRecruitmentsAsync(search ?? "");
+        if (id.HasValue)
+        {
+            var recruitment = await _recruitmentService.GetRecruitmentByIdAsync(id.Value);
+            var list = recruitment != null
+                ? new List<RecruitmentDetailDto> { recruitment }
+                : new List<RecruitmentDetailDto>();
+            return Ok(ApiResponse<List<RecruitmentDetailDto>>.Success(list));
+        }
+
+        var recruitments = await _recruitmentService.SearchRecruitmentsAsync("");
         return Ok(ApiResponse<List<RecruitmentDetailDto>>.Success(recruitments));
     }
 
@@ -300,9 +334,18 @@ public class AdminController : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpGet("games")]
-    public async Task<ActionResult<ApiResponse<List<GameDto>>>> SearchGames([FromQuery] string? search)
+    public async Task<ActionResult<ApiResponse<List<GameDto>>>> SearchGames([FromQuery] long? id)
     {
-        var games = await _gameService.GetGamesAsync(search ?? "");
+        if (id.HasValue)
+        {
+            var game = await _gameService.GetGameByIdAsync(id.Value);
+            var list = game != null
+                ? new List<GameDto> { game }
+                : new List<GameDto>();
+            return Ok(ApiResponse<List<GameDto>>.Success(list));
+        }
+
+        var games = await _gameService.GetGamesAsync("");
         return Ok(ApiResponse<List<GameDto>>.Success(games));
     }
 
@@ -366,6 +409,38 @@ public class AdminController : ControllerBase
         }
         return Ok(ApiResponse<object>.Success(new { }, $"已向 {allUsers.Count} 位用户发送通知"));
     }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("reviews")]
+    public async Task<ActionResult<ApiResponse<List<ReviewDto>>>> GetAllReviews([FromQuery] long? id)
+    {
+        var all = await _reviewService.GetAllAsync();
+        if (id.HasValue)
+        {
+            all = all.Where(r => r.Id == id.Value).ToList();
+        }
+        return Ok(ApiResponse<List<ReviewDto>>.Success(all));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("reviews/{id}/status")]
+    public async Task<ActionResult<ApiResponse<bool>>> UpdateReviewStatus(long id, [FromBody] UpdateReviewStatusRequest request)
+    {
+        var status = request.Status switch
+        {
+            "显示" => ReviewStatus.Visible,
+            "隐藏" => ReviewStatus.Hidden,
+            _ => (ReviewStatus?)null
+        };
+        if (status == null)
+            return Ok(ApiResponse<bool>.Fail("无效的状态值", 400));
+
+        var result = await _reviewService.UpdateStatusAsync(id, status.Value);
+        if (!result)
+            return Ok(ApiResponse<bool>.Fail("评价不存在", 404));
+
+        return Ok(ApiResponse<bool>.Success(true, "状态已更新"));
+    }
 }
 
 public class AdminLoginRequest
@@ -405,4 +480,10 @@ public class SendNotificationRequest
 
     [JsonPropertyName("body")]
     public string Body { get; set; } = string.Empty;
+}
+
+public class UpdateReviewStatusRequest
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
 }

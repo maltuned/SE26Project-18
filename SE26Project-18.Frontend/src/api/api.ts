@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   ChatBriefDto,
   ChatDto,
+  CreateReviewDto,
   FeedbackDto,
   GameBriefDto,
   GameDto,
@@ -14,6 +15,7 @@ import type {
   RecruitmentTagDto,
   ReportDto,
   ResponseDto,
+  ReviewDto,
   TokenResponse,
   UserBriefDto,
   UserDto
@@ -28,6 +30,7 @@ import type {
   RecruitmentBrief,
   RecruitmentData,
   RecruitmentTag,
+  ReviewData,
   ResponseData,
   ResponseStatus,
   UserInfo
@@ -38,7 +41,7 @@ import { API_BASE } from "./config";
 // Re-export frontend data patterns for convenience
 export type {
   ChatBrief, ChatData, ChatStatus, GameBrief, GameInfo, GameTag, MessageData, RecruitmentBrief, RecruitmentData,
-  RecruitmentTag, ResponseData, ResponseStatus, UserInfo
+  RecruitmentTag, ResponseData, ResponseStatus, UserInfo, ReviewData
 } from "./data-patterns";
 
 // ==================== Config ====================
@@ -1007,5 +1010,36 @@ export const markNotificationRead = (id: number): Promise<boolean> => {
 
 export const markAllNotificationsRead = (): Promise<boolean> => {
   const response = apiPut<boolean>("/Notification/read-all");
+  return handleResponseDirect(response).then((r) => r ?? false);
+};
+
+// ==================== Review API ====================
+
+const mapReviewDto = (dto: ReviewDto): ReviewData => ({
+  id: dto.id,
+  reviewerId: dto.reviewer_id,
+  reviewerNickname: dto.reviewer_nickname,
+  reviewerAvatar: dto.reviewer_avatar,
+  revieweeId: dto.reviewee_id,
+  revieweeNickname: dto.reviewee_nickname,
+  content: dto.content,
+  status: dto.status,
+  createdAt: dto.created_at,
+});
+
+export const createReview = (dto: CreateReviewDto): Promise<boolean> => {
+  const response = apiPost<boolean>("/Review", dto);
+  return handleResponseDirect(response).then((r) => r ?? false);
+};
+
+export const getReviewsByUser = (userId: number): Promise<ReviewData[]> => {
+  const response = apiGet<ReviewDto[]>(`/Review/user/${userId}`);
+  return handleArrayResponse<ReviewData>(response, (data: ReviewDto[]) =>
+    data.map(mapReviewDto),
+  );
+};
+
+export const hasReviewed = (userId: number): Promise<boolean> => {
+  const response = apiGet<boolean>(`/Review/check/${userId}`);
   return handleResponseDirect(response).then((r) => r ?? false);
 };

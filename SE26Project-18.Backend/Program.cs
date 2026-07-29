@@ -73,6 +73,7 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 
 // CORS - allow frontend
 builder.Services.AddCors(options =>

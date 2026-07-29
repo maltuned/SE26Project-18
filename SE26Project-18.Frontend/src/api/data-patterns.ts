@@ -132,3 +132,17 @@ export interface MessageData {
   sender: UserInfo;
   receiver: UserInfo;
 }
+
+// ==================== Review ====================
+
+export interface ReviewData {
+  id: number;
+  reviewerId: number;
+  reviewerNickname: string;
+  reviewerAvatar: string;
+  revieweeId: number;
+  revieweeNickname: string;
+  content: string;
+  status: string;
+  createdAt: string;
+}

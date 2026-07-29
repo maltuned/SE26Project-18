@@ -11,39 +11,18 @@ import {
 import {
   getRecruitmentsByPublisherId,
   getUserById,
+  getReviewsByUser,
   RecruitmentData,
+  ReviewData,
   UserInfo,
 } from "../api/api";
 import RemoteImage from "../components/remote-image";
 import RecruitmentViewCard from "../components/recruitment-view-card";
+import ReviewCard from "../components/review-card";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
 const TABS = ["发布招募", "收到评价"];
-
-const REVIEWS = [
-  {
-    id: "1",
-    reviewer: "张三",
-    gameName: "王者荣耀",
-    content: "技术不错，配合默契，体验很好！",
-    date: "2026-07-10",
-  },
-  {
-    id: "2",
-    reviewer: "李四",
-    gameName: "原神",
-    content: "熟悉剧情，聊天时很有梗，能对上电波！",
-    date: "2026-07-08",
-  },
-  {
-    id: "3",
-    reviewer: "王五",
-    gameName: "英雄联盟",
-    content: "一起去了线下活动，玩得很开心！",
-    date: "2026-07-05",
-  },
-];
 
 export default function PersonalPageScreen() {
   const router = useRouter();
@@ -59,6 +38,7 @@ export default function PersonalPageScreen() {
   );
   const [loading, setLoading] = useState(false);
   const [targetUser, setTargetUser] = useState<UserInfo | null>(null);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
 
   useEffect(() => {
     if (isOwnPage) {
@@ -67,6 +47,14 @@ export default function PersonalPageScreen() {
       getUserById(targetUserId).then((user) => setTargetUser(user));
     }
   }, [targetUserId, isOwnPage, currentUser]);
+
+  useEffect(() => {
+    if (targetUserId) {
+      getReviewsByUser(targetUserId).then((data) => {
+        setReviews(data);
+      });
+    }
+  }, [targetUserId]);
 
   useEffect(() => {
     if (targetUserId) {
@@ -201,56 +189,29 @@ export default function PersonalPageScreen() {
           )
         ) : (
           <ScrollView style={styles.reviewList}>
-            {REVIEWS.map((review) => (
-              <View
-                key={review.id}
-                style={[styles.reviewCard, { backgroundColor: colors.card }]}
-              >
-                <View style={styles.reviewTop}>
-                  <View style={styles.reviewerInfo}>
-                    <RemoteImage
-                      style={[
-                        styles.reviewerAvatar,
-                        { backgroundColor: colors.placeholder },
-                      ]}
-                    />
-                    <Text style={[styles.reviewerName, { color: colors.text }]}>
-                      {review.reviewer}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[styles.reportButton, { color: colors.primary }]}
-                  >
-                    举报
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.reviewContent,
-                    { color: colors.descriptionText },
-                  ]}
-                >
-                  {review.content}
+            {reviews.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                  暂无评价
                 </Text>
-                <View style={styles.reviewBottom}>
-                  <TouchableOpacity>
-                    <Text
-                      style={[styles.reviewGame, { color: colors.primary }]}
-                    >
-                      {review.gameName}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text
-                    style={[
-                      styles.reviewDate,
-                      { color: colors.textQuaternary },
-                    ]}
-                  >
-                    {review.date}
-                  </Text>
-                </View>
               </View>
-            ))}
+            ) : (
+              reviews.map((review) => (
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  onReport={(r) => {
+                    router.push({
+                      pathname: "/report" as any,
+                      params: {
+                        targetType: "评价",
+                        targetId: String(r.id),
+                      },
+                    });
+                  }}
+                />
+              ))
+            )}
           </ScrollView>
         )}
       </View>
@@ -320,36 +281,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  reviewCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  reviewTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  reviewerInfo: { flexDirection: "row", alignItems: "center" },
-  reviewerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  reviewerName: { fontSize: 15 },
-  reportButton: { fontSize: 13 },
-  reviewContent: { fontSize: 14, lineHeight: 22, marginBottom: 10 },
-  reviewBottom: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  reviewGame: { fontSize: 13 },
-  reviewDate: { fontSize: 12 },
   empty: {
     flex: 1,
     justifyContent: "center",

@@ -58,7 +58,8 @@ const Users: React.FC = () => {
   const fetchData = async (q: string) => {
     setLoading(true);
     try {
-      const res = await searchUsers(q);
+      const id = q ? Number(q) : undefined;
+      const res = await searchUsers(id);
       setData(res.data || res || []);
     } catch {
       // handled by interceptor
@@ -67,7 +68,7 @@ const Users: React.FC = () => {
     }
   };
 
-  const handleSearch = () => fetchData(query);
+  const handleSearch = (value: string) => fetchData(value);
 
   const handleResetField = (id: number, field: string, label: string) => {
     Modal.confirm({
@@ -228,7 +229,7 @@ const Users: React.FC = () => {
         <Title level={4} style={{ margin: 0 }}>用户管理</Title>
       </Space>
       <Input.Search
-        placeholder="搜索用户 ID、用户名或昵称"
+        placeholder="搜索用户ID"
         allowClear
         value={query}
         onChange={e => setQuery(e.target.value)}

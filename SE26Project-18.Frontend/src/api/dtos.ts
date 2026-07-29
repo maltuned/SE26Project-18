@@ -184,3 +184,22 @@ export interface NotificationDto {
   is_read: boolean;
   created_at: string;
 }
+
+// ==================== Review ====================
+
+export interface CreateReviewDto {
+  reviewee_id: number;
+  content: string;
+}
+
+export interface ReviewDto {
+  id: number;
+  reviewer_id: number;
+  reviewer_nickname: string;
+  reviewer_avatar: string;
+  reviewee_id: number;
+  reviewee_nickname: string;
+  content: string;
+  status: string;
+  created_at: string;
+}

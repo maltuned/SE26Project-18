@@ -65,7 +65,8 @@ const Games: React.FC = () => {
   const fetchData = async (q: string) => {
     setLoading(true);
     try {
-      const res = await searchGames(q);
+      const id = q ? Number(q) : undefined;
+      const res = await searchGames(id);
       setData(res.data || res || []);
     } catch {
       // handled by interceptor
@@ -74,7 +75,7 @@ const Games: React.FC = () => {
     }
   };
 
-  const handleSearch = () => fetchData(query);
+  const handleSearch = (value: string) => fetchData(value);
 
   const uploadSingle = async (file: RcFile, folder: string, name?: string): Promise<string> => {
     const res = await uploadImage(file, folder, name);
@@ -210,7 +211,7 @@ const Games: React.FC = () => {
       </Space>
       <Space style={{ marginBottom: 16 }}>
         <Input.Search
-          placeholder="搜索游戏 ID 或名称"
+          placeholder="搜索游戏ID"
           allowClear
           value={query}
           onChange={e => setQuery(e.target.value)}

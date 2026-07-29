@@ -12,4 +12,7 @@ public enum ReportTargetType
 
     [EnumMember(Value = "聊天")]
     Chat,
+
+    [EnumMember(Value = "评价")]
+    Review,
 }

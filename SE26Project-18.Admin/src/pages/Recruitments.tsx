@@ -27,7 +27,8 @@ const Recruitments: React.FC = () => {
   const fetchData = async (q: string) => {
     setLoading(true);
     try {
-      const res = await searchRecruitments(q);
+      const id = q ? Number(q) : undefined;
+      const res = await searchRecruitments(id);
       setData(res.data || res || []);
     } catch {
       // handled by interceptor
@@ -36,7 +37,7 @@ const Recruitments: React.FC = () => {
     }
   };
 
-  const handleSearch = () => fetchData(query);
+  const handleSearch = (value: string) => fetchData(value);
 
   const handleClose = async (id: number) => {
     try {
@@ -143,7 +144,7 @@ const Recruitments: React.FC = () => {
         <Title level={4} style={{ margin: 0 }}>招募管理</Title>
       </Space>
       <Input.Search
-        placeholder="搜索招募 ID 或标题"
+        placeholder="搜索招募ID"
         allowClear
         value={query}
         onChange={e => setQuery(e.target.value)}

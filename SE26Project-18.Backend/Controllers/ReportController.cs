@@ -18,19 +18,22 @@ public class ReportController : ControllerBase
     private readonly IRecruitmentService _recruitmentService;
     private readonly IUserService _userService;
     private readonly IChatService _chatService;
+    private readonly IReviewService _reviewService;
 
     public ReportController(
         IReportService reportService,
         INotificationService notificationService,
         IRecruitmentService recruitmentService,
         IUserService userService,
-        IChatService chatService)
+        IChatService chatService,
+        IReviewService reviewService)
     {
         _reportService = reportService;
         _notificationService = notificationService;
         _recruitmentService = recruitmentService;
         _userService = userService;
         _chatService = chatService;
+        _reviewService = reviewService;
     }
 
     [HttpPost]
@@ -48,6 +51,7 @@ public class ReportController : ControllerBase
             "招募" => ReportTargetType.Recruitment,
             "用户" => ReportTargetType.User,
             "聊天" => ReportTargetType.Chat,
+            "评价" => ReportTargetType.Review,
             _ => (ReportTargetType?)null,
         };
         if (targetType == null)
@@ -92,8 +96,16 @@ public class ReportController : ControllerBase
             ReportTargetType.Recruitment => (await _recruitmentService.GetRecruitmentByIdAsync(targetId))?.Title ?? "招募",
             ReportTargetType.User => (await _userService.GetUserByIdAsync(targetId))?.Nickname ?? "用户",
             ReportTargetType.Chat => await ResolveChatTargetNameAsync(targetId),
+            ReportTargetType.Review => await ResolveReviewTargetNameAsync(targetId),
             _ => targetType.ToString()
         };
+    }
+
+    private async Task<string> ResolveReviewTargetNameAsync(long reviewId)
+    {
+        var content = await _reviewService.GetReviewContentAsync(reviewId);
+        if (content == null) return "评价";
+        return content.Length > 20 ? content[..20] + "..." : content;
     }
 
     private async Task<string> ResolveChatTargetNameAsync(long chatId)

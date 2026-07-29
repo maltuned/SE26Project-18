@@ -27,10 +27,13 @@ import {
     RecruitmentData,
     sendMessage,
     UserInfo,
+    createReview,
+    hasReviewed,
 } from "../api/api";
 import { MessageDto } from "../api/dtos";
 import ChatMessage, { ChatMessageInfo } from "../components/chat-message";
 import RemoteImage from "../components/remote-image";
+import ReviewModal from "../components/review-modal";
 import { useAuth } from "../contexts/auth-context";
 import { useSignalR } from "../contexts/signalr-context";
 import { useTheme } from "../contexts/theme-context";
@@ -56,6 +59,9 @@ export default function ChatRoomScreen() {
   const [otherUser, setOtherUser] = useState<UserInfo | null>(null);
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
   const [moreMenuVisible, setMoreMenuVisible] = useState(false);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
   // 基于实际消息列表判断
   const currentUserSent = messages.some((m) => m.sender === "me");
@@ -72,6 +78,9 @@ export default function ChatRoomScreen() {
           if (chatOtherUser?.userId) {
             getUserById(chatOtherUser.userId).then((user) => {
               if (user) setOtherUser(user);
+            });
+            hasReviewed(chatOtherUser.userId).then((reviewed) => {
+              setAlreadyReviewed(reviewed);
             });
           }
           if (chat.recruitmentId) {
@@ -203,6 +212,28 @@ export default function ChatRoomScreen() {
     }
   };
 
+  const handleReviewSubmit = async (content: string) => {
+    if (!otherUserId) return;
+    setSubmittingReview(true);
+    try {
+      const ok = await createReview({
+        reviewee_id: otherUserId,
+        content,
+      });
+      if (ok) {
+        setAlreadyReviewed(true);
+        setReviewModalVisible(false);
+        ToastAndroid.show("评价成功", ToastAndroid.SHORT);
+      } else {
+        ToastAndroid.show("评价失败，请重试", ToastAndroid.SHORT);
+      }
+    } catch {
+      ToastAndroid.show("评价失败，请重试", ToastAndroid.SHORT);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   const renderMessage = ({ item }: { item: ChatMessageInfo }) => (
     <ChatMessage message={item} />
   );
@@ -326,6 +357,19 @@ export default function ChatRoomScreen() {
                   举报
                 </Text>
               </TouchableOpacity>
+              {!alreadyReviewed && chatStatus !== "限制" && (
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setMoreMenuVisible(false);
+                    setReviewModalVisible(true);
+                  }}
+                >
+                  <Text style={[styles.dropdownItemText, { color: colors.text }]}>
+                    评价
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </Pressable>
         </Modal>
@@ -402,6 +446,14 @@ export default function ChatRoomScreen() {
           <Text style={styles.sendButtonText}>发送</Text>
         </TouchableOpacity>
       </View>
+
+      <ReviewModal
+        visible={reviewModalVisible}
+        onClose={() => setReviewModalVisible(false)}
+        onSubmit={handleReviewSubmit}
+        submitting={submittingReview}
+        targetName={otherUser?.nickname || otherUser?.username || "用户"}
+      />
     </KeyboardAvoidingView>
   );
 }

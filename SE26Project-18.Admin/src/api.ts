@@ -71,8 +71,8 @@ export const handleFeedback = (id: number, status: string) =>
   api.put(`/feedbacks/${id}`, { status }).then(r => r.data);
 
 // Users
-export const searchUsers = (query: string) =>
-  api.get('/users', { params: { search: query } }).then(r => r.data);
+export const searchUsers = (id?: number) =>
+  api.get('/users', { params: { id } }).then(r => r.data);
 
 export const updateUser = (id: number, data: Record<string, string>) =>
   api.put(`/users/${id}`, data).then(r => r.data);
@@ -84,8 +84,8 @@ export const clearUserProfile = (id: number) =>
   api.put(`/users/${id}/clear`).then(r => r.data);
 
 // Recruitments
-export const searchRecruitments = (query: string) =>
-  api.get('/recruitments', { params: { search: query } }).then(r => r.data);
+export const searchRecruitments = (id?: number) =>
+  api.get('/recruitments', { params: { id } }).then(r => r.data);
 
 export const closeRecruitment = (id: number) =>
   api.put(`/recruitments/${id}/status`, { status: '已关闭' }).then(r => r.data);
@@ -94,8 +94,8 @@ export const deleteRecruitment = (id: number) =>
   api.delete(`/recruitments/${id}`).then(r => r.data);
 
 // Games
-export const searchGames = (query: string) =>
-  api.get('/games', { params: { search: query } }).then(r => r.data);
+export const searchGames = (id?: number) =>
+  api.get('/games', { params: { id } }).then(r => r.data);
 
 export const updateGame = (id: number, data: Record<string, unknown>) =>
   api.put(`/games/${id}`, data).then(r => r.data);
@@ -119,3 +119,10 @@ export const uploadImage = (file: File, folder: string, name?: string) => {
 // Notifications
 export const sendNotification = (data: { userId?: number; title: string; body: string }) =>
   api.post('/notifications', data).then(r => r.data);
+
+// Reviews
+export const getReviews = (id?: number) =>
+  api.get('/reviews', { params: { id } }).then(r => r.data);
+
+export const updateReviewStatus = (id: number, status: string) =>
+  api.put(`/reviews/${id}/status`, { status }).then(r => r.data);
