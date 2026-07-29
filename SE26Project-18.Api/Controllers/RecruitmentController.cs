@@ -73,6 +73,14 @@ public sealed class RecruitmentController : ControllerBase
         return Ok(await _recruitmentService.UpdateAsync(GetCurrentUserId(), id, request, ct));
     }
 
+    [HttpPost("{id:long}/close")]
+    [Authorize(Policy = "RequireAdmin")]
+    public async Task<IActionResult> ForceClose(long id, CancellationToken ct)
+    {
+        await _recruitmentService.ForceCloseAsync(id, ct);
+        return NoContent();
+    }
+
     [HttpPost("{id:long}/responses")]
     public async Task<ActionResult<ResponseResponse>> CreateResponse(long id, CancellationToken ct)
     {

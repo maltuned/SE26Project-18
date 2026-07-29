@@ -38,9 +38,11 @@ internal sealed class MessageService : IMessageService
             .Where(message => EF.Property<long>(message, "ChatId") == chatId)
             .OrderBy(message => message.SentAt)
             .ThenBy(message => message.Id)
-            .Select(message =>
-                new MessageResponse(message.Sender.Id, message.Content, message.SentAt)
-            )
+            .Select(message => new MessageResponse(
+                message.Sender.Id,
+                message.Content,
+                message.SentAt
+            ))
             .ToListAsync(ct);
         if (transaction is not null)
         {
@@ -124,8 +126,7 @@ internal sealed class MessageService : IMessageService
 
     private async Task<Chat> GetChatAsync(long chatId, CancellationToken ct)
     {
-        return
-            await _db
+        return await _db
                 .Chats.Include(chat => chat.User1)
                 .Include(chat => chat.User2)
                 .FirstOrDefaultAsync(chat => chat.Id == chatId, ct)

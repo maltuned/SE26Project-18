@@ -252,6 +252,19 @@ internal sealed class RecruitmentService : IRecruitmentService
         return recruitment.ToResponse();
     }
 
+    public async Task ForceCloseAsync(long recruitmentId, CancellationToken ct)
+    {
+        var recruitment =
+            await _db.Recruitments.FirstOrDefaultAsync(
+                item => item.Id == recruitmentId && item.Status != RecruitmentStatus.Deleted,
+                ct
+            ) ?? throw new NotFoundException("Recruitment not found.");
+
+        recruitment.Delete();
+        _embeddingSync.Schedule(EmbeddingTarget.Recruitment, recruitment.Id);
+        await _db.SaveChangesAsync(ct);
+    }
+
     public async Task RecordViewAsync(long userId, long recruitmentId, CancellationToken ct)
     {
         const int maximumAttempts = 5;

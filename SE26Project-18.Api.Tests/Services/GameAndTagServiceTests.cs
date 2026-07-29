@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Infrastructure.Embedding;
@@ -11,6 +12,62 @@ namespace SE26Project_18.Api.Tests.Services;
 
 public sealed class GameAndTagServiceTests
 {
+    [Fact]
+    public async Task CreateGame_CreatesGameAndSchedulesEmbedding()
+    {
+        await using var db = CreateDbContext();
+        var tag = new GameTag("RPG");
+        db.GameTags.Add(tag);
+        await db.SaveChangesAsync();
+        var service = new GameService(db, new EmbeddingSyncScheduler(db));
+
+        var response = await service.CreateAsync(
+            new CreateGameRequest(" game ", "description", [tag.Id]),
+            CancellationToken.None
+        );
+
+        Assert.Equal("game", response.Name);
+        Assert.Equal("description", response.Description);
+        Assert.Equal([tag.Id], response.Tags.Select(item => item.Id));
+        var message = Assert.Single(await db.EmbeddingSyncOutbox.ToListAsync());
+        Assert.Equal(EmbeddingTarget.Game, message.Target);
+        Assert.Equal(response.Id, message.EntityId);
+    }
+
+    [Fact]
+    public async Task CreateGame_RejectsDuplicateName()
+    {
+        await using var db = CreateDbContext();
+        db.Games.Add(new Game("game"));
+        await db.SaveChangesAsync();
+        var service = new GameService(db, new EmbeddingSyncScheduler(db));
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            service.CreateAsync(
+                new CreateGameRequest(" game ", string.Empty),
+                CancellationToken.None
+            )
+        );
+    }
+
+    [Fact]
+    public async Task UpdateGame_RejectsMissingTag()
+    {
+        await using var db = CreateDbContext();
+        var game = new Game("game");
+        db.Games.Add(game);
+        await db.SaveChangesAsync();
+        var service = new GameService(db, new EmbeddingSyncScheduler(db));
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            service.UpdateAsync(
+                game.Id,
+                new UpdateGameRequest(TagIds: [long.MaxValue]),
+                CancellationToken.None
+            )
+        );
+    }
+
     [Fact]
     public async Task UpdateGameTags_SchedulesGameEmbedding()
     {
@@ -50,6 +107,9 @@ public sealed class GameAndTagServiceTests
         return new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .ConfigureWarnings(warnings =>
+                    warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning)
+                )
                 .Options
         );
     }
