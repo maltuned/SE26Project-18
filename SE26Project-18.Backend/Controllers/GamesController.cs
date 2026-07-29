@@ -5,7 +5,7 @@ using SE26Project_18.Backend.Services;
 namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/v1/[controller]")]
 public class GamesController : ControllerBase
 {
     private readonly IGameService _gameService;

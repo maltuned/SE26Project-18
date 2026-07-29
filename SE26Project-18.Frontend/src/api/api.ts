@@ -58,7 +58,7 @@ export const setLogoutInProgress = (value: boolean) => {
 // ==================== Fetch Helpers ====================
 
 const buildUrl = (endpoint: string, params?: Record<string, any>) => {
-  const url = new URL(endpoint.replace(/^\//, ""), API_BASE);
+  const url = new URL(API_BASE + endpoint);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== "") {
@@ -927,7 +927,7 @@ export const uploadImage = async (uri: string, folder: string = "avatars"): Prom
 
     const token = await tokenStorage.getAccessToken();
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/api/Image/upload`);
+    xhr.open("POST", `${API_BASE}/Image/upload`);
 
     if (token) {
       xhr.setRequestHeader("Authorization", `Bearer ${token}`);
@@ -963,7 +963,7 @@ export const uploadAvatar = async (uri: string, userId: number): Promise<string 
 
     const token = await tokenStorage.getAccessToken();
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/api/Image/upload-avatar`);
+    xhr.open("POST", `${API_BASE}/Image/upload-avatar`);
 
     if (token) {
       xhr.setRequestHeader("Authorization", `Bearer ${token}`);

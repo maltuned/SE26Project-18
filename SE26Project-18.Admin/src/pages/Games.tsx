@@ -4,11 +4,12 @@ import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile, RcFile } from 'antd/es/upload';
 import { ArrowLeftOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import ImgCrop from 'antd-img-crop';
 import { searchGames, updateGame, createGame, deleteGame, uploadImage, imageApi } from '../api';
 
-const { Title } = Typography;
+import { API_BASE } from '../config';
 
-const API_BASE = 'http://localhost:5111';
+const { Title } = Typography;
 
 const resolveImage = (url?: string) => {
   if (!url) return '';
@@ -247,42 +248,46 @@ const Games: React.FC = () => {
             <Input.TextArea rows={4} />
           </Form.Item>
           <Form.Item label="封面">
-            <Upload
-              listType="picture-card"
-              fileList={coverFile}
-              maxCount={1}
-              beforeUpload={file => {
-                setCoverFile([{ uid: '-1', name: file.name, status: 'done', originFileObj: file }]);
-                return false;
-              }}
-              onRemove={() => setCoverFile([])}
-            >
-              {coverFile.length === 0 && (
-                <div>
-                  <UploadOutlined />
-                  <div style={{ marginTop: 8 }}>上传</div>
-                </div>
-              )}
-            </Upload>
+            <ImgCrop rotationSlider aspect={80 / 110}>
+              <Upload
+                listType="picture-card"
+                fileList={coverFile}
+                maxCount={1}
+                beforeUpload={file => {
+                  setCoverFile([{ uid: '-1', name: file.name, status: 'done', originFileObj: file }]);
+                  return false;
+                }}
+                onRemove={() => setCoverFile([])}
+              >
+                {coverFile.length === 0 && (
+                  <div>
+                    <UploadOutlined />
+                    <div style={{ marginTop: 8 }}>上传</div>
+                  </div>
+                )}
+              </Upload>
+            </ImgCrop>
           </Form.Item>
           <Form.Item label="图标">
-            <Upload
-              listType="picture-card"
-              fileList={iconFile}
-              maxCount={1}
-              beforeUpload={file => {
-                setIconFile([{ uid: '-2', name: file.name, status: 'done', originFileObj: file }]);
-                return false;
-              }}
-              onRemove={() => setIconFile([])}
-            >
-              {iconFile.length === 0 && (
-                <div>
-                  <UploadOutlined />
-                  <div style={{ marginTop: 8 }}>上传</div>
-                </div>
-              )}
-            </Upload>
+            <ImgCrop rotationSlider aspect={1}>
+              <Upload
+                listType="picture-card"
+                fileList={iconFile}
+                maxCount={1}
+                beforeUpload={file => {
+                  setIconFile([{ uid: '-2', name: file.name, status: 'done', originFileObj: file }]);
+                  return false;
+                }}
+                onRemove={() => setIconFile([])}
+              >
+                {iconFile.length === 0 && (
+                  <div>
+                    <UploadOutlined />
+                    <div style={{ marginTop: 8 }}>上传</div>
+                  </div>
+                )}
+              </Upload>
+            </ImgCrop>
           </Form.Item>
         </Form>
       </Modal>

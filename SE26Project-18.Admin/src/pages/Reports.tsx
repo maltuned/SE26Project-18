@@ -5,11 +5,10 @@ import { EllipsisOutlined, ArrowLeftOutlined, SearchOutlined } from '@ant-design
 import type { MenuProps } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { getReports, handleReport, getReportTarget, imageApi } from '../api';
+import { API_BASE } from '../config';
 import type { AxiosError } from 'axios';
 
 const { Title } = Typography;
-
-const API_BASE = 'http://localhost:5111';
 
 const resolveAvatar = (url?: string) => {
   if (!url) return '';

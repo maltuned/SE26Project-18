@@ -5,7 +5,7 @@ using SE26Project_18.Backend.Services;
 namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/v1/[controller]")]
 public class GameTagsController : ControllerBase
 {
     private readonly ITagService _tagService;
@@ -47,7 +47,7 @@ public class GameTagsController : ControllerBase
 }
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/v1/[controller]")]
 public class RecruitmentTagsController : ControllerBase
 {
     private readonly ITagService _tagService;

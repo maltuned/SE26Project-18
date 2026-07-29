@@ -5,10 +5,9 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { searchUsers, updateUser, updateUserStatus, clearUserProfile, imageApi } from '../api';
+import { API_BASE } from '../config';
 
 const { Title } = Typography;
-
-const API_BASE = 'http://localhost:5111';
 
 const resolveAvatar = (url?: string) => {
   if (!url) return '';

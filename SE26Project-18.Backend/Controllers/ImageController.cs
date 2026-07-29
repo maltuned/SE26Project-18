@@ -6,7 +6,7 @@ using SE26Project_18.Backend.Services;
 namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Authorize]
 public class ImageController : ControllerBase
 {
@@ -39,7 +39,7 @@ public class ImageController : ControllerBase
         var objectName = !string.IsNullOrEmpty(name)
             ? await _imageService.UploadWithNameAsync(stream, $"{folder}/{name}{extension}", file.ContentType)
             : await _imageService.UploadAsync(stream, file.FileName, file.ContentType, folder);
-        var url = $"/api/Image/file/{objectName}";
+        var url = $"/Image/file/{objectName}";
 
         return Ok(ApiResponse<string>.Success(url, "上传成功"));
     }
@@ -67,7 +67,7 @@ public class ImageController : ControllerBase
         using var stream = file.OpenReadStream();
         var objectName = $"avatars/{userId}{extension}";
         await _imageService.UploadWithNameAsync(stream, objectName, file.ContentType);
-        var url = $"/api/Image/file/{objectName}";
+        var url = $"/Image/file/{objectName}";
 
         return Ok(ApiResponse<string>.Success(url, "上传成功"));
     }

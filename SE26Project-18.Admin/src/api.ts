@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { API_BASE } from './config';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5111/api/v1/admin',
+  baseURL: `${API_BASE}/admin`,
 });
 
 // Request interceptor: attach JWT token
@@ -13,7 +14,7 @@ api.interceptors.request.use(config => {
 
 // Image API proxy with auth
 export const imageApi = axios.create({
-  baseURL: 'http://localhost:5111',
+  baseURL: API_BASE,
 });
 
 imageApi.interceptors.request.use(config => {
@@ -110,7 +111,7 @@ export const uploadImage = (file: File, folder: string, name?: string) => {
   form.append('file', file);
   form.append('folder', folder);
   if (name) form.append('name', name);
-  return imageApi.post('/api/Image/upload', form, {
+  return imageApi.post('/Image/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data);
 };
