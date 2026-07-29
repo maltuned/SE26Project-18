@@ -9,6 +9,10 @@ public class Game
 
     public string Name { get; set; }
 
+    public string NameEn { get; set; } = string.Empty;
+
+    public string Aliases { get; set; } = string.Empty;
+
     public string Company { get; set; } = string.Empty;
 
     public string Description { get; set; } = string.Empty;
@@ -30,9 +34,11 @@ public class Game
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void UpdateDetails(string name, string company, string description, string cover, string icon)
+    public void UpdateDetails(string name, string nameEn, string aliases, string company, string description, string cover, string icon)
     {
         Name = name;
+        NameEn = nameEn;
+        Aliases = aliases;
         Company = company;
         Description = description;
         Cover = cover;

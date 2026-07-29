@@ -29,7 +29,8 @@ public class GameService : IGameService
         }
 
         var games = await _db.Games.Include(g => g.Tags)
-            .Where(g => g.Name.Contains(query)).ToListAsync();
+            .Where(g => g.Name.Contains(query) || g.NameEn.Contains(query) || g.Aliases.Contains(query))
+            .ToListAsync();
         return games.Select(g => _mapper.ToGameDto(g)).ToList();
     }
 
@@ -44,6 +45,8 @@ public class GameService : IGameService
         var tags = await _db.GameTags.Where(t => request.TagsId.Contains(t.Id)).ToListAsync();
         var game = new Game(request.Name)
         {
+            NameEn = request.NameEn,
+            Aliases = request.Aliases,
             Company = request.Company,
             Description = request.Description,
             Cover = request.Cover,
@@ -60,7 +63,7 @@ public class GameService : IGameService
         var game = await _db.Games.Include(g => g.Tags).FirstOrDefaultAsync(g => g.Id == id)
             ?? throw new KeyNotFoundException("游戏不存在");
 
-        game.UpdateDetails(request.Name, request.Company, request.Description, request.Cover, request.Icon);
+        game.UpdateDetails(request.Name, request.NameEn, request.Aliases, request.Company, request.Description, request.Cover, request.Icon);
 
         var tags = await _db.GameTags.Where(t => request.TagsId.Contains(t.Id)).ToListAsync();
         game.UpdateTags(tags);

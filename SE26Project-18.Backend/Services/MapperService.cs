@@ -40,6 +40,8 @@ public class MapperService
         {
             Id = game.Id,
             Name = game.Name,
+            NameEn = game.NameEn,
+            Aliases = game.Aliases,
             Company = game.Company,
             Description = game.Description,
             Cover = game.Cover,
@@ -57,6 +59,7 @@ public class MapperService
         {
             Id = game.Id,
             Name = game.Name,
+            NameEn = game.NameEn,
             Cover = game.Cover,
             Icon = game.Icon,
         };

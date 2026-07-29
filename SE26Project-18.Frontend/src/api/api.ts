@@ -355,13 +355,14 @@ const mapResponseDto = (dto: ResponseDto): ResponseData => ({
 const mapRecruitmentBriefDto = (dto: RecruitmentBriefDto): RecruitmentBrief => ({
   id: dto.id,
   title: dto.title,
-  game: { id: dto.game.id, name: dto.game.name, icon: dto.game.icon },
+  game: { id: dto.game.id, name: dto.game.name, nameEn: dto.game.name_en || "", icon: dto.game.icon },
 });
 
 // GameDto → GameBrief
 const mapGameBriefDto = (dto: GameDto): GameBrief => ({
   id: dto.id,
   name: dto.name,
+  nameEn: dto.name_en || "",
   icon: dto.icon || "",
 });
 
@@ -370,6 +371,8 @@ const mapGameBriefDto = (dto: GameDto): GameBrief => ({
 const mapGameDto = (dto: GameDto): GameInfo => ({
   id: dto.id,
   name: dto.name,
+  nameEn: dto.name_en || "",
+  aliases: dto.aliases || "",
   company: dto.company,
   description: dto.description,
   cover: dto.cover || "",

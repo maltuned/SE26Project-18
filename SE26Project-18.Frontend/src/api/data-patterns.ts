@@ -29,12 +29,15 @@ export interface UserInfo {
 export interface GameBrief {
   id: number;
   name: string;
+  nameEn: string;
   icon: string;
 }
 
 export interface GameInfo {
   id: number;
   name: string;
+  nameEn: string;
+  aliases: string;
   company: string;
   description: string;
   cover: string;

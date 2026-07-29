@@ -37,7 +37,14 @@ const Recruitments: React.FC = () => {
     }
   };
 
-  const handleSearch = (value: string) => fetchData(value);
+  const handleSearch = (value: string) => {
+    setQuery(value);
+    fetchData(value);
+  };
+
+  React.useEffect(() => {
+    React.startTransition(() => { fetchData(''); });
+  }, []);
 
   const handleClose = async (id: number) => {
     try {

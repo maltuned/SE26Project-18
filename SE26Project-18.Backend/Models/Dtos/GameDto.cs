@@ -10,6 +10,12 @@ public class GameDto
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonPropertyName("name_en")]
+    public string NameEn { get; set; } = string.Empty;
+
+    [JsonPropertyName("aliases")]
+    public string Aliases { get; set; } = string.Empty;
+
     [JsonPropertyName("company")]
     public string Company { get; set; } = string.Empty;
 

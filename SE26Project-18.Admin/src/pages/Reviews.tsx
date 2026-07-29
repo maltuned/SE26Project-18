@@ -38,7 +38,14 @@ const Reviews: React.FC = () => {
     }
   }, []);
 
-  const handleSearch = (value: string) => fetchData(value ? Number(value) : undefined);
+  const handleSearch = (value: string) => {
+    setSearchId(value);
+    fetchData(value ? Number(value) : undefined);
+  };
+
+  React.useEffect(() => {
+    React.startTransition(() => { fetchData(); });
+  }, []);
 
   const handleToggleStatus = async (id: number, current: string) => {
     const newStatus = current === '显示' ? '隐藏' : '显示';

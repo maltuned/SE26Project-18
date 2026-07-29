@@ -10,6 +10,9 @@ public class GameBriefDto
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonPropertyName("name_en")]
+    public string NameEn { get; set; } = string.Empty;
+
     [JsonPropertyName("cover")]
     public string Cover { get; set; } = string.Empty;
 

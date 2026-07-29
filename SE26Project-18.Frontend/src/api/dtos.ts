@@ -45,6 +45,7 @@ export interface UserDto {
 export interface GameBriefDto {
   id: number;
   name: string;
+  name_en: string;
   cover: string;
   icon: string;
 }
@@ -52,6 +53,8 @@ export interface GameBriefDto {
 export interface GameDto {
   id: number;
   name: string;
+  name_en: string;
+  aliases: string;
   company: string;
   description: string;
   cover: string;

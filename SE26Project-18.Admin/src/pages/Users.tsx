@@ -68,7 +68,14 @@ const Users: React.FC = () => {
     }
   };
 
-  const handleSearch = (value: string) => fetchData(value);
+  const handleSearch = (value: string) => {
+    setQuery(value);
+    fetchData(value);
+  };
+
+  React.useEffect(() => {
+    React.startTransition(() => { fetchData(''); });
+  }, []);
 
   const handleResetField = (id: number, field: string, label: string) => {
     Modal.confirm({

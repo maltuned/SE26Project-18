@@ -49,6 +49,8 @@ interface GameTagItem {
 interface Game {
   id: number;
   name?: string;
+  name_en?: string;
+  aliases?: string;
   company?: string;
   description?: string;
   cover?: string;
@@ -83,7 +85,14 @@ const Games: React.FC = () => {
     }
   };
 
-  const handleSearch = (value: string) => fetchData(value);
+  const handleSearch = (value: string) => {
+    setQuery(value);
+    fetchData(value);
+  };
+
+  React.useEffect(() => {
+    React.startTransition(() => { fetchData(''); });
+  }, []);
 
   const uploadSingle = async (file: RcFile, folder: string, name?: string): Promise<string> => {
     const res = await uploadImage(file, folder, name);
@@ -106,6 +115,8 @@ const Games: React.FC = () => {
     setEditingGame(game);
     form.setFieldsValue({
       name: game.name,
+      nameEn: game.name_en || '',
+      aliases: game.aliases || '',
       company: game.company,
       description: game.description,
       tags: game.tags_id || [],
@@ -130,6 +141,8 @@ const Games: React.FC = () => {
 
       const payload = {
         name: values.name,
+        nameEn: values.nameEn ?? '',
+        aliases: values.aliases ?? '',
         company: values.company ?? '',
         description: values.description ?? '',
         cover: editingGame?.cover ?? '',
@@ -262,8 +275,14 @@ const Games: React.FC = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入游戏名称' }]}>
+          <Form.Item name="name" label="中文名" rules={[{ required: true, message: '请输入游戏名称' }]}>
             <Input />
+          </Form.Item>
+          <Form.Item name="nameEn" label="英文名">
+            <Input />
+          </Form.Item>
+          <Form.Item name="aliases" label="别称">
+            <Input placeholder="多个别称用逗号分隔" />
           </Form.Item>
           <Form.Item name="company" label="厂商">
             <Input />
