@@ -82,6 +82,12 @@ internal class Recruitment
         Version++;
     }
 
+    public void Delete()
+    {
+        Status = RecruitmentStatus.Deleted;
+        Version++;
+    }
+
     public void MarkEmbeddingApplied(long version)
     {
         if (version > AppliedEmbeddingVersion)

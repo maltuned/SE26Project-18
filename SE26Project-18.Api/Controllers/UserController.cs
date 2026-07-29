@@ -47,6 +47,17 @@ public sealed class UserController : ControllerBase
         return Ok(user);
     }
 
+    [HttpPatch("{id:long}/suspension")]
+    [Authorize(Policy = "RequireAdmin")]
+    public async Task<IActionResult> SetSuspension(
+        long id,
+        [FromBody] SetUserSuspensionRequest request,
+        CancellationToken ct
+    )
+    {
+        return Ok(await _userService.SetSuspensionAsync(id, request, ct));
+    }
+
     private long GetCurrentUserId()
     {
         if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))

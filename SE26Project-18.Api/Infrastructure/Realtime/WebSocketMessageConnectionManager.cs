@@ -39,11 +39,7 @@ internal sealed class WebSocketMessageConnectionManager : IMessageConnectionMana
         chatConnections.TryRemove(socket, out _);
     }
 
-    public async Task BroadcastAsync(
-        long chatId,
-        MessageResponse message,
-        CancellationToken ct
-    )
+    public async Task BroadcastAsync(long chatId, MessageResponse message, CancellationToken ct)
     {
         if (!_connections.TryGetValue(chatId, out var chatConnections))
         {

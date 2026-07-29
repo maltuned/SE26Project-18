@@ -75,6 +75,33 @@ internal sealed class UserService : IUserService
         return user.ToResponse();
     }
 
+    public async Task<UserResponse> SetSuspensionAsync(
+        long id,
+        SetUserSuspensionRequest request,
+        CancellationToken ct
+    )
+    {
+        var user =
+            await _db.Users.Include(u => u.Tags).FirstOrDefaultAsync(u => u.Id == id, ct)
+            ?? throw new NotFoundException("User not found.");
+
+        user.Status = request.Suspended ? UserStatus.Suspended : UserStatus.Offline;
+
+        if (request.Suspended)
+        {
+            var refreshTokens = await _db
+                .RefreshTokens.Where(token => token.UserId == id && !token.IsRevoked)
+                .ToListAsync(ct);
+            foreach (var refreshToken in refreshTokens)
+            {
+                refreshToken.IsRevoked = true;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return user.ToResponse();
+    }
+
     private async Task<IReadOnlyCollection<long>> GetUsersInterestedInRecruiterAsync(
         long recruiterId,
         CancellationToken ct

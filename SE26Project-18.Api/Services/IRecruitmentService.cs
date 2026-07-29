@@ -33,5 +33,7 @@ public interface IRecruitmentService
         CancellationToken ct
     );
 
+    Task ForceCloseAsync(long recruitmentId, CancellationToken ct);
+
     Task RecordViewAsync(long userId, long recruitmentId, CancellationToken ct);
 }
