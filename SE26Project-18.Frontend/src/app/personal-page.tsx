@@ -128,7 +128,7 @@ export default function PersonalPageScreen() {
         <View style={styles.profileTop}>
           <RemoteImage
             url={targetUser?.avatar}
-            style={[styles.avatar, { backgroundColor: colors.primary }]}
+            style={[styles.avatar, { backgroundColor: colors.placeholder }] }
           />
           <View style={styles.profileInfo}>
             <Text style={[styles.nickname, { color: colors.nicknameText }]}>
@@ -211,7 +211,7 @@ export default function PersonalPageScreen() {
                     <RemoteImage
                       style={[
                         styles.reviewerAvatar,
-                        { backgroundColor: colors.primary },
+                        { backgroundColor: colors.placeholder },
                       ]}
                     />
                     <Text style={[styles.reviewerName, { color: colors.text }]}>

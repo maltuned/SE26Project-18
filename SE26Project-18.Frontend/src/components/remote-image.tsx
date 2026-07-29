@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../contexts/theme-context";
 import { tokenStorage } from "../api/tokenStorage";
 import { API_BASE } from "../api/config";
@@ -13,7 +14,10 @@ interface RemoteImageProps {
   fallbackSource?: ReturnType<typeof require>;
 }
 
-function arrayBufferToDataUri(buffer: ArrayBuffer, contentType: string): string {
+function arrayBufferToDataUri(
+  buffer: ArrayBuffer,
+  contentType: string,
+): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -22,7 +26,11 @@ function arrayBufferToDataUri(buffer: ArrayBuffer, contentType: string): string 
   return `data:${contentType};base64,${btoa(binary)}`;
 }
 
-export default function RemoteImage({ url, style, fallbackSource }: RemoteImageProps) {
+export default function RemoteImage({
+  url,
+  style,
+  fallbackSource,
+}: RemoteImageProps) {
   const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -43,9 +51,10 @@ export default function RemoteImage({ url, style, fallbackSource }: RemoteImageP
       try {
         const token = await tokenStorage.getAccessToken();
 
-        const resolvedUrl = url.startsWith("http://") || url.startsWith("https://")
-          ? url
-          : `${API_BASE}${url.startsWith("/") ? url : "/" + url}`;
+        const resolvedUrl =
+          url.startsWith("http://") || url.startsWith("https://")
+            ? url
+            : `${API_BASE}${url.startsWith("/") ? url : "/" + url}`;
 
         const xhr = new XMLHttpRequest();
         xhr.open("GET", resolvedUrl);
@@ -61,7 +70,7 @@ export default function RemoteImage({ url, style, fallbackSource }: RemoteImageP
               xhr.getResponseHeader("content-type") || "image/jpeg";
             const dataUri = arrayBufferToDataUri(
               xhr.response as ArrayBuffer,
-              contentType
+              contentType,
             );
             setImageUri(dataUri);
             setLoading(false);
@@ -93,12 +102,7 @@ export default function RemoteImage({ url, style, fallbackSource }: RemoteImageP
   }, [url]);
 
   if (!url || error) {
-    return (
-      <Image
-        source={fallbackSource || DEFAULT_AVATAR}
-        style={style}
-      />
-    );
+    return <Image source={fallbackSource || DEFAULT_AVATAR} style={style} transition={140} />;
   }
 
   if (loading || !imageUri) {
@@ -109,14 +113,12 @@ export default function RemoteImage({ url, style, fallbackSource }: RemoteImageP
             styles.loadingOverlay,
             { backgroundColor: colors.placeholder },
           ]}
-        >
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
+        />
       </View>
     );
   }
 
-  return <Image source={{ uri: imageUri }} style={style} />;
+  return <Image source={{ uri: imageUri }} style={style} transition={140} />;
 }
 
 const styles = StyleSheet.create({

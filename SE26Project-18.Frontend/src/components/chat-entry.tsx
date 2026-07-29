@@ -26,7 +26,7 @@ function ChatEntry({ chat, onPress }: ChatEntryProps) {
     >
       <RemoteImage
         url={chat.avatar}
-        style={[styles.avatar, { backgroundColor: colors.primary }]}
+        style={[styles.avatar, { backgroundColor: colors.placeholder }]}
       />
       <View style={styles.chatInfo}>
         <View style={styles.chatTop}>

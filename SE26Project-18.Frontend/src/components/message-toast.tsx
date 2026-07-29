@@ -165,7 +165,7 @@ export default function MessageToast({
       >
         <RemoteImage
           url={toast.senderAvatar}
-          style={[styles.avatar, { backgroundColor: colors.primary }]}
+          style={[styles.avatar, { backgroundColor: colors.placeholder }]}
         />
         <View style={styles.textContainer}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>

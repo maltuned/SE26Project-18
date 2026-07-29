@@ -280,7 +280,7 @@ export default function ChatRoomScreen() {
         >
           <RemoteImage
             url={otherUser?.avatar}
-            style={[styles.headerAvatar, { backgroundColor: colors.primary }]}
+            style={[styles.headerAvatar, { backgroundColor: colors.placeholder }]}
           />
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             {(otherUser?.nickname || otherUser?.username) ?? "聊天"}
@@ -342,7 +342,7 @@ export default function ChatRoomScreen() {
           ]}
           onPress={handleRecruitmentPress}
         >
-          <RemoteImage url={recruitment?.gameIcon} style={styles.recruitmentIcon} />
+          <RemoteImage url={recruitment?.gameIcon} style={[styles.recruitmentIcon, { backgroundColor: colors.placeholder }]} />
           <Text
             style={[styles.recruitmentTitle, { color: colors.textSecondary }]}
             numberOfLines={1}

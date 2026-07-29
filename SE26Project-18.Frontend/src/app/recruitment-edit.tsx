@@ -176,7 +176,7 @@ export default function RecruitmentEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.topRow}>
-            <RemoteImage url={selectedGame?.cover} style={styles.coverImage} />
+            <RemoteImage url={selectedGame?.cover} style={[styles.coverImage, { backgroundColor: colors.placeholder }]} />
             <View style={styles.topRight}>
               <TouchableOpacity
                 style={[

@@ -194,7 +194,7 @@ export default function RecruitmentViewScreen() {
       >
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
           <View style={styles.topRow}>
-            <RemoteImage url={recruitment.gameCover} style={styles.coverImage} />
+            <RemoteImage url={recruitment.gameCover} style={[styles.coverImage, { backgroundColor: colors.placeholder }]} />
             <View style={styles.topRight}>
               <View style={styles.nameRow}>
                 <Text
@@ -236,7 +236,7 @@ export default function RecruitmentViewScreen() {
               >
                 <RemoteImage
                   url={recruitment.publisher?.avatar}
-                  style={[styles.avatar, { backgroundColor: colors.primary }]}
+                  style={[styles.avatar, { backgroundColor: colors.placeholder }]}
                 />
                 <Text
                   style={[styles.avatarName, { color: colors.textSecondary }]}

@@ -38,7 +38,7 @@ export default function MoreScreen() {
           { backgroundColor: colors.profileBackground },
         ]}
       >
-        <RemoteImage url={currentUser?.avatar} style={styles.avatar} />
+        <RemoteImage url={currentUser?.avatar} style={[styles.avatar, { backgroundColor: colors.placeholder }] } />
         <Text style={[styles.nickname, { color: colors.text }]}>
           {currentUser?.nickname || currentUser?.username || "未登录"}
         </Text>
@@ -82,7 +82,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,

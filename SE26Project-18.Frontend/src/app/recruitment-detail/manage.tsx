@@ -174,7 +174,7 @@ export default function RecruitmentManageScreen() {
             </Text>
           </View>
           <View style={styles.topRow}>
-            <RemoteImage url={recruitment.gameCover} style={styles.coverImage} />
+            <RemoteImage url={recruitment.gameCover} style={[styles.coverImage, { backgroundColor: colors.placeholder }]} />
             <View style={styles.topRight}>
               <Text style={[styles.gameName, { color: colors.textSecondary }]}>
                 {recruitment.gameName}
@@ -238,7 +238,7 @@ export default function RecruitmentManageScreen() {
                     url={res.responser?.avatar}
                     style={[
                       styles.responderAvatar,
-                      { backgroundColor: colors.primary },
+                      { backgroundColor: colors.placeholder },
                     ]}
                   />
                   <Text style={[styles.responderName, { color: colors.text }]}>

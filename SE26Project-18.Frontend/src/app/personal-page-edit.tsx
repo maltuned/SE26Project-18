@@ -106,7 +106,7 @@ export default function PersonalPageEditScreen() {
             <TouchableOpacity onPress={handlePickAvatar} disabled={uploading}>
               <RemoteImage
                 url={avatar || currentUser?.avatar}
-                style={styles.avatar}
+                style={[styles.avatar, { backgroundColor: colors.placeholder }] }
               />
               <View style={[styles.avatarOverlay, { backgroundColor: colors.overlay }]}>
                 <Text style={styles.avatarOverlayText}>
@@ -179,7 +179,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
   },
