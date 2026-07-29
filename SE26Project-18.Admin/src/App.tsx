@@ -9,11 +9,13 @@ import {
   AppstoreOutlined,
   LogoutOutlined,
   DashboardOutlined,
+  NotificationOutlined,
 } from '@ant-design/icons';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import Feedbacks from './pages/Feedbacks';
+import Notifications from './pages/Notifications';
 import Users from './pages/Users';
 import Recruitments from './pages/Recruitments';
 import Games from './pages/Games';
@@ -40,6 +42,7 @@ const AdminLayout: React.FC = () => {
     { key: '/admin', icon: <DashboardOutlined />, label: '概览' },
     { key: '/admin/reports', icon: <WarningOutlined />, label: '举报' },
     { key: '/admin/feedbacks', icon: <MessageOutlined />, label: '反馈' },
+    { key: '/admin/notifications', icon: <NotificationOutlined />, label: '通知' },
     { key: '/admin/users', icon: <UserOutlined />, label: '用户' },
     { key: '/admin/recruitments', icon: <TeamOutlined />, label: '招募' },
     { key: '/admin/games', icon: <AppstoreOutlined />, label: '游戏' },
@@ -127,6 +130,7 @@ const App: React.FC = () => {
             <Route index element={<Dashboard />} />
             <Route path="reports" element={<Reports />} />
             <Route path="feedbacks" element={<Feedbacks />} />
+            <Route path="notifications" element={<Notifications />} />
             <Route path="users" element={<Users />} />
             <Route path="recruitments" element={<Recruitments />} />
             <Route path="games" element={<Games />} />

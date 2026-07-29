@@ -12,7 +12,8 @@ using SE26Project_18.Backend.Services;
 namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
-[Route("api/admin")]
+[Route("api/v1/[controller]")]
+[Authorize(Roles = "Admin")]
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
@@ -23,6 +24,7 @@ public class AdminController : ControllerBase
     private readonly IGameService _gameService;
     private readonly IChatService _chatService;
     private readonly IMessageService _messageService;
+    private readonly INotificationService _notificationService;
 
     public AdminController(
         IAdminService adminService,
@@ -32,7 +34,8 @@ public class AdminController : ControllerBase
         IRecruitmentService recruitmentService,
         IGameService gameService,
         IChatService chatService,
-        IMessageService messageService)
+        IMessageService messageService,
+        INotificationService notificationService)
     {
         _adminService = adminService;
         _reportService = reportService;
@@ -42,6 +45,7 @@ public class AdminController : ControllerBase
         _gameService = gameService;
         _chatService = chatService;
         _messageService = messageService;
+        _notificationService = notificationService;
     }
 
     private long GetAdminId()
@@ -51,6 +55,7 @@ public class AdminController : ControllerBase
         return long.Parse(idClaim!);
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<ApiResponse<object>>> Login([FromBody] AdminLoginRequest request)
     {
@@ -98,9 +103,33 @@ public class AdminController : ControllerBase
     public async Task<ActionResult<ApiResponse<bool>>> HandleReport(long id, [FromBody] HandleReportRequest request)
     {
         var adminId = GetAdminId();
-        var result = await _reportService.UpdateStatusAsync(id, request.Status.ToReportStatus(), adminId);
+        var reportStatus = request.Status.ToReportStatus();
+        var result = await _reportService.UpdateStatusAsync(id, reportStatus, adminId);
         if (!result)
             return Ok(ApiResponse<bool>.Fail("举报不存在", 404));
+
+        var report = await _reportService.GetByIdAsync(id);
+        if (report != null)
+        {
+            var targetName = await ResolveTargetNameAsync(report.TargetType, report.TargetId);
+            var targetTypeText = report.TargetType switch
+            {
+                ReportTargetType.Recruitment => "招募",
+                ReportTargetType.User => "用户",
+                ReportTargetType.Chat => "聊天",
+                _ => report.TargetType.ToString()
+            };
+            var statusText = reportStatus switch
+            {
+                ReportStatus.Resolved => "处理",
+                ReportStatus.Rejected => "驳回",
+                _ => reportStatus.ToString()
+            };
+            await _notificationService.CreateAsync(report.ReporterId,
+                "举报处理结果",
+                $"您对{targetTypeText}「{targetName}」的举报已被{statusText}");
+        }
+
         return Ok(ApiResponse<bool>.Success(true, "处理成功"));
     }
 
@@ -153,6 +182,17 @@ public class AdminController : ControllerBase
         };
     }
 
+    private async Task<string> ResolveTargetNameAsync(ReportTargetType targetType, long targetId)
+    {
+        return targetType switch
+        {
+            ReportTargetType.Recruitment => (await _recruitmentService.GetRecruitmentByIdAsync(targetId))?.Title ?? "招募",
+            ReportTargetType.User => (await _userService.GetUserByIdAsync(targetId))?.Nickname ?? "用户",
+            ReportTargetType.Chat => (await _chatService.GetChatByIdAsync(targetId, 0))?.OtherUser?.Nickname ?? "用户",
+            _ => targetType.ToString()
+        };
+    }
+
     [Authorize(Roles = "Admin")]
     [HttpGet("feedbacks")]
     public async Task<ActionResult<ApiResponse<List<Feedback>>>> GetAllFeedbacks([FromQuery] string? status)
@@ -173,6 +213,18 @@ public class AdminController : ControllerBase
         var result = await _feedbackService.UpdateStatusAsync(id, request.Status.ToFeedbackStatus(), adminId);
         if (!result)
             return Ok(ApiResponse<bool>.Fail("反馈不存在", 404));
+
+        var feedback = await _feedbackService.GetByIdAsync(id);
+        if (feedback != null)
+        {
+            var preview = feedback.Content.Length > 20
+                ? feedback.Content[..20] + "…"
+                : feedback.Content;
+            await _notificationService.CreateAsync(feedback.UserId,
+                "反馈处理结果",
+                $"您的反馈「{preview}」已被处理，感谢您的宝贵意见！");
+        }
+
         return Ok(ApiResponse<bool>.Success(true, "处理成功"));
     }
 
@@ -293,6 +345,27 @@ public class AdminController : ControllerBase
             return Ok(ApiResponse<object>.Fail("游戏不存在", 404));
         return Ok(ApiResponse<object>.Success(new { }, "已删除"));
     }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost("notifications")]
+    public async Task<ActionResult<ApiResponse<object>>> SendNotification([FromBody] SendNotificationRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body))
+            return Ok(ApiResponse<object>.Fail("标题和内容不能为空", 400));
+
+        if (request.UserId.HasValue)
+        {
+            await _notificationService.CreateAsync(request.UserId.Value, request.Title, request.Body);
+            return Ok(ApiResponse<object>.Success(new { }, "通知已发送"));
+        }
+
+        var allUsers = await _userService.GetUsersAsync();
+        foreach (var user in allUsers)
+        {
+            await _notificationService.CreateAsync(user.Id, request.Title, request.Body);
+        }
+        return Ok(ApiResponse<object>.Success(new { }, $"已向 {allUsers.Count} 位用户发送通知"));
+    }
 }
 
 public class AdminLoginRequest
@@ -320,4 +393,16 @@ public class UpdateUserStatusRequest
 {
     [JsonPropertyName("status")]
     public string Status { get; set; } = string.Empty;
+}
+
+public class SendNotificationRequest
+{
+    [JsonPropertyName("userId")]
+    public long? UserId { get; set; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("body")]
+    public string Body { get; set; } = string.Empty;
 }

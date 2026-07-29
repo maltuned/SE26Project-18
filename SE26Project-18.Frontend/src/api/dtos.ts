@@ -176,3 +176,11 @@ export interface ReportDto {
   violation_type: string;
   content: string;
 }
+
+export interface NotificationDto {
+  id: number;
+  title: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+}

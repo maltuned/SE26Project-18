@@ -1,5 +1,9 @@
 import { Tabs, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { getChats } from "../../api/api";
+import { useAuth } from "../../contexts/auth-context";
+import { useChatUnread } from "../../contexts/chat-unread-context";
 import { useTheme } from "../../contexts/theme-context";
 
 function PublishTabButton({ children, ...props }: any) {
@@ -34,6 +38,17 @@ function ProfileIcon() {
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { userId } = useAuth();
+  const { unreadCount, setUnreadCount } = useChatUnread();
+
+  useEffect(() => {
+    if (userId) {
+      getChats(userId).then((chats) => {
+        const total = chats.reduce((sum, c) => sum + c.unreadCount, 0);
+        setUnreadCount(total);
+      });
+    }
+  }, [userId, setUnreadCount]);
 
   return (
     <Tabs
@@ -75,6 +90,14 @@ export default function TabLayout() {
         options={{
           tabBarLabel: "聊天",
           tabBarIcon: ChatIcon,
+          tabBarBadge: unreadCount > 0 ? "" : undefined,
+          tabBarBadgeStyle: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            minWidth: 8,
+            fontSize: 0,
+          },
         }}
       />
       <Tabs.Screen

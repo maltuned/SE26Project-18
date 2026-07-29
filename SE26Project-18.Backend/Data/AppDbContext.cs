@@ -20,6 +20,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<Admin> Admins => Set<Admin>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

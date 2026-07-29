@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5111/api/admin',
+  baseURL: 'http://localhost:5111/api/v1/admin',
 });
 
 // Request interceptor: attach JWT token
@@ -114,3 +114,7 @@ export const uploadImage = (file: File, folder: string, name?: string) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data);
 };
+
+// Notifications
+export const sendNotification = (data: { userId?: number; title: string; body: string }) =>
+  api.post('/notifications', data).then(r => r.data);

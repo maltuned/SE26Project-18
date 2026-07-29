@@ -3,14 +3,16 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Pressable,
     StyleSheet,
     Text,
     View,
 } from "react-native";
-import { ChatBrief, getChats, markMessagesRead } from "../../api/api";
+import { ChatBrief, getChats, getUnreadNotificationCount, markMessagesRead } from "../../api/api";
 import { MessageDto } from "../../api/dtos";
 import ChatEntry, { ChatEntryInfo } from "../../components/chat-entry";
 import { useAuth } from "../../contexts/auth-context";
+import { useChatUnread } from "../../contexts/chat-unread-context";
 import { useSignalR } from "../../contexts/signalr-context";
 import { useTheme } from "../../contexts/theme-context";
 
@@ -19,8 +21,10 @@ export default function ChatListScreen() {
   const { colors } = useTheme();
   const { userId } = useAuth();
   const { onNewChatMessage } = useSignalR();
+  const { setUnreadCount } = useChatUnread();
   const [chats, setChats] = useState<ChatBrief[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
   const loadChats = useCallback(() => {
     setLoading(true);
@@ -32,8 +36,10 @@ export default function ChatListScreen() {
       });
       setChats(sorted);
       setLoading(false);
+      const totalUnread = sorted.reduce((sum, c) => sum + c.unreadCount, 0);
+      setUnreadCount(totalUnread);
     });
-  }, [userId]);
+  }, [userId, setUnreadCount]);
 
   useEffect(() => {
     if (userId) {
@@ -48,6 +54,7 @@ export default function ChatListScreen() {
     useCallback(() => {
       if (userId) {
         loadChats();
+        getUnreadNotificationCount().then(setUnreadNotifCount);
       }
     }, [userId, loadChats]),
   );
@@ -60,7 +67,7 @@ export default function ChatListScreen() {
           loadChats();
           return prev;
         }
-        return prev
+        const updated = prev
           .map((c) =>
             c.id === msg.chat_id
               ? {
@@ -76,11 +83,14 @@ export default function ChatListScreen() {
             const timeB = b.lastMessageAt || "";
             return new Date(timeB).getTime() - new Date(timeA).getTime();
           });
+        const totalUnread = updated.reduce((sum, c) => sum + c.unreadCount, 0);
+        setUnreadCount(totalUnread);
+        return updated;
       });
     });
 
     return unsub;
-  }, [onNewChatMessage, loadChats]);
+  }, [onNewChatMessage, loadChats, setUnreadCount]);
 
   const openChat = (chat: ChatBrief) => {
     if (chat.unreadCount > 0 && userId) {
@@ -121,7 +131,18 @@ export default function ChatListScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>聊天</Text>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>聊天</Text>
+        <Pressable
+          style={styles.notifButton}
+          onPress={() => router.push("/notification")}
+        >
+          <Text style={[styles.notifIcon, { color: colors.text }]}>🔔</Text>
+          {unreadNotifCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: "red" }]} />
+          )}
+        </Pressable>
+      </View>
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -146,11 +167,32 @@ export default function ChatListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  },
+  notifButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notifIcon: { fontSize: 22 },
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

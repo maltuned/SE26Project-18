@@ -11,6 +11,7 @@ import { MessageDto } from "../api/dtos";
 import MessageToast, { ToastMessage } from "../components/message-toast";
 import TestMessageButton from "../components/test-message-button";
 import { AuthProvider, useAuth } from "../contexts/auth-context";
+import { ChatUnreadProvider } from "../contexts/chat-unread-context";
 import { SignalRProvider, useSignalR } from "../contexts/signalr-context";
 import { ThemeProvider, useTheme } from "../contexts/theme-context";
 
@@ -18,9 +19,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <SignalRProvider>
-          <RootLayoutMain />
-        </SignalRProvider>
+        <ChatUnreadProvider>
+          <SignalRProvider>
+            <RootLayoutMain />
+          </SignalRProvider>
+        </ChatUnreadProvider>
       </AuthProvider>
     </ThemeProvider>
   );
@@ -113,6 +116,7 @@ function RootLayoutNav() {
         <Stack.Screen name="settings" />
         <Stack.Screen name="feedback" />
         <Stack.Screen name="report" />
+        <Stack.Screen name="notification" />
       </Stack>
       <MessageToast
         toast={toast}

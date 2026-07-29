@@ -38,6 +38,11 @@ public sealed class FeedbackService : IFeedbackService
         return await query.OrderByDescending(f => f.CreatedAt).ToListAsync();
     }
 
+    public async Task<Feedback?> GetByIdAsync(long id)
+    {
+        return await _db.Feedbacks.FirstOrDefaultAsync(f => f.Id == id);
+    }
+
     public async Task<bool> UpdateStatusAsync(long id, FeedbackStatus status, long adminId)
     {
         var feedback = await _db.Feedbacks.FindAsync(id);

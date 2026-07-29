@@ -14,10 +14,12 @@ namespace SE26Project_18.Backend.Controllers;
 public class FeedbackController : ControllerBase
 {
     private readonly IFeedbackService _feedbackService;
+    private readonly INotificationService _notificationService;
 
-    public FeedbackController(IFeedbackService feedbackService)
+    public FeedbackController(IFeedbackService feedbackService, INotificationService notificationService)
     {
         _feedbackService = feedbackService;
+        _notificationService = notificationService;
     }
 
     [HttpPost]
@@ -44,6 +46,12 @@ public class FeedbackController : ControllerBase
         try
         {
             await _feedbackService.SubmitFeedbackAsync(userId, type.Value, dto.Content);
+            var preview = dto.Content.Length > 20
+                ? dto.Content[..20] + "…"
+                : dto.Content;
+            await _notificationService.CreateAsync(userId,
+                "反馈已提交",
+                $"您的反馈「{preview}」已提交，请等待管理员处理。");
             return Ok(ApiResponse<bool>.Success(true, "反馈提交成功"));
         }
         catch (ArgumentException ex)

@@ -7,6 +7,7 @@ import type {
   GameDto,
   GameTagDto,
   MessageDto,
+  NotificationDto,
   RecruitmentBriefDto,
   RecruitmentDetailDto,
   RecruitmentDto,
@@ -185,6 +186,37 @@ const apiPostNoAuth = async <T>(endpoint: string, body?: any): Promise<ApiRespon
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+};
+
+const apiPut = async <T>(endpoint: string, body?: any): Promise<ApiResponse<T>> => {
+  const headers = await getAuthHeaders();
+  const res = await fetch(buildUrl(endpoint), {
+    method: "PUT",
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (res.status === 401) {
+    if (logoutInProgress) {
+      return { status: 401, data: null as any, message: "" };
+    }
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      const retryHeaders = await getAuthHeaders();
+      const retryRes = await fetch(buildUrl(endpoint), {
+        method: "PUT",
+        headers: retryHeaders,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (retryRes.ok) return retryRes.json();
+    }
+    await tokenStorage.clearTokens();
+    onAuthExpired?.();
+    throw new Error("认证已过期");
+  }
+
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 };
@@ -384,6 +416,22 @@ const mapChatDto = (dto: ChatDto): ChatData => ({
     sentMessage: u.sent_message,
   })),
   recruitment: dto.recruitment ? mapRecruitmentBriefDto(dto.recruitment) : undefined,
+});
+
+export interface NotificationItem {
+  id: number;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+const mapNotificationDto = (dto: NotificationDto): NotificationItem => ({
+  id: dto.id,
+  title: dto.title,
+  body: dto.body,
+  isRead: dto.is_read,
+  createdAt: dto.created_at,
 });
 
 // ==================== Response Helpers ====================
@@ -936,4 +984,28 @@ export const uploadAvatar = async (uri: string, userId: number): Promise<string 
     xhr.onerror = () => resolve(null);
     xhr.send(formData);
   });
+};
+
+// ==================== Notification API ====================
+
+export const getNotifications = (): Promise<NotificationItem[]> => {
+  const response = apiGet<NotificationDto[]>("/Notification");
+  return handleArrayResponse<NotificationItem>(response, (data: NotificationDto[]) =>
+    data.map(mapNotificationDto),
+  );
+};
+
+export const getUnreadNotificationCount = async (): Promise<number> => {
+  const response = apiGet<number>("/Notification/unread-count");
+  return (await handleResponseDirect(response)) ?? 0;
+};
+
+export const markNotificationRead = (id: number): Promise<boolean> => {
+  const response = apiPut<boolean>(`/Notification/${id}/read`);
+  return handleResponseDirect(response).then((r) => r ?? false);
+};
+
+export const markAllNotificationsRead = (): Promise<boolean> => {
+  const response = apiPut<boolean>("/Notification/read-all");
+  return handleResponseDirect(response).then((r) => r ?? false);
 };
