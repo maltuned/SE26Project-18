@@ -1,113 +1,151 @@
-using System.Collections.Concurrent;
-using System.Net.WebSockets;
-using System.Text;
-using System.Text.Json;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Models.Entities;
+using SE26Project_18.Api.Models.Enums;
+using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Models.Responses;
 
 namespace SE26Project_18.Api.Services;
 
-internal sealed class MessageService : IMessageService, IDisposable
+internal sealed class MessageService : IMessageService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ConcurrentDictionary<long, List<WebSocket>> _chatSockets = new();
+    private readonly AppDbContext _db;
 
-    public MessageService(IServiceScopeFactory scopeFactory)
+    public MessageService(AppDbContext db)
     {
-        _scopeFactory = scopeFactory;
+        _db = db;
     }
 
-    public async Task<List<MessageResponse>> GetHistoryAsync(long chatId, long userId, CancellationToken ct)
+    public async Task<IReadOnlyList<MessageResponse>> GetHistoryAsync(
+        long chatId,
+        long userId,
+        CancellationToken ct
+    )
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await using var transaction = await BeginTransactionAsync(ct);
+        var chat = await GetChatAsync(chatId, ct);
+        EnsureParticipant(chat, userId);
+        if (chat.MarkAsRead(userId))
+        {
+            await _db.SaveChangesAsync(ct);
+        }
 
-        var chat = await db.Chats.FindAsync([chatId], ct)
-                   ?? throw new NotFoundException("Chat not found.");
-        if (chat.User1.Id != userId && chat.User2.Id != userId)
-            throw new ForbiddenException("Not a participant.");
-
-        return await db.Messages
-            .Where(m => EF.Property<long>(m, "ChatId") == chatId)
-            .Include(m => m.Sender)
-            .OrderBy(m => m.SentAt)
-            .Select(m => new MessageResponse(m.Sender.Id, m.Content, m.SentAt))
+        var messages = await _db
+            .Messages.AsNoTracking()
+            .Where(message => EF.Property<long>(message, "ChatId") == chatId)
+            .OrderBy(message => message.SentAt)
+            .ThenBy(message => message.Id)
+            .Select(message =>
+                new MessageResponse(message.Sender.Id, message.Content, message.SentAt)
+            )
             .ToListAsync(ct);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(ct);
+        }
+
+        return messages;
     }
 
-    public async Task<MessageResponse> SaveAndBroadcastAsync(long chatId, long senderId, string content, CancellationToken ct)
+    public async Task MarkAsReadAsync(long chatId, long userId, CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await using var transaction = await BeginTransactionAsync(ct);
+        var chat = await GetChatAsync(chatId, ct);
+        EnsureParticipant(chat, userId);
+        if (chat.MarkAsRead(userId))
+        {
+            await _db.SaveChangesAsync(ct);
+        }
 
-        var chat = await db.Chats.Include(c => c.User1).Include(c => c.User2)
-                       .FirstOrDefaultAsync(c => c.Id == chatId, ct)
-                   ?? throw new NotFoundException("Chat not found.");
-        if (chat.User1.Id != senderId && chat.User2.Id != senderId)
-            throw new ForbiddenException("Not a participant.");
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(ct);
+        }
+    }
 
-        var sender = await db.Users.FindAsync([senderId], ct)
-                     ?? throw new NotFoundException("User not found.");
+    public async Task<MessageResponse> SendAsync(
+        long chatId,
+        long senderId,
+        string content,
+        CancellationToken ct
+    )
+    {
+        content = content.Trim();
+        if (content.Length == 0 || content.Length > SendMessageRequest.MaxContentLength)
+        {
+            throw new ValidationException(
+                $"Content must contain between 1 and {SendMessageRequest.MaxContentLength} characters."
+            );
+        }
 
+        await using var transaction = await BeginTransactionAsync(ct);
+        var chat = await GetChatAsync(chatId, ct);
+        EnsureParticipant(chat, senderId);
+
+        var otherUserId = chat.User1.Id == senderId ? chat.User2.Id : chat.User1.Id;
+        if (chat.Status == ChatStatus.Restricted)
+        {
+            var senderHasSent = await HasSentMessageAsync(chatId, senderId, ct);
+            var otherUserHasSent = await HasSentMessageAsync(chatId, otherUserId, ct);
+            if (senderHasSent && !otherUserHasSent)
+            {
+                throw new ConflictException("Wait for the other participant to reply.");
+            }
+
+            if (otherUserHasSent)
+            {
+                chat.Status = ChatStatus.Free;
+            }
+        }
+
+        var sender = chat.User1.Id == senderId ? chat.User1 : chat.User2;
         var message = new Message(sender, content, DateTime.UtcNow);
         chat.Messages.Add(message);
-        await db.SaveChangesAsync(ct);
+        chat.RecordUnreadMessage(senderId);
 
-        var resp = new MessageResponse(sender.Id, content, message.SentAt);
-        await BroadcastAsync(chatId, resp);
-        return resp;
-    }
-
-    public void AddSocket(long chatId, WebSocket socket)
-    {
-        _chatSockets.AddOrUpdate(chatId,
-            _ => new List<WebSocket> { socket },
-            (_, list) => { lock (list) { list.Add(socket); } return list; });
-    }
-
-    public void RemoveSocket(long chatId, WebSocket socket)
-    {
-        if (_chatSockets.TryGetValue(chatId, out var list))
-            lock (list) { list.Remove(socket); }
-    }
-
-    private async Task BroadcastAsync(long chatId, MessageResponse msg)
-    {
-        if (!_chatSockets.TryGetValue(chatId, out var list)) return;
-
-        var json = JsonSerializer.Serialize(msg);
-        var bytes = Encoding.UTF8.GetBytes(json);
-        var dead = new List<WebSocket>();
-
-        lock (list)
+        await _db.SaveChangesAsync(ct);
+        if (transaction is not null)
         {
-            foreach (var ws in list)
-            {
-                if (ws.State == WebSocketState.Open)
-                    _ = SendAsync(ws, bytes);
-                else
-                    dead.Add(ws);
-            }
-            foreach (var d in dead) list.Remove(d);
+            await transaction.CommitAsync(ct);
         }
+
+        return new MessageResponse(senderId, message.Content, message.SentAt);
     }
 
-    private static async Task SendAsync(WebSocket ws, byte[] data)
+    private async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken ct)
     {
-        try
+        return _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
+            : null;
+    }
+
+    private async Task<Chat> GetChatAsync(long chatId, CancellationToken ct)
+    {
+        return
+            await _db
+                .Chats.Include(chat => chat.User1)
+                .Include(chat => chat.User2)
+                .FirstOrDefaultAsync(chat => chat.Id == chatId, ct)
+            ?? throw new NotFoundException("Chat not found.");
+    }
+
+    private Task<bool> HasSentMessageAsync(long chatId, long userId, CancellationToken ct)
+    {
+        return _db.Messages.AnyAsync(
+            message =>
+                EF.Property<long>(message, "ChatId") == chatId && message.Sender.Id == userId,
+            ct
+        );
+    }
+
+    private static void EnsureParticipant(Chat chat, long userId)
+    {
+        if (chat.User1.Id != userId && chat.User2.Id != userId)
         {
-            await ws.SendAsync(new ArraySegment<byte>(data), WebSocketMessageType.Text, true, CancellationToken.None);
+            throw new ForbiddenException("You are not a participant in this chat.");
         }
-        catch { }
-    }
-
-    public void Dispose()
-    {
-        foreach (var (_, list) in _chatSockets)
-            lock (list) { foreach (var ws in list) ws.Dispose(); }
-        _chatSockets.Clear();
     }
 }

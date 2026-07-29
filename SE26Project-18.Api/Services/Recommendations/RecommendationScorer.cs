@@ -3,7 +3,9 @@ namespace SE26Project_18.Api.Services.Recommendations;
 internal static class RecommendationScorer
 {
     private const double UserWeight = 0.25;
+
     private const double RecruitmentWeight = 0.40;
+
     private const double GameWeight = 0.35;
 
     public static double? CombineUserCompatibility(

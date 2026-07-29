@@ -8,6 +8,7 @@ namespace SE26Project_18.Api.Services.Recommendations;
 internal sealed class UserPreferenceProfileBuilder : IUserPreferenceProfileBuilder
 {
     private readonly AppDbContext _db;
+
     private readonly EmbeddingProfileBatchBuilder _batchBuilder;
 
     public UserPreferenceProfileBuilder(AppDbContext db, EmbeddingProfileBatchBuilder batchBuilder)

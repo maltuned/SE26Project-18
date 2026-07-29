@@ -17,7 +17,9 @@ namespace SE26Project_18.Api.Services;
 internal sealed class RecruitmentService : IRecruitmentService
 {
     private readonly AppDbContext _db;
+
     private readonly IRecruitmentRecommendationAlgorithm _recommendationAlgorithm;
+
     private readonly IEmbeddingSyncScheduler _embeddingSync;
 
     public RecruitmentService(

@@ -8,12 +8,19 @@ namespace SE26Project_18.Api.Repositories;
 internal sealed class RecommendationVectorRepository
 {
     private readonly IVectorStore _vectorStore;
+
     private readonly VectorIndexDefinition _userOwnTagIndex;
+
     private readonly VectorIndexDefinition _userInterestedTagIndex;
+
     private readonly VectorIndexDefinition _userRecruitmentTagIndex;
+
     private readonly VectorIndexDefinition _userGameTagIndex;
+
     private readonly VectorIndexDefinition _gameIndex;
+
     private readonly VectorIndexDefinition _recruitmentIndex;
+
     private readonly int _batchSize;
 
     public RecommendationVectorRepository(

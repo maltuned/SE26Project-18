@@ -14,6 +14,7 @@ namespace SE26Project_18.Api.Services;
 internal sealed class UserService : IUserService
 {
     private readonly AppDbContext _db;
+
     private readonly IEmbeddingSyncScheduler _embeddingSync;
 
     public UserService(AppDbContext db, IEmbeddingSyncScheduler embeddingSync)

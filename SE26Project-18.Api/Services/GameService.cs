@@ -13,6 +13,7 @@ namespace SE26Project_18.Api.Services;
 internal sealed class GameService : IGameService
 {
     private readonly AppDbContext _db;
+
     private readonly IEmbeddingSyncScheduler _embeddingSync;
 
     public GameService(AppDbContext db, IEmbeddingSyncScheduler embeddingSync)

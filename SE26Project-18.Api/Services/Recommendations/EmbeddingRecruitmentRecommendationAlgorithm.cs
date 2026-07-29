@@ -8,6 +8,7 @@ internal sealed class EmbeddingRecruitmentRecommendationAlgorithm
     : IRecruitmentRecommendationAlgorithm
 {
     private readonly RecommendationVectorRepository _vectorRepository;
+
     private readonly IUserPreferenceProfileBuilder _profileBuilder;
 
     public EmbeddingRecruitmentRecommendationAlgorithm(

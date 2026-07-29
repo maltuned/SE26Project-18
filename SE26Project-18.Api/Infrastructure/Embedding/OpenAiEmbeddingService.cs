@@ -10,7 +10,9 @@ namespace SE26Project_18.Api.Infrastructure.Embedding;
 internal sealed class OpenAiEmbeddingService : IEmbeddingService
 {
     private readonly HttpClient _httpClient;
+
     private readonly IMemoryCache _cache;
+
     private readonly EmbeddingOptions _options;
 
     public OpenAiEmbeddingService(

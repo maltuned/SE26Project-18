@@ -37,6 +37,7 @@ public sealed class RecommendationVectorRepositoryTests
     private sealed class RecordingVectorStore : IVectorStore
     {
         public List<IReadOnlyCollection<VectorRecord>> UpsertBatches { get; } = [];
+
         public List<(string IndexName, IReadOnlyCollection<long> Ids)> Deletions { get; } = [];
 
         public Task EnsureIndexAsync(VectorIndexDefinition definition, CancellationToken ct) =>
