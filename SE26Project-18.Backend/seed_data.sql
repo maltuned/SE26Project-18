@@ -1,7 +1,10 @@
 -- ============================================================
 -- 测试数据种子文件 (Seed Data for SE26Project-18)
--- 使用 mysql -u root -p se26_project_18 < seed_data.sql 导入
+-- 使用 mariadb -S db/mariadb.sock -u root -p gamemate_tool_dev < SE26Project-18.Backend/seed_data.sql 导入
 -- ============================================================
+
+SET NAMES utf8mb4;
+START TRANSACTION;
 
 -- 游戏标签 — 参考大型游戏社区（TapTap、NGA）分类实践
 INSERT INTO `game_tags` (`Id`, `Name`) VALUES
@@ -26,7 +29,8 @@ INSERT INTO `game_tags` (`Id`, `Name`) VALUES
 (19, '奇幻'),
 (20, '肉鸽'),
 (21, '塔防'),
-(22, '音乐节奏');
+(22, '音乐节奏')
+ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`);
 
 -- 招募标签 — 多选不互斥，标签之间互补而非对立
 INSERT INTO `recruitment_tags` (`Id`, `Name`) VALUES
@@ -40,7 +44,8 @@ INSERT INTO `recruitment_tags` (`Id`, `Name`) VALUES
 (8, '工作日晚上'),
 (9, '周末'),
 (10, '深夜档'),
-(11, '长期组队');
+(11, '长期组队')
+ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`);
 
 -- 游戏（中文名为主，英文名、别称用于搜索）
 INSERT INTO `games` (`Id`, `Name`, `NameEn`, `Aliases`, `Company`, `Description`, `Cover`, `Icon`, `CreatedAt`, `UpdatedAt`) VALUES
@@ -98,10 +103,19 @@ INSERT INTO `games` (`Id`, `Name`, `NameEn`, `Aliases`, `Company`, `Description`
 
 (14, '明日方舟终末地', 'Arknights: Endfield', '终末地,AE', '鹰角网络',
  '3D即时策略角色扮演游戏，明日方舟IP续作。故事发生在塔卫二星球，玩家作为终末地工业的管理员，带领干员在未知的荒野中开拓、建设与战斗。融合即时战斗、基地建造与策略探索，继承明日方舟独特的世界观与美术风格。',
- '', '', '2024-01-01 00:00:00', '2024-06-01 00:00:00');
+ '', '', '2024-01-01 00:00:00', '2024-06-01 00:00:00')
+ON DUPLICATE KEY UPDATE
+`Name` = VALUES(`Name`),
+`NameEn` = VALUES(`NameEn`),
+`Aliases` = VALUES(`Aliases`),
+`Company` = VALUES(`Company`),
+`Description` = VALUES(`Description`),
+`Cover` = VALUES(`Cover`),
+`Icon` = VALUES(`Icon`),
+`UpdatedAt` = VALUES(`UpdatedAt`);
 
 -- 游戏-游戏标签关联
-INSERT INTO `game_game_tags` (`game_id`, `game_tag_id`) VALUES
+INSERT IGNORE INTO `game_game_tags` (`game_id`, `game_tag_id`) VALUES
 -- 英雄联盟：MOBA + 竞技 + 多人联机 + 战术
 (1, 1), (1, 14), (1, 16), (1, 8),
 -- 原神：开放世界 + RPG + 动作 + 二次元 + 奇幻 + 多人联机
@@ -125,11 +139,27 @@ INSERT INTO `game_game_tags` (`game_id`, `game_tag_id`) VALUES
 -- 世界计划：音乐节奏 + 二次元 + 多人联机
 (11, 22), (11, 13), (11, 14),
 -- 舞萌DX：音乐节奏 + 二次元 + 多人联机 + 休闲
-(12, 22), (12, 13), (12, 14), (12, 15);
+(12, 22), (12, 13), (12, 14), (12, 15),
 -- 王者荣耀：MOBA + 竞技 + 多人联机 + 动作 + 休闲
 (13, 1), (13, 16), (13, 14), (13, 4), (13, 15),
 -- 明日方舟终末地：RPG + 二次元 + 科幻 + 动作 + 开放世界 + 战术
 (14, 2), (14, 13), (14, 11), (14, 4), (14, 7), (14, 8);
+
+-- 直接写数据库会绕过 GameService，因此显式请求重建游戏向量。
+INSERT INTO `embedding_sync_outbox`
+    (`EventId`, `Target`, `EntityId`, `CreatedAt`, `PublishAttempts`)
+SELECT UUID(), 1, `Id`, UTC_TIMESTAMP(6), 0
+FROM `games`
+WHERE `Id` BETWEEN 1 AND 14
+  AND NOT EXISTS (
+      SELECT 1
+      FROM `embedding_sync_outbox` AS `outbox`
+      WHERE `outbox`.`Target` = 1
+        AND `outbox`.`EntityId` = `games`.`Id`
+        AND `outbox`.`PublishedAt` IS NULL
+  );
+
+COMMIT;
 
 -- 重置自增计数器
 ALTER TABLE `games` AUTO_INCREMENT = 15;

@@ -12,5 +12,6 @@ public interface IRecruitmentService
     Task<RecruitmentDetailDto> CreateRecruitmentAsync(RecruitmentDto dto);
     Task<RecruitmentDetailDto?> UpdateRecruitmentAsync(long id, Dictionary<string, object> data);
     Task<bool> DeleteRecruitmentAsync(long id);
+    Task<bool> RecordViewAsync(long userId, long recruitmentId, CancellationToken ct = default);
     Task<List<RecruitmentDetailDto>> SearchRecruitmentsAsync(string query);
 }

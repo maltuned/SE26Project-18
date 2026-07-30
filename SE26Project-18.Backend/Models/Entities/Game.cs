@@ -25,6 +25,8 @@ public class Game
 
     public DateTime UpdatedAt { get; private set; }
 
+    public long AppliedEmbeddingVersion { get; private set; }
+
     public ICollection<GameTag> Tags { get; set; } = [];
 
     public Game(string name)
@@ -50,5 +52,10 @@ public class Game
     {
         Tags = tags;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void MarkEmbeddingApplied(long version)
+    {
+        AppliedEmbeddingVersion = Math.Max(AppliedEmbeddingVersion, version);
     }
 }

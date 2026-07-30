@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
   getChatsByRecruitmentId,
   getRecruitmentById,
   getResponses,
+  recordRecruitmentView,
   ResponseData,
   RecruitmentData,
   RecruitmentTag,
@@ -39,6 +40,7 @@ export default function RecruitmentViewScreen() {
   const [fetching, setFetching] = useState(true);
   const [chatDataLoading, setChatDataLoading] = useState(true);
   const [showGreetingModal, setShowGreetingModal] = useState(false);
+  const trackedRecruitmentId = useRef<number | null>(null);
 
   useEffect(() => {
     const recruitmentId = params.recruitmentId;
@@ -47,6 +49,12 @@ export default function RecruitmentViewScreen() {
       getRecruitmentById(Number(recruitmentId))
         .then((data) => {
           setRecruitment(data);
+          if (data && trackedRecruitmentId.current !== data.id) {
+            trackedRecruitmentId.current = data.id;
+            void recordRecruitmentView(data.id).catch((error) => {
+              console.warn("Failed to record recruitment view:", error);
+            });
+          }
           setFetching(false);
         })
         .catch(() => {

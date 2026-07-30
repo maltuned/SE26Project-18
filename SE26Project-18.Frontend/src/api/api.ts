@@ -803,6 +803,11 @@ export const deleteRecruitment = (id: number): Promise<boolean> => {
   return handlePostResponse(response, (data: boolean) => data);
 };
 
+export const recordRecruitmentView = (id: number): Promise<boolean> => {
+  const response = apiPost<boolean>(`/Recruitments/${id}/views`);
+  return handlePostResponse(response, (data: boolean) => data);
+};
+
 // ==================== Response API ====================
 
 export const getResponses = (

@@ -30,6 +30,8 @@ public class Recruitment
 
     public int CurrentParticipants { get; set; }
 
+    public long AppliedEmbeddingVersion { get; private set; }
+
     public User Publisher { get; set; } = null!;
 
     public Game? Game { get; set; }
@@ -41,6 +43,11 @@ public class Recruitment
     public ICollection<Response> Responses { get; set; } = [];
 
     public ICollection<Chat> Chats { get; set; } = [];
+
+    public void MarkEmbeddingApplied(long version)
+    {
+        AppliedEmbeddingVersion = Math.Max(AppliedEmbeddingVersion, version);
+    }
 
     public Recruitment(string title, DateTime expiredAt, int maxParticipants)
     {

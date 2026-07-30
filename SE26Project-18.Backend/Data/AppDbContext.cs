@@ -23,6 +23,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
+    public DbSet<EmbeddingSyncOutboxMessage> EmbeddingSyncOutbox => Set<EmbeddingSyncOutboxMessage>();
+    public DbSet<RecruitmentView> RecruitmentViews => Set<RecruitmentView>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -205,6 +207,30 @@ public sealed class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(r => new { r.ReviewerId, r.RevieweeId }).IsUnique();
+        });
+
+        modelBuilder.Entity<EmbeddingSyncOutboxMessage>(entity =>
+        {
+            entity.HasIndex(message => new { message.PublishedAt, message.LeaseExpiresAt });
+            entity.Property(message => message.Target).HasConversion<byte>();
+            entity.Property(message => message.CreatedAt).HasPrecision(6);
+            entity.Property(message => message.PublishedAt).HasPrecision(6);
+            entity.Property(message => message.LeaseExpiresAt).HasPrecision(6);
+            entity.Property(message => message.LastError).HasMaxLength(2_000);
+        });
+
+        modelBuilder.Entity<RecruitmentView>(entity =>
+        {
+            entity.Property(view => view.LastViewedAt).HasPrecision(6);
+            entity.HasOne(view => view.User)
+                .WithMany()
+                .HasForeignKey(view => view.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(view => view.Recruitment)
+                .WithMany()
+                .HasForeignKey(view => view.RecruitmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(view => new { view.UserId, view.RecruitmentId }).IsUnique();
         });
     }
 }

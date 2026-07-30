@@ -92,6 +92,52 @@ namespace SE26Project_18.Backend.Migrations
                     b.ToTable("chats");
                 });
 
+            modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.EmbeddingSyncOutboxMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasPrecision(6)
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("EntityId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime?>("LeaseExpiresAt")
+                        .HasPrecision(6)
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("PublishAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasPrecision(6)
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<byte>("Target")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublishedAt", "LeaseExpiresAt");
+
+                    b.ToTable("embedding_sync_outbox");
+                });
+
             modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.Feedback", b =>
                 {
                     b.Property<long>("Id")
@@ -140,6 +186,9 @@ namespace SE26Project_18.Backend.Migrations
                     b.Property<string>("Aliases")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<long>("AppliedEmbeddingVersion")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Company")
                         .IsRequired()
@@ -271,6 +320,9 @@ namespace SE26Project_18.Backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<long>("AppliedEmbeddingVersion")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -331,6 +383,41 @@ namespace SE26Project_18.Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("recruitment_tags");
+                });
+
+            modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.RecruitmentView", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("LastViewedAt")
+                        .HasPrecision(6)
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("RecruitmentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecruitmentId");
+
+                    b.HasIndex("UserId", "RecruitmentId")
+                        .IsUnique();
+
+                    b.ToTable("recruitment_views");
                 });
 
             modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.RefreshToken", b =>
@@ -480,6 +567,9 @@ namespace SE26Project_18.Backend.Migrations
                         .HasColumnType("bigint");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AppliedEmbeddingVersion")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Avatar")
                         .IsRequired()
@@ -686,6 +776,25 @@ namespace SE26Project_18.Backend.Migrations
                     b.Navigation("Game");
 
                     b.Navigation("Publisher");
+                });
+
+            modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.RecruitmentView", b =>
+                {
+                    b.HasOne("SE26Project_18.Backend.Models.Entities.Recruitment", "Recruitment")
+                        .WithMany()
+                        .HasForeignKey("RecruitmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SE26Project_18.Backend.Models.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recruitment");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.RefreshToken", b =>

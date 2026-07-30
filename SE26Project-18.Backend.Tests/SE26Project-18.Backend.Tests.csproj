@@ -1,14 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>SE26Project_18.Backend.Tests</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
-    <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
-    <ExcludeByFile>Program.cs</ExcludeByFile>
-    <ExcludeByFile>**/obj/**/*.generated.cs</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,11 +12,14 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.*" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="Moq" Version="4.*" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -28,7 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SE26Project-18.Backend\SE26Project-18.Backend.csproj" />
+    <ProjectReference Include="../SE26Project-18.Backend/SE26Project-18.Backend.csproj" />
   </ItemGroup>
-
 </Project>

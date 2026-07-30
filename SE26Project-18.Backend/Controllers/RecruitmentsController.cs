@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Backend.Models.Dtos;
@@ -90,6 +92,20 @@ public class RecruitmentsController : ControllerBase
     {
         var result = await _recruitmentService.DeleteRecruitmentAsync(request.Id);
         return Ok(ApiResponse<bool>.Success(result, result ? "删除成功" : "招募不存在"));
+    }
+
+    [HttpPost("{id:long}/views")]
+    public async Task<ActionResult<ApiResponse<bool>>> RecordView(long id, CancellationToken ct)
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (!long.TryParse(value, out var userId))
+            return Ok(ApiResponse<bool>.Fail("未认证", 401));
+
+        var result = await _recruitmentService.RecordViewAsync(userId, id, ct);
+        return result
+            ? Ok(ApiResponse<bool>.Success(true, "浏览记录成功"))
+            : Ok(ApiResponse<bool>.Fail("招募不存在", 404));
     }
 }
 

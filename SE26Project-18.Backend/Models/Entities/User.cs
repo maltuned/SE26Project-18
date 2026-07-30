@@ -32,6 +32,8 @@ public class User
 
     public DateTime UpdatedAt { get; set; }
 
+    public long AppliedEmbeddingVersion { get; private set; }
+
     public ICollection<Recruitment> Recruitments { get; set; } = [];
 
     public UserSettings? Settings { get; set; }
@@ -39,6 +41,11 @@ public class User
     public ICollection<Chat> Chats { get; set; } = [];
 
     public ICollection<Response> SentResponses { get; set; } = [];
+
+    public void MarkEmbeddingApplied(long version)
+    {
+        AppliedEmbeddingVersion = Math.Max(AppliedEmbeddingVersion, version);
+    }
 
     [NotMapped]
     public IEnumerable<Response> ReceivedResponses =>

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Backend.Data;
+using SE26Project_18.Backend.Infrastructure.Embedding;
 using SE26Project_18.Backend.Models.Dtos;
 using SE26Project_18.Backend.Models.Entities;
+using SE26Project_18.Backend.Services.Recommendations;
 
 namespace SE26Project_18.Backend.Services;
 
@@ -9,11 +11,13 @@ public class GameService : IGameService
 {
     private readonly AppDbContext _db;
     private readonly MapperService _mapper;
+    private readonly IEmbeddingSyncScheduler _embeddingSync;
 
-    public GameService(AppDbContext db, MapperService mapper)
+    public GameService(AppDbContext db, MapperService mapper, IEmbeddingSyncScheduler embeddingSync)
     {
         _db = db;
         _mapper = mapper;
+        _embeddingSync = embeddingSync;
     }
 
     public async Task<List<GameDto>> GetGamesAsync(string query = "")
@@ -42,6 +46,7 @@ public class GameService : IGameService
 
     public async Task<GameDto> CreateGameAsync(GameRequestDto request)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync();
         var tags = await _db.GameTags.Where(t => request.TagsId.Contains(t.Id)).ToListAsync();
         var game = new Game(request.Name)
         {
@@ -55,6 +60,9 @@ public class GameService : IGameService
         };
         _db.Games.Add(game);
         await _db.SaveChangesAsync();
+        _embeddingSync.Schedule(EmbeddingTarget.Game, game.Id);
+        await _db.SaveChangesAsync();
+        await transaction.CommitAsync();
         return _mapper.ToGameDto(game);
     }
 
@@ -75,6 +83,9 @@ public class GameService : IGameService
             rec.GameTags = [.. tags];
         }
 
+        _embeddingSync.Schedule(EmbeddingTarget.Game, game.Id);
+        _embeddingSync.Schedule(EmbeddingTarget.User,
+            await GetAffectedUserIdsAsync(recruitments.Select(recruitment => recruitment.Id)));
         await _db.SaveChangesAsync();
         return _mapper.ToGameDto(game);
     }
@@ -97,6 +108,7 @@ public class GameService : IGameService
         var recruitments = await _db.Recruitments
             .Where(r => r.GameId == id)
             .ToListAsync();
+        var affectedUsers = await GetAffectedUserIdsAsync(recruitments.Select(recruitment => recruitment.Id));
 
         foreach (var recruitment in recruitments)
         {
@@ -105,7 +117,22 @@ public class GameService : IGameService
         }
 
         _db.Games.Remove(game);
+        _embeddingSync.Schedule(EmbeddingTarget.Game, game.Id);
+        _embeddingSync.Schedule(EmbeddingTarget.User, affectedUsers);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    private async Task<IReadOnlyCollection<long>> GetAffectedUserIdsAsync(IEnumerable<long> recruitmentIds)
+    {
+        var ids = recruitmentIds.Distinct().ToArray();
+        if (ids.Length == 0) return [];
+        var publishers = _db.Recruitments.Where(item => ids.Contains(item.Id))
+            .Select(item => item.PublisherId);
+        var responders = _db.Responses.Where(item => ids.Contains(item.RecruitmentId))
+            .Select(item => item.ResponserId);
+        var viewers = _db.RecruitmentViews.Where(item => ids.Contains(item.RecruitmentId))
+            .Select(item => item.UserId);
+        return await publishers.Concat(responders).Concat(viewers).Distinct().ToListAsync();
     }
 }

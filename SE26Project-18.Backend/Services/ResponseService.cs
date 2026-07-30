@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Backend.Data;
+using SE26Project_18.Backend.Infrastructure.Embedding;
 using SE26Project_18.Backend.Models;
 using SE26Project_18.Backend.Models.Dtos;
 using SE26Project_18.Backend.Models.Entities;
 using SE26Project_18.Backend.Models.Enums;
+using SE26Project_18.Backend.Services.Recommendations;
 
 namespace SE26Project_18.Backend.Services;
 
@@ -11,11 +13,13 @@ public class ResponseService : IResponseService
 {
     private readonly AppDbContext _db;
     private readonly MapperService _mapper;
+    private readonly IEmbeddingSyncScheduler _embeddingSync;
 
-    public ResponseService(AppDbContext db, MapperService mapper)
+    public ResponseService(AppDbContext db, MapperService mapper, IEmbeddingSyncScheduler embeddingSync)
     {
         _db = db;
         _mapper = mapper;
+        _embeddingSync = embeddingSync;
     }
 
     private IQueryable<Models.Entities.Response> Query()
@@ -66,6 +70,7 @@ public class ResponseService : IResponseService
         };
 
         _db.Responses.Add(response);
+        _embeddingSync.Schedule(EmbeddingTarget.User, responserId);
         await _db.SaveChangesAsync();
         return _mapper.ToResponseDto(response);
     }

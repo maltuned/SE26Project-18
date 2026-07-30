@@ -16,8 +16,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.18" />
+    <PackageReference Include="Milvus.Client" Version="2.3.0-preview.1" />
     <PackageReference Include="Minio" Version="6.*" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.*" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.*" />
   </ItemGroup>
 
 </Project>
