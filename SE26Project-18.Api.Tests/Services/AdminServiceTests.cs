@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SE26Project_18.Api.Data;
@@ -430,11 +431,12 @@ public sealed class AdminServiceTests
 
     private static AppDbContext CreateDbContext()
     {
-        return new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options
-        );
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
     }
 
     private sealed class PassthroughRecommendationAlgorithm

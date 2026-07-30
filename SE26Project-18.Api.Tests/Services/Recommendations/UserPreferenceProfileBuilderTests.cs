@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SE26Project_18.Api.Data;
@@ -15,11 +16,7 @@ public sealed class UserPreferenceProfileBuilderTests
     [InlineData(false)]
     public async Task BuildAsync_UsesOnlyAcceptedApplicantTags(bool accepted)
     {
-        await using var db = new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options
-        );
+        await using var db = CreateDbContext();
         var recruiter = new User("recruiter", "hash", UserRole.User);
         var responder = new User("responder", "hash", UserRole.User)
         {
@@ -70,6 +67,16 @@ public sealed class UserPreferenceProfileBuilderTests
         var profile = await builder.BuildAsync(recruiter.Id, CancellationToken.None);
 
         Assert.Equal(accepted, profile.InterestedUserTagVector.HasValue);
+    }
+
+    private static AppDbContext CreateDbContext()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
     }
 
     private sealed class StubEmbeddingService : IEmbeddingService
