@@ -6,7 +6,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBar, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { initTagCaches } from "../api/api";
+import { initTagCaches, QueryProvider } from "../api/api";
 import { MessageDto } from "../api/dtos";
 import MessageToast, { ToastMessage } from "../components/message-toast";
 import TestMessageButton from "../components/test-message-button";
@@ -18,17 +18,19 @@ import { ThemeProvider, useTheme } from "../contexts/theme-context";
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <ChatUnreadProvider>
-          <NotificationProvider>
-            <SignalRProvider>
-              <RootLayoutMain />
-            </SignalRProvider>
-          </NotificationProvider>
-        </ChatUnreadProvider>
-      </ThemeProvider>
-    </AuthProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <ChatUnreadProvider>
+            <NotificationProvider>
+              <SignalRProvider>
+                <RootLayoutMain />
+              </SignalRProvider>
+            </NotificationProvider>
+          </ChatUnreadProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </QueryProvider>
   );
 }
 

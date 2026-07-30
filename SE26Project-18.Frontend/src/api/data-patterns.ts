@@ -156,3 +156,13 @@ export interface ReviewData {
   status: string;
   createdAt: string;
 }
+
+// ==================== Notification ====================
+
+export interface NotificationItem {
+  id: number;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+}
