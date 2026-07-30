@@ -16,6 +16,7 @@ import {
   GameInfo,
   RecruitmentData,
   RecruitmentTag,
+  getGameById,
   getGames,
   getRecruitmentById,
   getRecruitmentTags,
@@ -65,10 +66,10 @@ export default function RecruitmentEditScreen() {
               name: data.gameName || "",
               nameEn: "",
               aliases: "",
-              icon: "",
+              icon: data.gameIcon || "",
               company: "",
               description: "",
-              cover: "",
+              cover: data.gameCover || "",
               tags: [],
               createdAt: "",
               updatedAt: "",
@@ -100,18 +101,19 @@ export default function RecruitmentEditScreen() {
     if (text.trim()) {
       const games = await getGames(text.trim());
       if (games.length > 0) {
+        const fullGame = await getGameById(games[0].id);
         setSelectedGame({
           id: games[0].id,
           name: games[0].name,
           nameEn: games[0].nameEn || "",
-          aliases: "",
-          icon: games[0].icon,
-          company: "",
-          description: "",
-          cover: "",
-          tags: [],
-          createdAt: "",
-          updatedAt: "",
+          aliases: fullGame?.aliases || "",
+          icon: fullGame?.icon || games[0].icon,
+          company: fullGame?.company || "",
+          description: fullGame?.description || "",
+          cover: fullGame?.cover || "",
+          tags: fullGame?.tags || [],
+          createdAt: fullGame?.createdAt || "",
+          updatedAt: fullGame?.updatedAt || "",
         });
       }
     }
