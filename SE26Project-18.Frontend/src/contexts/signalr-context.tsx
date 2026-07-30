@@ -5,6 +5,7 @@ import {
   LogLevel,
 } from "@microsoft/signalr";
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { MessageDto } from "../api/dtos";
 import { tokenStorage } from "../api/token-storage";
 import { API_BASE } from "../api/config";
@@ -32,6 +33,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuth();
   const connectionRef = useRef<HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const cancelledRef = useRef(false);
+  const connectRef = useRef<() => Promise<void>>(async () => {});
   const handlerRefs = useRef<{
     receiveMessage: ((msg: MessageDto) => void)[];
     newChatMessage: ((msg: MessageDto) => void)[];
@@ -43,16 +46,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    let cancelled = false;
+    cancelledRef.current = false;
 
     const connect = async () => {
       try {
         const token = await tokenStorage.getAccessToken();
-        if (!token) return;
+        if (!token || cancelledRef.current) return;
 
         const connection = new HubConnectionBuilder()
           .withUrl(`${API_BASE}/chatHub`, {
-            accessTokenFactory: () => token,
+            accessTokenFactory: async () =>
+              (await tokenStorage.getAccessToken()) || "",
           })
           .configureLogging(LogLevel.Information)
           .withAutomaticReconnect()
@@ -67,40 +71,58 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         });
 
         connection.onreconnecting(() => {
-          if (!cancelled) setIsConnected(false);
+          if (!cancelledRef.current) setIsConnected(false);
         });
 
         connection.onreconnected(() => {
-          if (!cancelled) setIsConnected(true);
+          if (!cancelledRef.current) setIsConnected(true);
         });
 
         connection.onclose(() => {
-          if (!cancelled) setIsConnected(false);
+          if (!cancelledRef.current) {
+            setIsConnected(false);
+            setTimeout(() => {
+              if (!cancelledRef.current) connect();
+            }, 5000);
+          }
         });
 
         await connection.start();
-        if (!cancelled) {
+        if (!cancelledRef.current) {
           connectionRef.current = connection;
           setIsConnected(true);
         }
       } catch (err) {
         console.error("SignalR connection failed:", err);
-        if (!cancelled) {
+        if (!cancelledRef.current) {
           setTimeout(() => {
-            if (!cancelled) connect();
+            if (!cancelledRef.current) connect();
           }, 5000);
         }
       }
     };
 
+    connectRef.current = connect;
     connect();
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       connectionRef.current?.stop();
       connectionRef.current = null;
       setIsConnected(false);
     };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active" && isLoggedIn) {
+        const conn = connectionRef.current;
+        if (!conn || conn.state === HubConnectionState.Disconnected) {
+          connectRef.current();
+        }
+      }
+    });
+    return () => sub.remove();
   }, [isLoggedIn]);
 
   const joinChat = async (chatId: number) => {

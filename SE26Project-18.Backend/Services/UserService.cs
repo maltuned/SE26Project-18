@@ -35,7 +35,7 @@ public class UserService : IUserService
         if (user == null) return (null, false);
 
         if (requesterId != targetId && user.Settings?.ProfileVisible == false)
-            return (null, true);
+            return (_mapper.ToUserDto(user), true);
 
         return (_mapper.ToUserDto(user), false);
     }

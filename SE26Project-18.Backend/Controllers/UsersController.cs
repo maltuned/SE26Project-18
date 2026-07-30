@@ -47,7 +47,7 @@ public class UsersController : ControllerBase
         var (user, isPrivate) = await _userService.GetUserProfileAsync(requesterId, id);
 
         if (isPrivate)
-            return Ok(ApiResponse<UserDto>.Fail("该用户未公开个人空间", 403));
+            return Ok(new ApiResponse<UserDto>(403, user, "该用户未公开个人空间"));
 
         if (user == null)
             return Ok(ApiResponse<UserDto>.Fail("用户不存在", 404));

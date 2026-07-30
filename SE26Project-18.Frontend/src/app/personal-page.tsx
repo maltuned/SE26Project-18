@@ -95,19 +95,7 @@ export default function PersonalPageScreen() {
       <TouchableOpacity style={styles.back} onPress={() => router.back()}>
         <Text style={[styles.backText, { color: colors.primary }]}>← 返回</Text>
       </TouchableOpacity>
-      {isPrivate ? (
-        <View style={styles.privateContainer}>
-          <Text style={[styles.privateIcon, { color: colors.textTertiary }]}>
-            🔒
-          </Text>
-          <Text style={[styles.privateTitle, { color: colors.text }]}>
-            该用户未公开个人空间
-          </Text>
-          <Text style={[styles.privateDesc, { color: colors.textTertiary }]}>
-            TA设置了空间不对外公开
-          </Text>
-        </View>
-      ) : isOwnPage ? (
+      {isOwnPage ? (
         <TouchableOpacity
           style={styles.editButton}
           onPress={() =>
@@ -124,37 +112,49 @@ export default function PersonalPageScreen() {
         </TouchableOpacity>
       )}
 
-      {!isPrivate && (
-        <>
-          <View
-            style={[
-              styles.profileSection,
-              { backgroundColor: colors.profileBackground },
-            ]}
-          >
-            <View style={styles.profileTop}>
-              <RemoteImage
-                url={targetUser?.avatar}
-                style={[styles.avatar, { backgroundColor: colors.placeholder }]}
-              />
-              <View style={styles.profileInfo}>
-                <Text style={[styles.nickname, { color: colors.nicknameText }]}>
-                  {targetUser?.nickname
-                    ? `${targetUser.nickname}`
-                    : `@${targetUser?.username}` || "空用户名"}
-                </Text>
-                {targetUser?.nickname && (
-                  <Text style={[styles.username, { color: colors.textTertiary }]}>
-                    {`@${targetUser?.username}` || "空用户名"}
-                  </Text>
-                )}
-              </View>
-            </View>
-            <Text style={[styles.bio, { color: colors.bioText }]}>
-              {targetUser?.signature || "这个人很懒，什么都没写..."}
+      <View
+        style={[
+          styles.profileSection,
+          { backgroundColor: colors.profileBackground },
+        ]}
+      >
+        <View style={styles.profileTop}>
+          <RemoteImage
+            url={targetUser?.avatar}
+            style={[styles.avatar, { backgroundColor: colors.placeholder }]}
+          />
+          <View style={styles.profileInfo}>
+            <Text style={[styles.nickname, { color: colors.nicknameText }]}>
+              {targetUser?.nickname
+                ? `${targetUser.nickname}`
+                : `@${targetUser?.username}` || "空用户名"}
             </Text>
+            {targetUser?.nickname && (
+              <Text style={[styles.username, { color: colors.textTertiary }]}>
+                {`@${targetUser?.username}` || "空用户名"}
+              </Text>
+            )}
           </View>
+        </View>
+        <Text style={[styles.bio, { color: colors.bioText }]}>
+          {targetUser?.signature || "这个人很懒，什么都没写..."}
+        </Text>
+      </View>
 
+      {isPrivate ? (
+        <View style={styles.privateContainer}>
+          <Text style={[styles.privateIcon, { color: colors.textTertiary }]}>
+            🔒
+          </Text>
+          <Text style={[styles.privateTitle, { color: colors.text }]}>
+            该用户未公开个人空间
+          </Text>
+          <Text style={[styles.privateDesc, { color: colors.textTertiary }]}>
+            TA设置了空间不对外公开
+          </Text>
+        </View>
+      ) : (
+        <>
           <View style={[styles.tabRow, { backgroundColor: colors.card }]}>
             {TABS.map((tab, i) => (
               <TouchableOpacity
@@ -327,6 +327,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 32,
+    paddingBottom: 60,
   },
   privateIcon: {
     fontSize: 48,

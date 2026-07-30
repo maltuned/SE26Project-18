@@ -36,10 +36,8 @@ export default function ChatListScreen() {
       });
       setChats(sorted);
       setLoading(false);
-      const totalUnread = sorted.reduce((sum, c) => sum + c.unreadCount, 0);
-      setUnreadCount(totalUnread);
     });
-  }, [userId, setUnreadCount]);
+  }, [userId]);
 
   useEffect(() => {
     if (userId) {
@@ -67,7 +65,7 @@ export default function ChatListScreen() {
           loadChats();
           return prev;
         }
-        const updated = prev
+        return prev
           .map((c) =>
             c.id === msg.chat_id
               ? {
@@ -83,14 +81,16 @@ export default function ChatListScreen() {
             const timeB = b.lastMessageAt || "";
             return new Date(timeB).getTime() - new Date(timeA).getTime();
           });
-        const totalUnread = updated.reduce((sum, c) => sum + c.unreadCount, 0);
-        setUnreadCount(totalUnread);
-        return updated;
       });
     });
 
     return unsub;
-  }, [onNewChatMessage, loadChats, setUnreadCount]);
+  }, [onNewChatMessage, loadChats]);
+
+  useEffect(() => {
+    const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
+    setUnreadCount(totalUnread);
+  }, [chats, setUnreadCount]);
 
   const openChat = (chat: ChatBrief) => {
     if (chat.unreadCount > 0 && userId) {

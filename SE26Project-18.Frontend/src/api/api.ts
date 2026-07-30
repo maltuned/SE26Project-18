@@ -581,7 +581,7 @@ export const getUserById = (id: number): Promise<UserInfo | null> => {
 export const getUserProfile = async (id: number): Promise<{ user: UserInfo | null; isPrivate: boolean }> => {
   const res = await apiGet<UserDto>("/Users/profile", { id });
   if (res.status === 403) {
-    return { user: null, isPrivate: true };
+    return { user: res.data ? mapUserDto(res.data) : null, isPrivate: true };
   }
   if (res.status >= 200 && res.status < 300 && res.data) {
     return { user: mapUserDto(res.data), isPrivate: false };
