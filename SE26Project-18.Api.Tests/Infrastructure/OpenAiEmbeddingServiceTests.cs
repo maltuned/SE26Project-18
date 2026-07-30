@@ -104,6 +104,77 @@ public sealed class OpenAiEmbeddingServiceTests
         Assert.Equal(3, result.Count);
     }
 
+    [Fact]
+    public async Task EmbedAsync_OmitsDimensionsWhenDisabled()
+    {
+        string? requestBody = null;
+        var handler = new StubHandler(request =>
+        {
+            requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """{"data":[{"index":0,"embedding":[1,0]}]}""",
+                    Encoding.UTF8,
+                    "application/json"
+                ),
+            };
+        });
+        var service = new OpenAiEmbeddingService(
+            new HttpClient(handler),
+            new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(
+                new EmbeddingOptions
+                {
+                    BaseUrl = "https://example.test/v1",
+                    ApiKey = "test-key",
+                    Model = "BAAI/bge-m3",
+                    Dimension = 2,
+                    SendDimensions = false,
+                }
+            )
+        );
+
+        await service.EmbedAsync(["game tag: RPG"], CancellationToken.None);
+
+        Assert.DoesNotContain("dimensions", requestBody);
+    }
+
+    [Fact]
+    public async Task EmbedAsync_IncludesProviderErrorBodyInServiceUnavailableException()
+    {
+        var handler = new StubHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent(
+                    """{"code":20012,"message":"dimensions is not supported"}""",
+                    Encoding.UTF8,
+                    "application/json"
+                ),
+            }
+        );
+        var service = new OpenAiEmbeddingService(
+            new HttpClient(handler),
+            new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(
+                new EmbeddingOptions
+                {
+                    BaseUrl = "https://example.test/v1",
+                    ApiKey = "test-key",
+                    Model = "test-model",
+                    Dimension = 2,
+                }
+            )
+        );
+
+        var exception = await Assert.ThrowsAsync<ServiceUnavailableException>(() =>
+            service.EmbedAsync(["game tag: RPG"], CancellationToken.None)
+        );
+
+        Assert.Contains("status 400", exception.Message);
+        Assert.Contains("dimensions is not supported", exception.Message);
+    }
+
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
         : HttpMessageHandler
     {

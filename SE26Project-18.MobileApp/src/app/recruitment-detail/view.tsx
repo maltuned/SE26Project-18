@@ -1,9 +1,8 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,13 +16,12 @@ import {
   getRecruitmentById,
   RecruitmentData,
   RecruitmentTag,
-  sendMessage,
+  sendGreeting,
 } from "../../api/api";
 import RecruitmentResponseModal from "../../components/recruitment-response-modal";
+import MediaImage from "../../components/media-image";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
-
-const testImage = require("../../../assets/images/testImage.png");
 
 export default function RecruitmentViewScreen() {
   const router = useRouter();
@@ -112,6 +110,7 @@ export default function RecruitmentViewScreen() {
   const handleGreetingSent = async (greeting: string) => {
     if (!userId) return;
     setLoading(true);
+    let responseCreated = false;
     try {
       let chat = existingChat;
       try {
@@ -136,12 +135,19 @@ export default function RecruitmentViewScreen() {
       router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${chat.id}`);
     } catch {
-      Alert.alert("错误", "无法发起聊天，请稍后重试");
+      Alert.alert(
+        "错误",
+        responseCreated
+          ? "回应已创建，但问候消息发送失败。你可以进入聊天后重新发送。"
+          : "无法发起聊天，请稍后重试",
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // Kept for when reporting is enabled again.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleReport = () => {
     Alert.alert("举报", "举报已提交，我们会尽快处理", [{ text: "确定" }]);
   };
@@ -174,7 +180,7 @@ export default function RecruitmentViewScreen() {
       >
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
           <View style={styles.topRow}>
-            <Image source={testImage} style={styles.coverImage} />
+            <MediaImage uri={recruitment.gameCover || recruitment.gameIcon} style={styles.coverImage} />
             <View style={styles.topRight}>
               <View style={styles.nameRow}>
                 <Text
@@ -182,11 +188,7 @@ export default function RecruitmentViewScreen() {
                 >
                   {recruitment.gameName}
                 </Text>
-                <TouchableOpacity onPress={handleReport}>
-                  <Text style={[styles.reportText, { color: colors.primary }]}>
-                    举报
-                  </Text>
-                </TouchableOpacity>
+                {/* Report UI is hidden until the backend supports reports. */}
               </View>
               <Text style={[styles.title, { color: colors.text }]}>
                 {recruitment.title}
@@ -214,8 +216,8 @@ export default function RecruitmentViewScreen() {
                   )
                 }
               >
-                <Image
-                  source={testImage}
+                <MediaImage
+                  uri={recruitment.publisher.avatar}
                   style={[styles.avatar, { backgroundColor: colors.primary }]}
                 />
                 <Text

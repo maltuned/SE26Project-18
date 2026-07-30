@@ -4,9 +4,11 @@ namespace SE26Project_18.Api.Services;
 
 public interface IMessageService
 {
-    Task<IReadOnlyList<MessageResponse>> GetHistoryAsync(
+    Task<CursorPagedResponse<MessageResponse>> GetHistoryAsync(
         long chatId,
         long userId,
+        string? before,
+        int limit,
         CancellationToken ct
     );
 

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Pagination;
 using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Requests;
@@ -12,6 +13,8 @@ namespace SE26Project_18.Api.Services;
 
 internal sealed class MessageService : IMessageService
 {
+    private const byte CursorPurpose = 2;
+
     private readonly AppDbContext _db;
 
     public MessageService(AppDbContext db)
@@ -19,44 +22,81 @@ internal sealed class MessageService : IMessageService
         _db = db;
     }
 
-    public async Task<IReadOnlyList<MessageResponse>> GetHistoryAsync(
+    public async Task<CursorPagedResponse<MessageResponse>> GetHistoryAsync(
         long chatId,
         long userId,
+        string? before,
+        int limit,
         CancellationToken ct
     )
     {
+        if (limit is < 1 or > 100)
+        {
+            throw new ValidationException("Limit must be between 1 and 100.");
+        }
+
         await using var transaction = await BeginTransactionAsync(ct);
         var chat = await GetChatAsync(chatId, ct);
-        EnsureParticipant(chat, userId);
-        if (chat.MarkAsRead(userId))
+        EnsureActiveParticipant(chat, userId);
+        var cursor = before is null
+            ? ((DateTime Timestamp, long Id)?)null
+            : DecodeCursor(before);
+        if (before is null && chat.MarkAsRead(userId))
         {
             await _db.SaveChangesAsync(ct);
         }
 
-        var messages = await _db
+        var query = _db
             .Messages.AsNoTracking()
-            .Where(message => EF.Property<long>(message, "ChatId") == chatId)
-            .OrderBy(message => message.SentAt)
-            .ThenBy(message => message.Id)
+            .Where(message => EF.Property<long>(message, "ChatId") == chatId);
+        if (cursor.HasValue)
+        {
+            query = query.Where(message =>
+                message.SentAt < cursor.Value.Timestamp
+                || (
+                    message.SentAt == cursor.Value.Timestamp
+                    && message.Id < cursor.Value.Id
+                )
+            );
+        }
+
+        var messages = await query
+            .OrderByDescending(message => message.SentAt)
+            .ThenByDescending(message => message.Id)
+            .Take(limit + 1)
             .Select(message => new MessageResponse(
+                message.Id,
                 message.Sender.Id,
                 message.Content,
                 message.SentAt
             ))
             .ToListAsync(ct);
+
+        var hasMore = messages.Count > limit;
+        if (hasMore)
+        {
+            messages.RemoveAt(limit);
+        }
+
+        var oldestMessage = messages.LastOrDefault();
+        var nextCursor = hasMore && oldestMessage is not null
+            ? CursorCodec.Encode(CursorPurpose, oldestMessage.SentAt, oldestMessage.Id)
+            : null;
+        messages.Reverse();
+
         if (transaction is not null)
         {
             await transaction.CommitAsync(ct);
         }
 
-        return messages;
+        return new CursorPagedResponse<MessageResponse>(messages, nextCursor, hasMore);
     }
 
     public async Task MarkAsReadAsync(long chatId, long userId, CancellationToken ct)
     {
         await using var transaction = await BeginTransactionAsync(ct);
         var chat = await GetChatAsync(chatId, ct);
-        EnsureParticipant(chat, userId);
+        EnsureActiveParticipant(chat, userId);
         if (chat.MarkAsRead(userId))
         {
             await _db.SaveChangesAsync(ct);
@@ -85,7 +125,7 @@ internal sealed class MessageService : IMessageService
 
         await using var transaction = await BeginTransactionAsync(ct);
         var chat = await GetChatAsync(chatId, ct);
-        EnsureParticipant(chat, senderId);
+        EnsureActiveParticipant(chat, senderId);
 
         var otherUserId = chat.User1.Id == senderId ? chat.User2.Id : chat.User1.Id;
         if (chat.Status == ChatStatus.Restricted)
@@ -114,7 +154,7 @@ internal sealed class MessageService : IMessageService
             await transaction.CommitAsync(ct);
         }
 
-        return new MessageResponse(senderId, message.Content, message.SentAt);
+        return new MessageResponse(message.Id, senderId, message.Content, message.SentAt);
     }
 
     private async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken ct)
@@ -122,6 +162,17 @@ internal sealed class MessageService : IMessageService
         return _db.Database.IsRelational()
             ? await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
             : null;
+    }
+
+    private static (DateTime Timestamp, long Id) DecodeCursor(string cursor)
+    {
+        var decoded = CursorCodec.Decode(cursor, CursorPurpose);
+        if (decoded.Timestamp is null)
+        {
+            throw new ValidationException("The pagination cursor is invalid.");
+        }
+
+        return (decoded.Timestamp.Value, decoded.Id);
     }
 
     private async Task<Chat> GetChatAsync(long chatId, CancellationToken ct)
@@ -147,6 +198,16 @@ internal sealed class MessageService : IMessageService
         if (chat.User1.Id != userId && chat.User2.Id != userId)
         {
             throw new ForbiddenException("You are not a participant in this chat.");
+        }
+    }
+
+    private static void EnsureActiveParticipant(Chat chat, long userId)
+    {
+        EnsureParticipant(chat, userId);
+        var user = chat.User1.Id == userId ? chat.User1 : chat.User2;
+        if (user.Status == UserStatus.Suspended)
+        {
+            throw new ForbiddenException("Suspended users cannot use chat.");
         }
     }
 }

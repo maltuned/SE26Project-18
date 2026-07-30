@@ -20,12 +20,22 @@ public sealed class MessageController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<MessageResponse>>> GetHistory(
+    public async Task<ActionResult<CursorPagedResponse<MessageResponse>>> GetHistory(
         long chatId,
-        CancellationToken ct
+        [FromQuery] string? before,
+        [FromQuery] int limit = 50,
+        CancellationToken ct = default
     )
     {
-        return Ok(await _messageService.GetHistoryAsync(chatId, GetCurrentUserId(), ct));
+        return Ok(
+            await _messageService.GetHistoryAsync(
+                chatId,
+                GetCurrentUserId(),
+                before,
+                limit,
+                ct
+            )
+        );
     }
 
     private long GetCurrentUserId()

@@ -1,13 +1,12 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { RecruitmentData } from "../api/api";
 import { useTheme } from "../contexts/theme-context";
+import MediaImage from "./media-image";
 
 interface RecruitmentInfoCardProps {
   recruitment: RecruitmentData;
   onPress: (recruitment: RecruitmentData) => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function RecruitmentViewCard({
   recruitment: recruitment,
@@ -18,8 +17,8 @@ function RecruitmentViewCard({
   return (
     <TouchableOpacity onPress={() => onPress(recruitment)} activeOpacity={0.8}>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Image
-          source={testImage}
+        <MediaImage
+          uri={recruitment.gameCover || recruitment.gameIcon}
           style={[styles.cardImage, { backgroundColor: colors.placeholder }]}
         />
         <View style={styles.cardRight}>
@@ -45,7 +44,7 @@ function RecruitmentViewCard({
             ))}
           </View>
           <Text style={[styles.cardTime, { color: colors.textQuaternary }]}>
-            {recruitment.createdAt}
+            截止 {new Date(recruitment.expiredAt).toLocaleDateString("zh-CN")}
           </Text>
         </View>
       </View>

@@ -17,6 +17,8 @@ internal sealed class EmbeddingOptions
     [Range(1, int.MaxValue)]
     public int Dimension { get; init; }
 
+    public bool SendDimensions { get; init; } = true;
+
     [Range(1, 2_048)]
     public int RequestBatchSize { get; init; } = 128;
 }

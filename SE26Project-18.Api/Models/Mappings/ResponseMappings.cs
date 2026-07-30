@@ -9,8 +9,8 @@ internal static class ResponseMappings
     {
         return new ResponseResponse(
             response.Id,
-            response.Recruitment.Id,
-            response.Responder.Id,
+            response.RecruitmentId,
+            response.ResponderId,
             response.Type
         );
     }

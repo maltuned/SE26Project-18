@@ -1,18 +1,6 @@
 import { Tabs, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import { useTheme } from "../../contexts/theme-context";
-
-function PublishTabButton({ children, ...props }: any) {
-  const router = useRouter();
-  return (
-    <TouchableOpacity
-      {...props}
-      onPress={() => router.push("/recruitment-edit")}
-    >
-      {children}
-    </TouchableOpacity>
-  );
-}
 
 const iconStyle = { fontSize: 20 };
 
@@ -34,6 +22,7 @@ function ProfileIcon() {
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const router = useRouter();
 
   return (
     <Tabs
@@ -64,9 +53,14 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="publish"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.push("/recruitment-edit");
+          },
+        }}
         options={{
           tabBarLabel: "发布",
-          tabBarButton: PublishTabButton,
           tabBarIcon: PublishIcon,
         }}
       />

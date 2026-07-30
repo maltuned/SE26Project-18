@@ -1,19 +1,18 @@
 import { useRouter } from "expo-router";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import MediaImage from "../../components/media-image";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
 const MENU_ITEMS = [
   { key: "personal", label: "个人主页", icon: "👤" },
   { key: "settings", label: "设置", icon: "⚙️" },
-  { key: "feedback", label: "反馈", icon: "💬" },
 ];
 
 export default function MoreScreen() {
   const { logout, currentUser } = useAuth();
   const router = useRouter();
   const { colors } = useTheme();
-  const testImage = require("../../../assets/images/testImage.png");
 
   const handlePress = (key: string) => {
     if (key === "logout") {
@@ -26,6 +25,8 @@ export default function MoreScreen() {
       router.push("/settings");
     } else if (key === "feedback") {
       router.push("/feedback");
+    } else if (key === "admin") {
+      router.push("/admin" as any);
     }
   };
 
@@ -37,7 +38,7 @@ export default function MoreScreen() {
           { backgroundColor: colors.profileBackground },
         ]}
       >
-        <Image source={testImage} style={styles.avatar} />
+        <MediaImage uri={currentUser?.avatar} style={styles.avatar} />
         <Text style={[styles.nickname, { color: colors.text }]}>
           {currentUser?.nickname || currentUser?.username || "未登录"}
         </Text>
@@ -59,6 +60,16 @@ export default function MoreScreen() {
             <Text style={[styles.menuArrow, { color: colors.arrow }]}>›</Text>
           </TouchableOpacity>
         ))}
+        {currentUser?.isAdmin && (
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: colors.menuBorder }]}
+            onPress={() => handlePress("admin")}
+          >
+            <Text style={styles.menuIcon}>◇</Text>
+            <Text style={[styles.menuLabel, { color: colors.text }]}>管理后台</Text>
+            <Text style={[styles.menuArrow, { color: colors.arrow }]}>›</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[styles.menuItem, { borderBottomColor: colors.menuBorder }]}
           onPress={() => handlePress("logout")}

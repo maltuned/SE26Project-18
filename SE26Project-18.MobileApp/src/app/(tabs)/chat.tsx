@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -7,7 +7,7 @@ import {
     Text,
     View,
 } from "react-native";
-import { ChatBrief, getChats } from "../../api/api";
+import { ChatBrief, getChatsPage } from "../../api/api";
 import ChatEntry, { ChatEntryInfo } from "../../components/chat-entry";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
@@ -18,34 +18,77 @@ export default function ChatListScreen() {
   const { userId } = useAuth();
   const [chats, setChats] = useState<ChatBrief[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const generationRef = useRef(0);
+  const inFlightRef = useRef(false);
 
-  const loadChats = React.useCallback(() => {
-    setLoading(true);
-    getChats(userId!).then((data) => {
-      const sorted = [...data].sort((a, b) => {
-        const timeA = a.lastMessageAt || "";
-        const timeB = b.lastMessageAt || "";
-        return new Date(timeB).getTime() - new Date(timeA).getTime();
-      });
-      setChats(sorted);
-      setLoading(false);
-    });
+  const loadChats = React.useCallback(async (refresh = false, generation = generationRef.current) => {
+    if (!userId) return;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const page = await getChatsPage(userId);
+      if (generation !== generationRef.current) return;
+      const ids = new Set<number>();
+      setChats(page.items.filter((chat) => !ids.has(chat.id) && Boolean(ids.add(chat.id))));
+      setNextCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+    } catch {
+      if (generation === generationRef.current) {
+        setChats([]);
+        setNextCursor(null);
+        setHasMore(false);
+      }
+    } finally {
+      if (generation === generationRef.current) {
+        inFlightRef.current = false;
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
   }, [userId]);
 
-  useEffect(() => {
-    if (userId) {
-      loadChats();
-    } else {
-      setChats([]);
-      setLoading(false);
+  const loadMore = async () => {
+    if (!userId || !hasMore || !nextCursor || inFlightRef.current) return;
+    const generation = generationRef.current;
+    inFlightRef.current = true;
+    setLoadingMore(true);
+    try {
+      const page = await getChatsPage(userId, nextCursor);
+      if (generation !== generationRef.current) return;
+      setChats((previous) => {
+        const ids = new Set(previous.map((chat) => chat.id));
+        return [...previous, ...page.items.filter((chat) => !ids.has(chat.id) && Boolean(ids.add(chat.id)))];
+      });
+      setNextCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+    } finally {
+      if (generation === generationRef.current) {
+        inFlightRef.current = false;
+        setLoadingMore(false);
+      }
     }
-  }, [userId, loadChats]);
+  };
 
   useFocusEffect(
     React.useCallback(() => {
       if (userId) {
-        loadChats();
+        const generation = ++generationRef.current;
+        inFlightRef.current = false;
+        void loadChats(true, generation);
+      } else {
+        setChats([]);
+        setLoading(false);
       }
+      return () => {
+        generationRef.current += 1;
+        inFlightRef.current = false;
+      };
     }, [userId, loadChats]),
   );
 
@@ -58,6 +101,7 @@ export default function ChatListScreen() {
     name: entry.otherUserName,
     lastMessage: entry.lastMessageContent,
     time: formatTime(entry.lastMessageAt),
+    avatar: entry.otherUserAvatar,
   });
 
   const formatTime = (createdAt?: string): string => {
@@ -100,6 +144,11 @@ export default function ChatListScreen() {
               }
             />
           )}
+          refreshing={refreshing}
+          onRefresh={() => loadChats(true)}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary} /> : null}
         />
       )}
     </View>

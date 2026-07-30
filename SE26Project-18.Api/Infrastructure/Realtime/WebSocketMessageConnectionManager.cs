@@ -11,10 +11,12 @@ internal sealed class WebSocketMessageConnectionManager : IMessageConnectionMana
 
     private readonly ConcurrentDictionary<
         long,
-        ConcurrentDictionary<WebSocket, SemaphoreSlim>
+        ConcurrentDictionary<WebSocket, Connection>
     > _connections = new();
 
     private readonly ConcurrentDictionary<long, SemaphoreSlim> _broadcastLocks = new();
+
+    private readonly ConcurrentDictionary<long, byte> _blockedUsers = new();
 
     private readonly ILogger<WebSocketMessageConnectionManager> _logger;
 
@@ -23,10 +25,26 @@ internal sealed class WebSocketMessageConnectionManager : IMessageConnectionMana
         _logger = logger;
     }
 
-    public void Add(long chatId, WebSocket socket)
+    public bool Add(long chatId, long userId, WebSocket socket)
     {
+        if (_blockedUsers.ContainsKey(userId))
+        {
+            return false;
+        }
+
         var chatConnections = _connections.GetOrAdd(chatId, _ => new());
-        chatConnections.TryAdd(socket, new SemaphoreSlim(1, 1));
+        if (!chatConnections.TryAdd(socket, new Connection(userId)))
+        {
+            return false;
+        }
+
+        if (_blockedUsers.ContainsKey(userId))
+        {
+            chatConnections.TryRemove(socket, out _);
+            return false;
+        }
+
+        return true;
     }
 
     public void Remove(long chatId, WebSocket socket)
@@ -52,7 +70,7 @@ internal sealed class WebSocketMessageConnectionManager : IMessageConnectionMana
         try
         {
             var sends = chatConnections.Select(connection =>
-                SendAsync(chatId, connection.Key, connection.Value, payload, ct)
+                SendAsync(chatId, connection.Key, connection.Value.SendLock, payload, ct)
             );
             await Task.WhenAll(sends);
         }
@@ -60,6 +78,31 @@ internal sealed class WebSocketMessageConnectionManager : IMessageConnectionMana
         {
             broadcastLock.Release();
         }
+    }
+
+    public async Task CloseUserAsync(long userId)
+    {
+        _blockedUsers.TryAdd(userId, 0);
+        var connections = _connections.SelectMany(chat =>
+            chat.Value
+                .Where(connection => connection.Value.UserId == userId)
+                .Select(connection => (ChatId: chat.Key, Socket: connection.Key))
+        );
+        await Task.WhenAll(
+            connections.Select(connection =>
+                CloseAsync(
+                    connection.ChatId,
+                    connection.Socket,
+                    WebSocketCloseStatus.PolicyViolation,
+                    "Account suspended."
+                )
+            )
+        );
+    }
+
+    public void AllowUser(long userId)
+    {
+        _blockedUsers.TryRemove(userId, out _);
     }
 
     public async Task CloseAsync(
@@ -72,7 +115,10 @@ internal sealed class WebSocketMessageConnectionManager : IMessageConnectionMana
         SemaphoreSlim? sendLock = null;
         if (_connections.TryGetValue(chatId, out var chatConnections))
         {
-            chatConnections.TryRemove(socket, out sendLock);
+            if (chatConnections.TryRemove(socket, out var connection))
+            {
+                sendLock = connection.SendLock;
+            }
         }
 
         if (sendLock is not null)
@@ -157,5 +203,10 @@ internal sealed class WebSocketMessageConnectionManager : IMessageConnectionMana
         {
             sendLock.Release();
         }
+    }
+
+    private sealed record Connection(long UserId)
+    {
+        public SemaphoreSlim SendLock { get; } = new(1, 1);
     }
 }

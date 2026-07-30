@@ -1,5 +1,6 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Milvus.Client;
 using MySqlConnector;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
@@ -22,15 +23,19 @@ internal sealed class RecruitmentService : IRecruitmentService
 
     private readonly IEmbeddingSyncScheduler _embeddingSync;
 
+    private readonly ILogger<RecruitmentService> _logger;
+
     public RecruitmentService(
         AppDbContext db,
         IRecruitmentRecommendationAlgorithm recommendationAlgorithm,
-        IEmbeddingSyncScheduler embeddingSync
+        IEmbeddingSyncScheduler embeddingSync,
+        ILogger<RecruitmentService> logger
     )
     {
         _db = db;
         _recommendationAlgorithm = recommendationAlgorithm;
         _embeddingSync = embeddingSync;
+        _logger = logger;
     }
 
     public async Task<PagedResponse<RecruitmentResponse>> SearchAsync(
@@ -54,7 +59,25 @@ internal sealed class RecruitmentService : IRecruitmentService
             return new PagedResponse<RecruitmentResponse>([], request.Page, request.PageSize, 0, 0);
         }
 
-        var rankedIds = await _recommendationAlgorithm.RankAsync(userId, candidates, ct);
+        IReadOnlyList<long> rankedIds;
+        try
+        {
+            rankedIds = await _recommendationAlgorithm.RankAsync(userId, candidates, ct);
+        }
+        catch (Exception exception) when (
+            exception is ServiceUnavailableException or HttpRequestException or MilvusException
+        )
+        {
+            _logger.LogWarning(
+                exception,
+                "Recommendation dependencies are unavailable; using newest-first fallback for user {UserId}",
+                userId
+            );
+            rankedIds = candidates
+                .OrderByDescending(candidate => candidate.Id)
+                .Select(candidate => candidate.Id)
+                .ToList();
+        }
         var eligibleIds = new HashSet<long>();
         foreach (var idBatch in rankedIds.Chunk(1_000))
         {
@@ -104,11 +127,14 @@ internal sealed class RecruitmentService : IRecruitmentService
         long recruiterId,
         int page,
         int pageSize,
+        RecruitmentStatus? status,
         CancellationToken ct
     )
     {
-        var query = BaseQuery()
-            .Where(r => r.Recruiter.Id == recruiterId && r.Status != RecruitmentStatus.Deleted);
+        var query = BaseQuery().Where(r => r.Recruiter.Id == recruiterId);
+        query = status.HasValue
+            ? query.Where(r => r.Status == status.Value)
+            : query.Where(r => r.Status != RecruitmentStatus.Deleted);
 
         return await ToPagedResponseAsync(query.AsSplitQuery(), page, pageSize, ct);
     }
@@ -340,7 +366,9 @@ internal sealed class RecruitmentService : IRecruitmentService
                 .ThenInclude(g => g.Tags)
             .Include(r => r.Recruiter)
                 .ThenInclude(u => u.Tags)
-            .Include(r => r.Tags);
+            .Include(r => r.Tags)
+            .Include(r => r.Responses)
+            .AsSplitQuery();
 
         return tracking ? query : query.AsNoTracking();
     }
@@ -434,9 +462,9 @@ internal sealed class RecruitmentService : IRecruitmentService
         return exception
             is DbUpdateConcurrencyException
                 or DbUpdateException
-                {
-                    InnerException: MySqlException { Number: 1062 or 1205 or 1213 }
-                }
+            {
+                InnerException: MySqlException { Number: 1062 or 1205 or 1213 }
+            }
                 or MySqlException { Number: 1205 or 1213 };
     }
 

@@ -41,7 +41,16 @@ internal sealed class MessageWebSocketHandler : IMessageWebSocketHandler
         await MarkAsReadAsync(chatId, userId, ct);
 
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        _connectionManager.Add(chatId, socket);
+        if (!_connectionManager.Add(chatId, userId, socket))
+        {
+            await _connectionManager.CloseAsync(
+                chatId,
+                socket,
+                WebSocketCloseStatus.PolicyViolation,
+                "Account suspended."
+            );
+            return;
+        }
 
         try
         {

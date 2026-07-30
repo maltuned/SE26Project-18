@@ -4,5 +4,7 @@ public sealed record GameResponse(
     long Id,
     string Name,
     string Description,
-    IReadOnlyCollection<GameTagResponse> Tags
+    IReadOnlyCollection<GameTagResponse> Tags,
+    string IconUrl,
+    string CoverUrl
 );

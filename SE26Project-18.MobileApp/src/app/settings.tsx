@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { FEATURE_FLAGS } from "../constants/feature-flags";
 import { useTheme } from "../contexts/theme-context";
 
 const SETTING_ITEMS = ["通知设置", "隐私设置", "通用设置", "关于我们"];
@@ -15,17 +16,18 @@ export default function SettingsScreen() {
       </TouchableOpacity>
       <Text style={[styles.header, { color: colors.text }]}>设置</Text>
       <View style={[styles.list, { backgroundColor: colors.card }]}>
-        {SETTING_ITEMS.map((item, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.item, { borderBottomColor: colors.border }]}
-          >
-            <Text style={[styles.itemText, { color: colors.text }]}>
-              {item}
-            </Text>
-            <Text style={[styles.arrow, { color: colors.arrow }]}>›</Text>
-          </TouchableOpacity>
-        ))}
+        {FEATURE_FLAGS.placeholderSettings &&
+          SETTING_ITEMS.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.item, { borderBottomColor: colors.border }]}
+            >
+              <Text style={[styles.itemText, { color: colors.text }]}>
+                {item}
+              </Text>
+              <Text style={[styles.arrow, { color: colors.arrow }]}>›</Text>
+            </TouchableOpacity>
+          ))}
         <View style={[styles.item, { borderBottomColor: colors.border }]}>
           <Text style={[styles.itemText, { color: colors.text }]}>
             深色主题

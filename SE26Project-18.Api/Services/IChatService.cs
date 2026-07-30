@@ -4,7 +4,12 @@ namespace SE26Project_18.Api.Services;
 
 public interface IChatService
 {
-    Task<IReadOnlyList<ChatResponse>> GetChatsAsync(long userId, CancellationToken ct);
+    Task<CursorPagedResponse<ChatResponse>> GetChatsAsync(
+        long userId,
+        string? before,
+        int limit,
+        CancellationToken ct
+    );
 
     Task<ChatResponse?> GetChatByUserAsync(
         long currentUserId,

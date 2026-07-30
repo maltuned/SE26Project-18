@@ -102,6 +102,54 @@ public sealed class GameAndTagServiceTests
         );
     }
 
+    [Fact]
+    public async Task GetGameTags_ReturnsSortedNoTrackingTags()
+    {
+        await using var db = CreateDbContext();
+        db.GameTags.AddRange(new GameTag("Strategy"), new GameTag("Action"));
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var service = new TagCatalogService(db);
+
+        var response = await service.GetGameTagsAsync(CancellationToken.None);
+
+        Assert.Equal(["Action", "Strategy"], response.Select(tag => tag.Name));
+        Assert.Empty(db.ChangeTracker.Entries());
+    }
+
+    [Fact]
+    public async Task GetRecruitmentTags_ReturnsSortedNoTrackingTags()
+    {
+        await using var db = CreateDbContext();
+        db.RecruitmentTags.AddRange(
+            new RecruitmentTag("Veteran"),
+            new RecruitmentTag("Beginner")
+        );
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var service = new TagCatalogService(db);
+
+        var response = await service.GetRecruitmentTagsAsync(CancellationToken.None);
+
+        Assert.Equal(["Beginner", "Veteran"], response.Select(tag => tag.Name));
+        Assert.Empty(db.ChangeTracker.Entries());
+    }
+
+    [Fact]
+    public async Task GetUserTags_ReturnsSortedNoTrackingTags()
+    {
+        await using var db = CreateDbContext();
+        db.UserTags.AddRange(new UserTag("Support"), new UserTag("Competitive"));
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var service = new TagCatalogService(db);
+
+        var response = await service.GetUserTagsAsync(CancellationToken.None);
+
+        Assert.Equal(["Competitive", "Support"], response.Select(tag => tag.Name));
+        Assert.Empty(db.ChangeTracker.Entries());
+    }
+
     private static AppDbContext CreateDbContext()
     {
         return new AppDbContext(

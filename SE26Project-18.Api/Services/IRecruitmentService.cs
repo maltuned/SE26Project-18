@@ -1,5 +1,6 @@
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Models.Responses;
+using SE26Project_18.Api.Models.Enums;
 
 namespace SE26Project_18.Api.Services;
 
@@ -15,6 +16,7 @@ public interface IRecruitmentService
         long recruiterId,
         int page,
         int pageSize,
+        RecruitmentStatus? status,
         CancellationToken ct
     );
 

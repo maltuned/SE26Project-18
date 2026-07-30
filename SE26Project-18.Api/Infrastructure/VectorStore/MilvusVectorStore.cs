@@ -206,29 +206,7 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 },
                 cancellationToken: ct
             );
-        var ids = result.Ids.LongIds;
-
-        if (ids is null)
-        {
-            throw new InvalidOperationException(
-                $"The index '{request.IndexName}' did not return Int64 primary keys."
-            );
-        }
-
-        if (ids.Count != result.Scores.Count)
-        {
-            throw new InvalidOperationException(
-                $"The index '{request.IndexName}' returned mismatched search IDs and scores."
-            );
-        }
-
-        var matches = new List<VectorSearchResult>(ids.Count);
-        for (var i = 0; i < ids.Count; i++)
-        {
-            matches.Add(new VectorSearchResult(ids[i], result.Scores[i]));
-        }
-
-        return matches;
+        return MapSearchResults(request.IndexName, result);
     }
 
     public async Task DeleteAsync(
@@ -263,6 +241,40 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
         {
             indexLock.Dispose();
         }
+    }
+
+    internal static IReadOnlyList<VectorSearchResult> MapSearchResults(
+        string indexName,
+        SearchResults result
+    )
+    {
+        var ids = result.Ids.LongIds;
+        if (ids is null)
+        {
+            if (result.Scores.Count == 0)
+            {
+                return [];
+            }
+
+            throw new InvalidOperationException(
+                $"The index '{indexName}' did not return Int64 primary keys."
+            );
+        }
+
+        if (ids.Count != result.Scores.Count)
+        {
+            throw new InvalidOperationException(
+                $"The index '{indexName}' returned mismatched search IDs and scores."
+            );
+        }
+
+        var matches = new List<VectorSearchResult>(ids.Count);
+        for (var i = 0; i < ids.Count; i++)
+        {
+            matches.Add(new VectorSearchResult(ids[i], result.Scores[i]));
+        }
+
+        return matches;
     }
 
     private static IReadOnlyList<FieldSchema> CreateSchema(VectorIndexDefinition definition)
@@ -543,7 +555,7 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
     )
     {
         var indexName = GetIndexName(field);
-        var indexes = await collection.DescribeIndexAsync(field.Name, cancellationToken: ct);
+        var indexes = await DescribeIndexesAsync(collection, field.Name, ct);
         var index = indexes.SingleOrDefault(candidate => candidate.IndexName == indexName);
 
         if (index is null && indexes.Count != 0)
@@ -567,7 +579,7 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
             }
             catch (MilvusException)
             {
-                indexes = await collection.DescribeIndexAsync(field.Name, cancellationToken: ct);
+                indexes = await DescribeIndexesAsync(collection, field.Name, ct);
                 index = indexes.SingleOrDefault(candidate => candidate.IndexName == indexName);
                 if (index is null)
                 {
@@ -575,7 +587,7 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
                 }
             }
 
-            indexes = await collection.DescribeIndexAsync(field.Name, cancellationToken: ct);
+            indexes = await DescribeIndexesAsync(collection, field.Name, ct);
             index = indexes.SingleOrDefault(candidate => candidate.IndexName == indexName);
             if (index is null)
             {
@@ -592,6 +604,22 @@ internal sealed class MilvusVectorStore : IVectorStore, IDisposable
             timeout: InitializationTimeout,
             cancellationToken: ct
         );
+    }
+
+    private static async Task<IList<MilvusIndexInfo>> DescribeIndexesAsync(
+        MilvusCollection collection,
+        string fieldName,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            return await collection.DescribeIndexAsync(fieldName, cancellationToken: ct);
+        }
+        catch (MilvusException exception) when (exception.ErrorCode == MilvusErrorCode.IndexNotFound)
+        {
+            return [];
+        }
     }
 
     private void ThrowIfDisposed()

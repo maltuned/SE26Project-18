@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Infrastructure.Embedding;
+using SE26Project_18.Api.Infrastructure.Realtime;
 using SE26Project_18.Api.Models.Entities;
 using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Mappings;
@@ -17,10 +18,28 @@ internal sealed class UserService : IUserService
 
     private readonly IEmbeddingSyncScheduler _embeddingSync;
 
-    public UserService(AppDbContext db, IEmbeddingSyncScheduler embeddingSync)
+    private readonly IMessageConnectionManager _connectionManager;
+
+    public UserService(
+        AppDbContext db,
+        IEmbeddingSyncScheduler embeddingSync,
+        IMessageConnectionManager connectionManager
+    )
     {
         _db = db;
         _embeddingSync = embeddingSync;
+        _connectionManager = connectionManager;
+    }
+
+    public async Task EnsureActiveAsync(long id, CancellationToken ct)
+    {
+        if (
+            !await _db.Users.AsNoTracking()
+                .AnyAsync(user => user.Id == id && user.Status != UserStatus.Suspended, ct)
+        )
+        {
+            throw new AuthenticationException("User is unavailable or suspended.");
+        }
     }
 
     public async Task<UserResponse?> GetByIdAsync(long id, CancellationToken ct)
@@ -76,6 +95,7 @@ internal sealed class UserService : IUserService
     }
 
     public async Task<UserResponse> SetSuspensionAsync(
+        long actorId,
         long id,
         SetUserSuspensionRequest request,
         CancellationToken ct
@@ -84,6 +104,16 @@ internal sealed class UserService : IUserService
         var user =
             await _db.Users.Include(u => u.Tags).FirstOrDefaultAsync(u => u.Id == id, ct)
             ?? throw new NotFoundException("User not found.");
+
+        if (actorId == id)
+        {
+            throw new ForbiddenException("Administrators cannot suspend themselves.");
+        }
+
+        if (user.Role == UserRole.Admin)
+        {
+            throw new ForbiddenException("Administrators cannot be suspended.");
+        }
 
         user.Status = request.Suspended ? UserStatus.Suspended : UserStatus.Offline;
 
@@ -99,6 +129,15 @@ internal sealed class UserService : IUserService
         }
 
         await _db.SaveChangesAsync(ct);
+        if (request.Suspended)
+        {
+            await _connectionManager.CloseUserAsync(id);
+        }
+        else
+        {
+            _connectionManager.AllowUser(id);
+        }
+
         return user.ToResponse();
     }
 

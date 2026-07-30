@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,16 +13,19 @@ import {
   View,
 } from "react-native";
 import {
+  GameBrief,
   GameInfo,
   RecruitmentData,
+  RecruitmentStatusDto,
   RecruitmentTag,
-  getGames,
   getRecruitmentById,
   getRecruitmentTags,
-  saveRecruitment,
+  createRecruitment,
+  updateRecruitment,
 } from "../api/api";
 import GameInfoModal from "../components/game-info-modal";
 import GameSearchModal from "../components/game-search-modal";
+import MediaImage from "../components/media-image";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
@@ -44,9 +46,8 @@ export default function RecruitmentEditScreen() {
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [tags, setTags] = useState<RecruitmentTag[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fetchingRecruitment, setFetchingRecruitment] = useState(false);
-
-  const testImage = require("../../assets/images/testImage.png");
+  const [maxParticipants, setMaxParticipants] = useState(5);
+  const [status, setStatus] = useState(RecruitmentStatusDto.Open);
 
   useEffect(() => {
     getRecruitmentTags().then((data) => {
@@ -54,7 +55,6 @@ export default function RecruitmentEditScreen() {
     });
 
     if (editId) {
-      setFetchingRecruitment(true);
       getRecruitmentById(editId).then((data: RecruitmentData | null) => {
         if (data) {
           setGameName(data.gameName || "");
@@ -67,20 +67,23 @@ export default function RecruitmentEditScreen() {
             setSelectedGame({
               id: data.gameId,
               name: data.gameName || "",
-              icon: "",
-              company: "",
+              icon: data.gameIcon,
               description: "",
-              cover: "",
+              cover: data.gameCover,
               tags: [],
-              createdAt: "",
-              updatedAt: "",
             });
+            setMaxParticipants(data.maxParticipants);
+            setStatus(
+              data.status === "已删除"
+                ? RecruitmentStatusDto.Deleted
+                : data.status === "已关闭"
+                  ? RecruitmentStatusDto.Closed
+                  : RecruitmentStatusDto.Open,
+            );
           }
         }
-        setFetchingRecruitment(false);
         setLoading(false);
       }).catch(() => {
-        setFetchingRecruitment(false);
         setLoading(false);
       });
     } else {
@@ -96,25 +99,15 @@ export default function RecruitmentEditScreen() {
     );
   };
 
-  const handleSearchClose = async (text: string) => {
+  const handleSearchClose = (text: string, gameWasSelected = false) => {
     setGameName(text);
+    if (!gameWasSelected && text !== selectedGame?.name) setSelectedGame(null);
     setSearchModalVisible(false);
-    if (text.trim()) {
-      const games = await getGames(text.trim());
-      if (games.length > 0) {
-        setSelectedGame({
-          id: games[0].id,
-          name: games[0].name,
-          icon: games[0].icon,
-          company: "",
-          description: "",
-          cover: "",
-          tags: [],
-          createdAt: "",
-          updatedAt: "",
-        });
-      }
-    }
+  };
+
+  const handleGameSelect = (game: GameBrief) => {
+    setGameName(game.name);
+    setSelectedGame({ ...game, description: "", cover: "", tags: [] });
   };
 
   const handlePublish = async () => {
@@ -126,28 +119,32 @@ export default function RecruitmentEditScreen() {
       Alert.alert("提示", "请输入标题");
       return;
     }
+    if (!selectedGame?.id) {
+      Alert.alert("提示", "请选择游戏");
+      return;
+    }
 
     const now = new Date();
     const oneDayLater = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const toISOString = (d: Date) =>
-      d
-        .toISOString()
-        .replace("T", " ")
-        .replace(/\.\d+Z$/, "");
-
     try {
-      await saveRecruitment({
-        id: editId ?? -1,
-        publisherId: userId,
-        gameId: selectedGame?.id ?? -1,
-        title: title.trim(),
-        description,
-        status: "招募中",
-        expiredAt: toISOString(oneDayLater),
-        maxParticipants: 5,
-        currentParticipants: 0,
-        tagsId: selectedTagIds,
-      });
+      if (editId) {
+        await updateRecruitment(editId, {
+          title: title.trim(),
+          description,
+          maxParticipants,
+          recruitmentTagIds: selectedTagIds,
+          status,
+        });
+      } else {
+        await createRecruitment({
+          gameId: selectedGame.id,
+          title: title.trim(),
+          description,
+          expiresAt: oneDayLater.toISOString(),
+          maxParticipants,
+          recruitmentTagIds: selectedTagIds,
+        });
+      }
       router.replace("/(tabs)");
     } catch {
       Alert.alert("错误", "发布失败，请稍后重试");
@@ -178,7 +175,10 @@ export default function RecruitmentEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.topRow}>
-            <Image source={testImage} style={styles.coverImage} />
+            <MediaImage
+              uri={selectedGame?.cover || selectedGame?.icon}
+              style={styles.coverImage}
+            />
             <View style={styles.topRight}>
               <TouchableOpacity
                 style={[
@@ -287,6 +287,7 @@ export default function RecruitmentEditScreen() {
         visible={searchModalVisible}
         initialText={gameName}
         onClose={handleSearchClose}
+        onSelect={handleGameSelect}
       />
     </View>
   );

@@ -1,12 +1,8 @@
-import { useState } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -15,7 +11,7 @@ import { useTheme } from "../contexts/theme-context";
 interface ResponseRejectModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (reason: string) => void;
+  onSubmit: () => void;
 }
 
 function ResponseRejectModal({
@@ -24,16 +20,12 @@ function ResponseRejectModal({
   onSubmit: onReject,
 }: ResponseRejectModalProps) {
   const { colors } = useTheme();
-  const [reason, setReason] = useState("");
-
   const handleReject = () => {
-    onReject(reason);
-    setReason("");
+    onReject();
     onClose();
   };
 
   const handleCancel = () => {
-    setReason("");
     onClose();
   };
 
@@ -44,32 +36,14 @@ function ResponseRejectModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.avoidingView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <View style={styles.avoidingView}>
         <Pressable
           style={[styles.overlay, { backgroundColor: colors.overlay }]}
           onPress={handleCancel}
         >
           <View style={[styles.container, { backgroundColor: colors.card }]}>
             <Text style={[styles.title, { color: colors.text }]}>确认拒绝</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.inputBackground,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="可输入拒绝理由..."
-              placeholderTextColor={colors.textQuaternary}
-              multiline
-              numberOfLines={3}
-              value={reason}
-              onChangeText={setReason}
-            />
+            <Text style={[styles.confirmText, { color: colors.textSecondary }]}>确定拒绝该回应吗？</Text>
             <View style={styles.buttonRow}>
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: colors.border }]}
@@ -92,7 +66,7 @@ function ResponseRejectModal({
             </View>
           </View>
         </Pressable>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -122,14 +96,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: "center",
   },
-  input: {
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 12,
-    minHeight: 80,
-    textAlignVertical: "top",
-    marginBottom: 16,
-  },
+  confirmText: { fontSize: 15, textAlign: "center", marginBottom: 20 },
   buttonRow: {
     flexDirection: "row",
     gap: 12,

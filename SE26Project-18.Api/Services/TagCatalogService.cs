@@ -17,6 +17,18 @@ internal sealed class TagCatalogService : ITagCatalogService
         _db = db;
     }
 
+    public async Task<IReadOnlyCollection<GameTagResponse>> GetGameTagsAsync(
+        CancellationToken ct
+    )
+    {
+        return await _db
+            .GameTags.AsNoTracking()
+            .OrderBy(tag => tag.Name)
+            .ThenBy(tag => tag.Id)
+            .Select(tag => tag.ToResponse())
+            .ToListAsync(ct);
+    }
+
     public async Task<GameTagResponse> CreateGameTagAsync(
         CreateTagRequest request,
         CancellationToken ct
@@ -47,6 +59,28 @@ internal sealed class TagCatalogService : ITagCatalogService
         _db.UserTags.Add(tag);
         await _db.SaveChangesAsync(ct);
         return tag.ToResponse();
+    }
+
+    public async Task<IReadOnlyCollection<UserTagResponse>> GetUserTagsAsync(CancellationToken ct)
+    {
+        return await _db
+            .UserTags.AsNoTracking()
+            .OrderBy(tag => tag.Name)
+            .ThenBy(tag => tag.Id)
+            .Select(tag => tag.ToResponse())
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyCollection<RecruitmentTagResponse>> GetRecruitmentTagsAsync(
+        CancellationToken ct
+    )
+    {
+        return await _db
+            .RecruitmentTags.AsNoTracking()
+            .OrderBy(tag => tag.Name)
+            .ThenBy(tag => tag.Id)
+            .Select(tag => tag.ToResponse())
+            .ToListAsync(ct);
     }
 
     public async Task<RecruitmentTagResponse> CreateRecruitmentTagAsync(

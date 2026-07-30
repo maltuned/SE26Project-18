@@ -9,5 +9,7 @@ public sealed record UserResponse(
     string Signature,
     Gender Gender,
     UserStatus Status,
-    IReadOnlyCollection<UserTagResponse> Tags
+    bool IsAdmin,
+    IReadOnlyCollection<UserTagResponse> Tags,
+    string AvatarUrl
 );

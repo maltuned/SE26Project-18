@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Models.Responses;
 using SE26Project_18.Api.Services;
@@ -41,10 +42,19 @@ public sealed class RecruitmentController : ControllerBase
         long recruiterId,
         [FromQuery, Range(1, int.MaxValue)] int page = 1,
         [FromQuery, Range(1, 100)] int pageSize = 20,
+        [FromQuery] RecruitmentStatus? status = null,
         CancellationToken ct = default
     )
     {
-        return Ok(await _recruitmentService.GetByRecruiterAsync(recruiterId, page, pageSize, ct));
+        return Ok(
+            await _recruitmentService.GetByRecruiterAsync(
+                recruiterId,
+                page,
+                pageSize,
+                status,
+                ct
+            )
+        );
     }
 
     [HttpGet("{id:long}", Name = "GetRecruitmentById")]

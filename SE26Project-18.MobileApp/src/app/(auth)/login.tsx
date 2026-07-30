@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { login as apiLogin } from "../../api/api";
+import { ApiError } from "../../api/api";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
@@ -28,14 +28,12 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const user = await apiLogin(username, password);
-      if (user) {
-        login(user.id);
-      } else {
-        Alert.alert("登录失败", "用户名或密码错误");
-      }
+      await login(username.trim(), password);
     } catch (error) {
-      Alert.alert("登录失败", "网络错误，请稍后重试");
+      Alert.alert(
+        "登录失败",
+        error instanceof ApiError ? error.message : "网络错误，请稍后重试",
+      );
     } finally {
       setLoading(false);
     }
@@ -84,12 +82,8 @@ export default function LoginScreen() {
               <Text style={styles.loginButtonText}>登录</Text>
             )}
           </TouchableOpacity>
-          <View style={styles.linkRow}>
-            <TouchableOpacity onPress={() => {}}>
-              <Text style={[styles.linkText, { color: colors.primary }]}>
-                忘记密码
-              </Text>
-            </TouchableOpacity>
+          <View style={[styles.linkRow, styles.registerLinkRow]}>
+            {/* Forgot-password remains hidden until the backend supports it. */}
             <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
               <Text style={[styles.linkText, { color: colors.primary }]}>
                 注册账号
@@ -136,4 +130,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   linkText: { fontSize: 14 },
+  registerLinkRow: { justifyContent: "flex-end" },
 });

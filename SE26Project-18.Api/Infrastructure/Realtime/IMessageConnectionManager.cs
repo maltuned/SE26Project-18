@@ -5,11 +5,15 @@ namespace SE26Project_18.Api.Infrastructure.Realtime;
 
 public interface IMessageConnectionManager
 {
-    void Add(long chatId, WebSocket socket);
+    bool Add(long chatId, long userId, WebSocket socket);
 
     void Remove(long chatId, WebSocket socket);
 
     Task BroadcastAsync(long chatId, MessageResponse message, CancellationToken ct);
+
+    Task CloseUserAsync(long userId);
+
+    void AllowUser(long userId);
 
     Task CloseAsync(
         long chatId,

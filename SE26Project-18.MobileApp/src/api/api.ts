@@ -1,3 +1,26 @@
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+import type {
+  ChatResponse,
+  CursorPagedResponse,
+  GameResponse,
+  MessageResponse,
+  PagedResponse,
+  ProblemDetails,
+  RecruitmentResponse,
+  ResponseResponse,
+  TagResponse,
+  TokenResponse,
+  UserResponse,
+  WebSocketTicketResponse,
+} from "./dtos";
+import {
+  ChatStatusDto,
+  GenderDto,
+  RecruitmentStatusDto,
+  ResponseTypeDto,
+  UserStatusDto,
+} from "./dtos";
 import type {
   ChatBrief,
   ChatData,
@@ -640,8 +663,6 @@ export const createRecruitment = async (data: {
   gameId: number;
   title: string;
   description: string;
-  status: string;
-  expiredAt: string;
   maxParticipants: number;
   currentParticipants: number;
   tagsId: number[];

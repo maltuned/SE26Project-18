@@ -1,9 +1,9 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,16 +11,21 @@ import {
   View,
 } from "react-native";
 import {
-  getRecruitmentsByPublisherId,
+  getRecruitmentsByPublisherPage,
   getUserById,
   RecruitmentData,
   UserInfo,
 } from "../api/api";
 import RecruitmentViewCard from "../components/recruitment-view-card";
+import MediaImage from "../components/media-image";
+import { FEATURE_FLAGS } from "../constants/feature-flags";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
-const TABS = ["发布招募", "收到评价"];
+const TABS = [
+  "发布招募",
+  ...(FEATURE_FLAGS.reviews ? ["收到评价"] : []),
+];
 
 const REVIEWS = [
   {
@@ -60,6 +65,11 @@ export default function PersonalPageScreen() {
   );
   const [loading, setLoading] = useState(false);
   const [targetUser, setTargetUser] = useState<UserInfo | null>(null);
+  const [recruitmentPage, setRecruitmentPage] = useState(1);
+  const [hasMoreRecruitments, setHasMoreRecruitments] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const recruitmentGenerationRef = useRef(0);
+  const recruitmentInFlightRef = useRef(false);
 
   useEffect(() => {
     if (isOwnPage) {
@@ -70,17 +80,62 @@ export default function PersonalPageScreen() {
   }, [targetUserId, isOwnPage, currentUser]);
 
   useEffect(() => {
+    const generation = ++recruitmentGenerationRef.current;
+    recruitmentInFlightRef.current = false;
     if (targetUserId) {
       setLoading(true);
-      getRecruitmentsByPublisherId(targetUserId).then((data) => {
-        setUserRecruitments(data);
-        setLoading(false);
-      });
+       getRecruitmentsByPublisherPage(targetUserId, 1).then((data) => {
+         if (generation !== recruitmentGenerationRef.current) return;
+         const ids = new Set<number>();
+         setUserRecruitments(data.items.filter((item) => !ids.has(item.id) && Boolean(ids.add(item.id))));
+         setRecruitmentPage(1);
+         setHasMoreRecruitments(data.page < data.totalPages);
+         setLoading(false);
+       }).catch(() => {
+         if (generation === recruitmentGenerationRef.current) {
+           setUserRecruitments([]);
+           setHasMoreRecruitments(false);
+         }
+       }).finally(() => {
+         if (generation === recruitmentGenerationRef.current) {
+           recruitmentInFlightRef.current = false;
+           setLoading(false);
+         }
+       });
+       recruitmentInFlightRef.current = true;
     } else {
       setUserRecruitments([]);
     }
+    return () => {
+      recruitmentGenerationRef.current += 1;
+      recruitmentInFlightRef.current = false;
+    };
   }, [targetUserId]);
 
+  const loadMoreRecruitments = async () => {
+    if (!targetUserId || !hasMoreRecruitments || recruitmentInFlightRef.current) return;
+    const generation = recruitmentGenerationRef.current;
+    recruitmentInFlightRef.current = true;
+    setLoadingMore(true);
+    try {
+      const next = await getRecruitmentsByPublisherPage(targetUserId, recruitmentPage + 1);
+      if (generation !== recruitmentGenerationRef.current) return;
+      setUserRecruitments((previous) => {
+        const ids = new Set(previous.map((item) => item.id));
+        return [...previous, ...next.items.filter((item) => !ids.has(item.id) && Boolean(ids.add(item.id)))];
+      });
+      setRecruitmentPage(next.page);
+      setHasMoreRecruitments(next.page < next.totalPages);
+    } finally {
+      if (generation === recruitmentGenerationRef.current) {
+        recruitmentInFlightRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  };
+
+  // Kept for when reporting is enabled again.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleReport = () => {
     Alert.alert("举报", "举报已提交，我们会尽快处理");
   };
@@ -91,8 +146,6 @@ export default function PersonalPageScreen() {
       params: { recruitmentId: item.id.toString() },
     });
   };
-
-  const testImage = require("../../assets/images/testImage.png");
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
@@ -110,9 +163,10 @@ export default function PersonalPageScreen() {
             编辑资料
           </Text>
         </TouchableOpacity>
-      ) : (
-        <TouchableOpacity style={styles.editButton} onPress={handleReport}>
-          <Text style={[styles.editText, { color: colors.primary }]}>举报</Text>
+      ) : null /* Report UI is hidden until the backend supports reports. */}
+      {isOwnPage && currentUser?.isAdmin && (
+        <TouchableOpacity style={styles.adminButton} onPress={() => router.push("/admin" as any)}>
+          <Text style={[styles.editText, { color: colors.primary }]}>管理后台</Text>
         </TouchableOpacity>
       )}
 
@@ -123,8 +177,8 @@ export default function PersonalPageScreen() {
         ]}
       >
         <View style={styles.profileTop}>
-          <Image
-            source={testImage}
+          <MediaImage
+            uri={targetUser?.avatar}
             style={[styles.avatar, { backgroundColor: colors.primary }]}
           />
           <View style={styles.profileInfo}>
@@ -176,17 +230,22 @@ export default function PersonalPageScreen() {
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
-            <ScrollView style={styles.recruitmentList}>
-              {userRecruitments.map((recruitment) => (
+            <FlatList
+              style={styles.recruitmentList}
+              data={userRecruitments}
+              keyExtractor={(item) => String(item.id)}
+              onEndReached={loadMoreRecruitments}
+              onEndReachedThreshold={0.4}
+              ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary} /> : null}
+              renderItem={({ item: recruitment }) => (
                 <RecruitmentViewCard
-                  key={recruitment.id}
                   recruitment={recruitment}
                   onPress={openCard}
                 />
-              ))}
-            </ScrollView>
+              )}
+            />
           )
-        ) : (
+        ) : FEATURE_FLAGS.reviews ? (
           <ScrollView style={styles.reviewList}>
             {REVIEWS.map((review) => (
               <View
@@ -195,8 +254,7 @@ export default function PersonalPageScreen() {
               >
                 <View style={styles.reviewTop}>
                   <View style={styles.reviewerInfo}>
-                    <Image
-                      source={testImage}
+                    <MediaImage
                       style={[
                         styles.reviewerAvatar,
                         { backgroundColor: colors.primary },
@@ -206,11 +264,7 @@ export default function PersonalPageScreen() {
                       {review.reviewer}
                     </Text>
                   </View>
-                  <Text
-                    style={[styles.reportButton, { color: colors.primary }]}
-                  >
-                    举报
-                  </Text>
+                  {/* Report UI is hidden until the backend supports reports. */}
                 </View>
                 <Text
                   style={[
@@ -240,7 +294,7 @@ export default function PersonalPageScreen() {
               </View>
             ))}
           </ScrollView>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -266,6 +320,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   editText: { fontSize: 16 },
+  adminButton: { position: "absolute", top: 32, right: 0, paddingHorizontal: 16, paddingVertical: 12, zIndex: 1 },
   profileSection: {
     paddingTop: 44,
     paddingHorizontal: 20,

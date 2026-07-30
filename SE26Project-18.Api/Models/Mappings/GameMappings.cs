@@ -11,7 +11,9 @@ internal static class GameMappings
             game.Id,
             game.Name,
             game.Description,
-            game.Tags.Select(t => t.ToResponse()).ToList()
+            game.Tags.Select(t => t.ToResponse()).ToList(),
+            $"/api/v1/games/{game.Id}/icon",
+            $"/api/v1/games/{game.Id}/cover"
         );
     }
 }

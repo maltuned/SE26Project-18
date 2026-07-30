@@ -1,13 +1,7 @@
-import {
-  Stack,
-  useRootNavigationState,
-  useRouter,
-  useSegments,
-} from "expo-router";
-import { useEffect } from "react";
-import { StatusBar, StyleSheet, View } from "react-native";
+import { Stack } from "expo-router";
+import { ActivityIndicator, StatusBar, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { initTagCaches } from "../api/api";
+import { FEATURE_FLAGS } from "../constants/feature-flags";
 import { AuthProvider, useAuth } from "../contexts/auth-context";
 import { ThemeProvider, useTheme } from "../contexts/theme-context";
 
@@ -22,32 +16,21 @@ export default function RootLayout() {
 }
 
 function RootLayoutMain() {
-  useEffect(() => {
-    initTagCaches();
-  }, []);
-
   return <RootLayoutNav />;
 }
 
 function RootLayoutNav() {
-  const { isLoggedIn } = useAuth();
+  const { initializing, isLoggedIn } = useAuth();
   const { colors } = useTheme();
-  const segments = useSegments();
-  const router = useRouter();
-  const navState = useRootNavigationState();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    if (!navState?.key) return;
-
-    const inAuthGroup = segments[0] === "(auth)";
-
-    if (!isLoggedIn && !inAuthGroup) {
-      router.replace("/(auth)/login");
-    } else if (isLoggedIn && inAuthGroup) {
-      router.replace("/(tabs)");
-    }
-  }, [isLoggedIn, segments, navState?.key]);
+  if (initializing) {
+    return (
+      <View style={[styles.loading, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
 
   return (
     <View
@@ -64,15 +47,22 @@ function RootLayoutNav() {
         barStyle={colors.statusBar as "light-content" | "dark-content"}
       />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="recruitment-edit" />
-        <Stack.Screen name="recruitment-detail" />
-        <Stack.Screen name="chat-room" />
-        <Stack.Screen name="personal-page" />
-        <Stack.Screen name="personal-page-edit" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="feedback" />
+        <Stack.Protected guard={!isLoggedIn}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        <Stack.Protected guard={isLoggedIn}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="recruitment-edit" />
+          <Stack.Screen name="recruitment-detail" />
+          <Stack.Screen name="chat-room" />
+          <Stack.Screen name="personal-page" />
+          <Stack.Screen name="personal-page-edit" />
+          <Stack.Screen name="settings" />
+        </Stack.Protected>
+        <Stack.Protected guard={isLoggedIn && FEATURE_FLAGS.feedback}>
+          <Stack.Screen name="feedback" />
+        </Stack.Protected>
       </Stack>
     </View>
   );
@@ -82,4 +72,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
 });

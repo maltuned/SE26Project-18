@@ -9,6 +9,7 @@ public sealed record RecruitmentResponse(
     string Title,
     string Description,
     IReadOnlyCollection<RecruitmentTagResponse> Tags,
+    IReadOnlyCollection<ResponseResponse> Responses,
     int MaxParticipants,
     int CurrParticipants,
     RecruitmentStatus Status,

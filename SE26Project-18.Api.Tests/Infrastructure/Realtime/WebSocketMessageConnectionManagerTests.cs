@@ -17,14 +17,15 @@ public sealed class WebSocketMessageConnectionManagerTests
         using var first = new RecordingWebSocket();
         using var second = new RecordingWebSocket();
         using var otherChat = new RecordingWebSocket();
-        manager.Add(1, first);
-        manager.Add(1, second);
-        manager.Add(2, otherChat);
-        var message = new MessageResponse(10, "hello", DateTime.UnixEpoch);
+        manager.Add(1, 10, first);
+        manager.Add(1, 11, second);
+        manager.Add(2, 10, otherChat);
+        var message = new MessageResponse(1, 10, "hello", DateTime.UnixEpoch);
 
         await manager.BroadcastAsync(1, message, CancellationToken.None);
 
         var firstPayload = Assert.Single(first.SentMessages);
+        Assert.Contains("\"id\":1", firstPayload);
         Assert.Contains("\"senderId\":10", firstPayload);
         Assert.Contains("\"content\":\"hello\"", firstPayload);
         Assert.Single(second.SentMessages);
@@ -38,12 +39,12 @@ public sealed class WebSocketMessageConnectionManagerTests
             NullLogger<WebSocketMessageConnectionManager>.Instance
         );
         using var socket = new RecordingWebSocket();
-        manager.Add(1, socket);
+        manager.Add(1, 10, socket);
         manager.Remove(1, socket);
 
         await manager.BroadcastAsync(
             1,
-            new MessageResponse(10, "hello", DateTime.UnixEpoch),
+            new MessageResponse(1, 10, "hello", DateTime.UnixEpoch),
             CancellationToken.None
         );
 
@@ -57,23 +58,58 @@ public sealed class WebSocketMessageConnectionManagerTests
             NullLogger<WebSocketMessageConnectionManager>.Instance
         );
         using var socket = new RecordingWebSocket(sendDelay: TimeSpan.FromMilliseconds(20));
-        manager.Add(1, socket);
+        manager.Add(1, 10, socket);
 
         await Task.WhenAll(
             manager.BroadcastAsync(
                 1,
-                new MessageResponse(10, "first", DateTime.UnixEpoch),
+                new MessageResponse(1, 10, "first", DateTime.UnixEpoch),
                 CancellationToken.None
             ),
             manager.BroadcastAsync(
                 1,
-                new MessageResponse(11, "second", DateTime.UnixEpoch),
+                new MessageResponse(2, 11, "second", DateTime.UnixEpoch),
                 CancellationToken.None
             )
         );
 
         Assert.Equal(1, socket.MaximumConcurrentSends);
         Assert.Equal(2, socket.SentMessages.Count);
+    }
+
+    [Fact]
+    public async Task CloseUser_ClosesOnlyThatUsersConnectionsAcrossChats()
+    {
+        var manager = new WebSocketMessageConnectionManager(
+            NullLogger<WebSocketMessageConnectionManager>.Instance
+        );
+        using var first = new RecordingWebSocket();
+        using var second = new RecordingWebSocket();
+        using var otherUser = new RecordingWebSocket();
+        manager.Add(1, 10, first);
+        manager.Add(2, 10, second);
+        manager.Add(1, 11, otherUser);
+
+        await manager.CloseUserAsync(10);
+
+        Assert.Equal(WebSocketState.CloseSent, first.State);
+        Assert.Equal(WebSocketState.CloseSent, second.State);
+        Assert.Equal(WebSocketState.Open, otherUser.State);
+    }
+
+    [Fact]
+    public async Task CloseUser_BlocksNewConnectionsUntilUserIsAllowed()
+    {
+        var manager = new WebSocketMessageConnectionManager(
+            NullLogger<WebSocketMessageConnectionManager>.Instance
+        );
+        using var socket = new RecordingWebSocket();
+
+        await manager.CloseUserAsync(10);
+
+        Assert.False(manager.Add(1, 10, socket));
+        manager.AllowUser(10);
+        Assert.True(manager.Add(1, 10, socket));
     }
 
     private sealed class RecordingWebSocket : WebSocket
