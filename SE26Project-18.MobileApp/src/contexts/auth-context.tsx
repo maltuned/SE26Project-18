@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getUserById, UserInfo } from "../api/api";
+import { clearAuthTokens, getUserById, UserInfo } from "../api/api";
 
 type AuthContextType = {
   isLoggedIn: boolean;
@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsLoggedIn(true);
         },
         logout: () => {
+          clearAuthTokens();
           setUserId(null);
           setIsLoggedIn(false);
         },

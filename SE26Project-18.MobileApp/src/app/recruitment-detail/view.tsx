@@ -12,12 +12,9 @@ import {
 } from "react-native";
 import {
   ChatData,
-  createChat,
   createResponse,
-  getChatsByRecruitmentId,
+  getChatByUsers,
   getRecruitmentById,
-  getResponses,
-  ResponseData,
   RecruitmentData,
   RecruitmentTag,
   sendMessage,
@@ -36,7 +33,6 @@ export default function RecruitmentViewScreen() {
 
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
   const [existingChat, setExistingChat] = useState<ChatData | null>(null);
-  const [myResponse, setMyResponse] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [showGreetingModal, setShowGreetingModal] = useState(false);
@@ -59,20 +55,12 @@ export default function RecruitmentViewScreen() {
   }, [params.recruitmentId]);
 
   useEffect(() => {
-    if (userId && recruitment?.id) {
-      getChatsByRecruitmentId(recruitment.id).then((chats) => {
-        const myChat = chats.find((c) =>
-          c.users?.some((u) => u.userId === userId),
-        );
-        if (myChat) setExistingChat(myChat);
-      });
-
-      getResponses(recruitment.id).then((responses) => {
-        const myResponse = responses.find((r) => r.responserId === userId);
-        setMyResponse(myResponse || null);
+    if (userId && recruitment?.publisherId) {
+      getChatByUsers([userId, recruitment.publisherId]).then((chat) => {
+        setExistingChat(chat);
       });
     }
-  }, [userId, recruitment?.id]);
+  }, [userId, recruitment?.publisherId]);
 
   if (fetching) {
     return (
@@ -107,19 +95,15 @@ export default function RecruitmentViewScreen() {
 
   const handleChat = async () => {
     if (!userId) return;
-    // 已关闭且没回应过：不能操作
-    if (isClosed && !myResponse) return;
-    // 已回应且被拒绝：不能操作
-    if (myResponse && myResponse.responseStatus === "已删除") return;
-    // 回应过但没有聊天：不能操作
-    if (myResponse && !existingChat) return;
     // 有聊天：继续聊天
-    if (myResponse && existingChat) {
+    if (existingChat) {
       router.dismissAll();
       router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${existingChat.id}`);
       return;
     }
+    // 已关闭且没有聊天：不能操作
+    if (isClosed) return;
     // 没回应过：弹出打招呼
     setShowGreetingModal(true);
   };
@@ -128,15 +112,12 @@ export default function RecruitmentViewScreen() {
     if (!userId) return;
     setLoading(true);
     try {
-      const chat = await createChat({
-        recruitmentId: recruitment.id,
-        user1Id: userId,
-        user2Id: recruitment.publisherId,
-      });
       await createResponse({
         recruitmentId: recruitment.id,
         responserId: userId,
       });
+      const chat = await getChatByUsers([userId, recruitment.publisherId]);
+      if (!chat) throw new Error("Chat not found");
       await sendMessage({
         chatId: chat.id,
         senderId: userId,
@@ -247,31 +228,22 @@ export default function RecruitmentViewScreen() {
         <TouchableOpacity
           style={[
             styles.chatButton,
-            (isClosed && !myResponse) ||
-            (myResponse && myResponse.responseStatus === "已删除")
+            isClosed && !existingChat
               ? { backgroundColor: colors.textQuaternary }
               : { backgroundColor: colors.primary },
             loading && styles.chatButtonDisabled,
           ]}
           onPress={handleChat}
-          disabled={
-            loading ||
-            (isClosed && !myResponse) ||
-            !!(myResponse && myResponse.responseStatus === "已删除")
-          }
+          disabled={loading || (isClosed && !existingChat)}
         >
           <Text style={styles.chatButtonText}>
             {loading
               ? "加载中..."
-              : isClosed && !myResponse
+              : existingChat
+                ? "继续聊天"
+                : isClosed
                 ? "已关闭"
-                : myResponse && myResponse.responseStatus === "已删除"
-                  ? "对方已拒绝"
-                  : myResponse && !existingChat
-                    ? "已回应"
-                    : myResponse && existingChat
-                      ? "继续聊天"
-                      : "聊一聊"}
+                : "聊一聊"}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -29,8 +29,8 @@ export default function RegisterScreen() {
       Alert.alert("注册失败", "两次输入的密码不一致");
       return;
     }
-    if (password.length < 6) {
-      Alert.alert("注册失败", "密码长度不能少于6位");
+    if (password.length < 8) {
+      Alert.alert("注册失败", "密码长度不能少于8位");
       return;
     }
     setLoading(true);
