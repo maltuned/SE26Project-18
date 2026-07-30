@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Authentication;
 using SE26Project_18.Api.Infrastructure.Embedding;
 using SE26Project_18.Api.Infrastructure.Messaging;
+using SE26Project_18.Api.Infrastructure.Media;
 using SE26Project_18.Api.Infrastructure.Realtime;
 using SE26Project_18.Api.Infrastructure.VectorStore;
 using SE26Project_18.Api.Repositories;
@@ -20,12 +22,9 @@ var connectionString =
     ?? throw new InvalidOperationException(
         "The default database connection string is not configured."
     );
-var serverVersion = ServerVersion.AutoDetect(connectionString);
-MariaDbCompatibility.Validate(serverVersion);
-
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseMySql(connectionString, serverVersion);
+    AppDbContextConfiguration.Configure(options, connectionString);
 });
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
@@ -80,6 +79,20 @@ builder
                     context.HttpContext.RequestAborted
                 );
             },
+            OnTokenValidated = async context =>
+            {
+                var validator = context.HttpContext.RequestServices.GetRequiredService<AccessTokenUserValidator>();
+                if (
+                    context.Principal is null
+                    || !await validator.IsAllowedAsync(
+                        context.Principal,
+                        context.HttpContext.RequestAborted
+                    )
+                )
+                {
+                    context.Fail("The token user is unavailable or suspended.");
+                }
+            },
         };
     });
 
@@ -87,6 +100,24 @@ builder
     .Services.AddAuthorizationBuilder()
     .AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
 
+builder
+    .Services.AddOptions<DatabaseValidationOptions>()
+    .BindConfiguration(DatabaseValidationOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder
+    .Services.AddOptions<AdminBootstrapOptions>()
+    .BindConfiguration(AdminBootstrapOptions.SectionName)
+    .ValidateOnStart();
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<AdminBootstrapOptions>,
+    AdminBootstrapOptionsValidator
+>();
+builder
+    .Services.AddOptions<MediaStorageOptions>()
+    .BindConfiguration(MediaStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder
     .Services.AddOptions<RabbitMqOptions>()
     .BindConfiguration(RabbitMqOptions.SectionName)
@@ -109,11 +140,14 @@ builder
     .ValidateOnStart();
 
 builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
 builder.Services.AddSingleton<IVectorStore, MilvusVectorStore>();
 builder.Services.AddSingleton<RecommendationVectorRepository>();
 builder.Services.AddSingleton<IMessageConnectionManager, WebSocketMessageConnectionManager>();
 builder.Services.AddSingleton<IMessageWebSocketHandler, MessageWebSocketHandler>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IWebSocketTicketStore, InMemoryWebSocketTicketStore>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<IEmbeddingService, OpenAiEmbeddingService>();
@@ -126,6 +160,11 @@ builder.Services.AddHostedService<RecommendationVectorStoreInitializer>();
 builder.Services.AddHostedService<EmbeddingSyncOutboxDispatcher>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<DatabaseStartupValidator>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IAdminBootstrapLock, AdminBootstrapLock>();
+builder.Services.AddScoped<AdminBootstrapper>();
+builder.Services.AddScoped<AccessTokenUserValidator>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGameService, GameService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
@@ -177,6 +216,12 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<DatabaseStartupValidator>().ValidateAsync(default);
+    await scope.ServiceProvider.GetRequiredService<AdminBootstrapper>().InitializeAsync(default);
+}
 
 if (app.Environment.IsDevelopment())
 {

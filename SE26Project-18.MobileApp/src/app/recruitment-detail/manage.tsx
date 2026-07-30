@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,17 +10,20 @@ import {
   View,
 } from "react-native";
 import {
+  acceptResponse,
   deleteRecruitment,
-  deleteResponse,
-  getChatsByRecruitmentId,
+  getChatByUser,
   getRecruitmentById,
-  getResponses,
+  getUserById,
   RecruitmentData,
+  RecruitmentStatusDto,
   RecruitmentTag,
+  rejectResponse,
   ResponseData,
   updateRecruitment,
 } from "../../api/api";
 import ResponseRejectModal from "../../components/response-reject-modal";
+import MediaImage from "../../components/media-image";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
@@ -48,6 +51,15 @@ export default function RecruitmentManageScreen() {
           if (data) {
             setRecruitment(data);
             setClosed(data.status === "已关闭");
+            Promise.all(
+              data.responses.map(async (response) => ({
+                ...response,
+                responser: await getUserById(response.responserId).catch(() => undefined),
+              })),
+            ).then((items) => {
+              setResponses(items);
+              setLoadingResponses(false);
+            });
           }
           setFetching(false);
         })
@@ -56,10 +68,6 @@ export default function RecruitmentManageScreen() {
         });
 
       setLoadingResponses(true);
-      getResponses(Number(recruitmentId)).then((data) => {
-        setResponses(data.filter((r) => r.responseStatus !== "已删除"));
-        setLoadingResponses(false);
-      });
     } else {
       setFetching(false);
     }
@@ -67,7 +75,7 @@ export default function RecruitmentManageScreen() {
 
   const handleClose = async () => {
     if (!recruitment?.id) return;
-    const newStatus = closed ? "招募中" : "已关闭";
+    const newStatus = closed ? RecruitmentStatusDto.Open : RecruitmentStatusDto.Closed;
     await updateRecruitment(recruitment.id, { status: newStatus });
     setClosed(!closed);
   };
@@ -81,24 +89,31 @@ export default function RecruitmentManageScreen() {
 
   const handleViewChat = async (res: ResponseData) => {
     if (!recruitment?.id) return;
-    const chats = await getChatsByRecruitmentId(recruitment.id);
-    const chat = chats.find((c) =>
-      c.users?.some((u) => u.userId === res.responserId),
-    );
-    if (chat) {
-      router.dismissAll();
-      router.push(`/(tabs)/chat`);
-      router.push(`/chat-room?chatId=${chat.id}`);
+    try {
+      const chat = await getChatByUser(res.responserId, userId!);
+      if (chat) {
+        router.dismissAll();
+        router.push(`/(tabs)/chat`);
+        router.push(`/chat-room?chatId=${chat.id}`);
+      }
+    } catch (error) {
+      Alert.alert(
+        "打开聊天失败",
+        error instanceof Error ? error.message : "请稍后重试",
+      );
     }
   };
 
-  const handleReject = async (reason: string) => {
+  const handleReject = async () => {
     if (!rejectingResponse?.id) return;
-    await deleteResponse(rejectingResponse.id, reason);
-    setResponses((prev) => prev.filter((r) => r.id !== rejectingResponse.id));
+    const updated = await rejectResponse(rejectingResponse.id);
+    setResponses((prev) => prev.map((item) => item.id === updated.id ? { ...item, responseStatus: updated.responseStatus } : item));
   };
 
-  const testImage = require("../../../assets/images/testImage.png");
+  const handleAccept = async (response: ResponseData) => {
+    const updated = await acceptResponse(response.id);
+    setResponses((prev) => prev.map((item) => item.id === updated.id ? { ...item, responseStatus: updated.responseStatus } : item));
+  };
 
   if (fetching) {
     return (
@@ -176,7 +191,7 @@ export default function RecruitmentManageScreen() {
             </Text>
           </View>
           <View style={styles.topRow}>
-            <Image source={testImage} style={styles.coverImage} />
+            <MediaImage uri={recruitment.gameCover || recruitment.gameIcon} style={styles.coverImage} />
             <View style={styles.topRight}>
               <Text style={[styles.gameName, { color: colors.textSecondary }]}>
                 {recruitment.gameName}
@@ -202,7 +217,7 @@ export default function RecruitmentManageScreen() {
               <Text
                 style={[styles.publishTime, { color: colors.textQuaternary }]}
               >
-                {recruitment.createdAt}
+                截止 {new Date(recruitment.expiredAt).toLocaleDateString("zh-CN")}
               </Text>
             </View>
           </View>
@@ -236,8 +251,8 @@ export default function RecruitmentManageScreen() {
                     router.push(`/personal-page?userId=${res.responserId}`)
                   }
                 >
-                  <Image
-                    source={testImage}
+                  <MediaImage
+                    uri={res.responser?.avatar}
                     style={[
                       styles.responderAvatar,
                       { backgroundColor: colors.primary },
@@ -257,17 +272,33 @@ export default function RecruitmentManageScreen() {
                   >
                     <Text style={styles.chatButtonText}>查看</Text>
                   </TouchableOpacity>
+                  {res.responseStatus === "待处理" && (
+                    <TouchableOpacity
+                      style={[styles.chatButton, { backgroundColor: colors.success }]}
+                      onPress={() => handleAccept(res)}
+                    >
+                      <Text style={styles.chatButtonText}>接受</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={[
                       styles.rejectButton,
-                      { backgroundColor: colors.danger },
+                      {
+                        backgroundColor:
+                          res.responseStatus === "待处理"
+                            ? colors.danger
+                            : colors.textQuaternary,
+                      },
                     ]}
+                    disabled={res.responseStatus !== "待处理"}
                     onPress={() => {
                       setRejectingResponse(res);
                       setRejectModalVisible(true);
                     }}
                   >
-                    <Text style={[styles.rejectButtonText]}>拒绝</Text>
+                    <Text style={[styles.rejectButtonText]}>
+                      {res.responseStatus === "已拒绝" ? "已拒绝" : "拒绝"}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>

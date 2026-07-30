@@ -14,6 +14,7 @@ internal static class RecruitmentMappings
             recruitment.Title,
             recruitment.Description,
             recruitment.Tags.Select(t => t.ToResponse()).ToList(),
+            recruitment.Responses.Select(response => response.ToResponse()).ToList(),
             recruitment.MaxParticipants,
             recruitment.CurrParticipants,
             recruitment.Status,

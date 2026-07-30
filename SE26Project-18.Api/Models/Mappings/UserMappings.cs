@@ -1,4 +1,5 @@
 using SE26Project_18.Api.Models.Entities;
+using SE26Project_18.Api.Models.Enums;
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Models.Responses;
 
@@ -42,7 +43,9 @@ internal static class UserMappings
             user.Signature,
             user.Gender,
             user.Status,
-            user.Tags.Select(t => t.ToResponse()).ToList()
+            user.Role == UserRole.Admin,
+            user.Tags.Select(t => t.ToResponse()).ToList(),
+            $"/api/v1/users/{user.Id}/avatar"
         );
     }
 }

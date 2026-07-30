@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -12,8 +12,9 @@ import {
 import {
     GameTag,
     getGameTags,
-    getRecruitments,
+    searchRecruitments,
     getRecruitmentTags,
+    recordRecruitmentView,
     RecruitmentData,
     RecruitmentTag,
 } from "../../api/api";
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [searchText, setSearchText] = useState("");
+  const [selectedGameId, setSelectedGameId] = useState<number | undefined>();
   const [selectedGameTags, setSelectedGameTags] = useState<number[]>([]);
   const [selectedRecruitmentTags, setSelectedRecruitmentTags] = useState<
     number[]
@@ -35,67 +37,107 @@ export default function HomeScreen() {
   const [gameTags, setGameTags] = useState<GameTag[]>([]);
   const [recruitmentTags, setRecruitmentTags] = useState<RecruitmentTag[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const generationRef = useRef(0);
+  const inFlightRef = useRef(false);
 
-  const loadData = async () => {
+  const loadRecruitments = useCallback(async (
+    nextPage = 1,
+    gameId: number | undefined = selectedGameId,
+    gTags: number[] = selectedGameTags,
+    rTags: number[] = selectedRecruitmentTags,
+    generation = generationRef.current,
+  ) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    if (nextPage > 1) setLoadingMore(true);
+    else setLoading(true);
+    try {
+      const result = await searchRecruitments({
+        gameId,
+        gameTagIds: gTags,
+        recruitmentTagIds: rTags,
+        page: nextPage,
+        pageSize: 20,
+      });
+      if (generation !== generationRef.current) return;
+      setRecruitments((previous) => {
+        const base = nextPage === 1 ? [] : previous;
+        const ids = new Set(base.map((item) => item.id));
+        return [...base, ...result.items.filter((item) => !ids.has(item.id) && Boolean(ids.add(item.id)))];
+      });
+      setPage(result.page);
+      setHasMore(result.page < result.totalPages);
+    } finally {
+      if (generation === generationRef.current) {
+        inFlightRef.current = false;
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    }
+  }, [selectedGameId, selectedGameTags, selectedRecruitmentTags]);
+
+  const loadCatalogs = async () => {
     setLoading(true);
-    const [recruitmentsData, gameTagsData, recruitmentTagsData] =
-      await Promise.all([
-        getRecruitments(),
-        getGameTags(),
-        getRecruitmentTags(),
-      ]);
-    setRecruitments(recruitmentsData);
+    const [gameTagsData, recruitmentTagsData] = await Promise.all([
+      getGameTags(),
+      getRecruitmentTags(),
+    ]);
     setGameTags(gameTagsData);
     setRecruitmentTags(recruitmentTagsData);
-    setLoading(false);
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadCatalogs();
+  }, []); // Catalogs are static during a session.
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, []),
+      const generation = ++generationRef.current;
+      inFlightRef.current = false;
+      void loadRecruitments(1, selectedGameId, selectedGameTags, selectedRecruitmentTags, generation);
+      return () => {
+        generationRef.current += 1;
+        inFlightRef.current = false;
+      };
+    }, [loadRecruitments, selectedGameId, selectedGameTags, selectedRecruitmentTags]),
   );
 
-  const openCard = (item: RecruitmentData) => {
+  const openCard = async (item: RecruitmentData) => {
+    try {
+      await recordRecruitmentView(item.id);
+    } catch {
+      // A failed recommendation signal must not block access to recruitment details.
+    }
+
     router.push({
       pathname: '/recruitment-detail' as any,
       params: { recruitmentId: item.id.toString() }
     });
   };
 
-  const loadRecruitments = async (
-    gameName: string = searchText,
-    gTags: number[] = selectedGameTags,
-    rTags: number[] = selectedRecruitmentTags,
-  ) => {
-    const data = await getRecruitments(gameName, gTags, rTags);
-    setRecruitments(data);
-  };
-
-  const handleSearchClose = async (text: string) => {
+  const handleSearchClose = (text: string, gameWasSelected = false) => {
     setSearchText(text);
-    await loadRecruitments(text, selectedGameTags, selectedRecruitmentTags);
+    if (!gameWasSelected && (!text || text !== searchText)) {
+      setSelectedGameId(undefined);
+    }
     setSearchModalVisible(false);
   };
 
-  const toggleGameTag = async (tagId: number) => {
+  const toggleGameTag = (tagId: number) => {
     const newGameTags = selectedGameTags.includes(tagId)
       ? selectedGameTags.filter((id) => id !== tagId)
       : [...selectedGameTags, tagId];
     setSelectedGameTags(newGameTags);
-    await loadRecruitments(searchText, newGameTags, selectedRecruitmentTags);
   };
 
-  const toggleRecruitmentTag = async (tagId: number) => {
+  const toggleRecruitmentTag = (tagId: number) => {
     const newRecruitmentTags = selectedRecruitmentTags.includes(tagId)
       ? selectedRecruitmentTags.filter((id) => id !== tagId)
       : [...selectedRecruitmentTags, tagId];
     setSelectedRecruitmentTags(newRecruitmentTags);
-    await loadRecruitments(searchText, selectedGameTags, newRecruitmentTags);
   };
 
   return (
@@ -223,6 +265,11 @@ export default function HomeScreen() {
             <RecruitmentViewCard recruitment={item} onPress={openCard} />
           )}
           contentContainerStyle={styles.listContent}
+          onEndReached={() => {
+            if (hasMore) loadRecruitments(page + 1);
+          }}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary} /> : null}
         />
       )}
 
@@ -230,6 +277,10 @@ export default function HomeScreen() {
         visible={searchModalVisible}
         initialText={searchText}
         onClose={handleSearchClose}
+        onSelect={(game) => {
+          setSelectedGameId(game.id);
+          setSearchText(game.name);
+        }}
       />
     </View>
   );

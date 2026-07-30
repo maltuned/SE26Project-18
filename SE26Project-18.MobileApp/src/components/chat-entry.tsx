@@ -1,19 +1,19 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../contexts/theme-context";
+import MediaImage from "./media-image";
 
 export interface ChatEntryInfo {
   id: string;
   name: string;
   lastMessage: string;
   time: string;
+  avatar?: string;
 }
 
 interface ChatEntryProps {
   chat: ChatEntryInfo;
   onPress: (chat: ChatEntryInfo) => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function ChatEntry({ chat, onPress }: ChatEntryProps) {
   const { colors } = useTheme();
@@ -23,9 +23,9 @@ function ChatEntry({ chat, onPress }: ChatEntryProps) {
       style={[styles.chatItem, { borderBottomColor: colors.border }]}
       onPress={() => onPress(chat)}
     >
-      <Image
+      <MediaImage
         key={chat.id}
-        source={testImage}
+        uri={chat.avatar}
         style={[styles.avatar, { backgroundColor: colors.primary }]}
       />
       <View style={styles.chatInfo}>

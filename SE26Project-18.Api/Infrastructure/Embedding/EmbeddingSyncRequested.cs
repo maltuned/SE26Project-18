@@ -9,7 +9,7 @@ internal sealed record EmbeddingSyncRequested(
 {
     public const string EventName = "embedding.sync.requested.v1";
 
-    public const string QueueName = "se26project-18.embedding-sync.v1";
+    public const string QueueName = "se26project_18.embedding-sync.v1";
 }
 
 internal enum EmbeddingTarget

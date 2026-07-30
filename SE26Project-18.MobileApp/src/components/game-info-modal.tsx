@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -11,15 +10,15 @@ import {
   View,
 } from "react-native";
 import { GameInfo, getGameById } from "../api/api";
+import { FEATURE_FLAGS } from "../constants/feature-flags";
 import { useTheme } from "../contexts/theme-context";
+import MediaImage from "./media-image";
 
 interface GameInfoModalProps {
   visible: boolean;
   gameId: number | null;
   onClose: () => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
   const { colors } = useTheme();
@@ -64,8 +63,8 @@ function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
             ) : (
               <>
                 <View style={styles.body}>
-                  <Image
-                    source={testImage}
+                  <MediaImage
+                    uri={game?.cover || game?.icon}
                     style={[
                       styles.image,
                       { backgroundColor: colors.placeholder },
@@ -76,22 +75,19 @@ function GameInfoModal({ visible, gameId, onClose }: GameInfoModalProps) {
                       <Text style={[styles.name, { color: colors.text }]}>
                         {game?.name}
                       </Text>
-                      <TouchableOpacity>
-                        <Text
-                          style={[
-                            styles.feedbackText,
-                            { color: colors.primary },
-                          ]}
-                        >
-                          反馈
-                        </Text>
-                      </TouchableOpacity>
+                      {FEATURE_FLAGS.gameFeedback && (
+                        <TouchableOpacity>
+                          <Text
+                            style={[
+                              styles.feedbackText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            反馈
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    <Text
-                      style={[styles.company, { color: colors.textSecondary }]}
-                    >
-                      {game?.company}
-                    </Text>
                     <View style={styles.tags}>
                       {game?.tags.map((tag) => (
                         <View

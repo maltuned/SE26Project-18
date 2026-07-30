@@ -33,8 +33,10 @@ function RecruitmentResponseModal({
   const [greeting, setGreeting] = useState(DEFAULT_GREETING);
 
   const handleSend = () => {
+    const message = greeting.trim();
+    if (!message) return;
     if (onSend) {
-      onSend(greeting);
+      onSend(message);
     }
     onClose();
   };
@@ -95,6 +97,7 @@ function RecruitmentResponseModal({
                 ]}
                 value={greeting}
                 onChangeText={setGreeting}
+                maxLength={4000}
                 multiline
                 textAlignVertical="top"
                 placeholder="输入打招呼内容..."
@@ -118,6 +121,7 @@ function RecruitmentResponseModal({
                     { backgroundColor: colors.primary },
                   ]}
                   onPress={handleSend}
+                  disabled={!greeting.trim()}
                 >
                   <Text
                     style={[styles.sendText, { color: colors.primaryText }]}

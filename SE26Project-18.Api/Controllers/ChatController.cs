@@ -20,9 +20,13 @@ public sealed class ChatController : ControllerBase
     }
 
     [HttpGet("me")]
-    public async Task<ActionResult<IReadOnlyList<ChatResponse>>> GetChats(CancellationToken ct)
+    public async Task<ActionResult<CursorPagedResponse<ChatResponse>>> GetChats(
+        [FromQuery] string? before,
+        [FromQuery] int limit = 20,
+        CancellationToken ct = default
+    )
     {
-        return Ok(await _chatService.GetChatsAsync(GetCurrentUserId(), ct));
+        return Ok(await _chatService.GetChatsAsync(GetCurrentUserId(), before, limit, ct));
     }
 
     [HttpGet("by-user/{userId:long}")]

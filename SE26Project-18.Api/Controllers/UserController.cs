@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Media;
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Services;
 
@@ -14,9 +15,35 @@ public sealed class UserController : ControllerBase
 {
     private readonly IUserService _userService;
 
-    public UserController(IUserService userService)
+    private readonly IMediaService _mediaService;
+
+    public UserController(IUserService userService, IMediaService mediaService)
     {
         _userService = userService;
+        _mediaService = mediaService;
+    }
+
+    [HttpGet("{id:long}/avatar")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetAvatar(long id, CancellationToken ct)
+    {
+        return ToFileResult(await _mediaService.OpenUserAvatarAsync(id, ct));
+    }
+
+    [HttpPut("me/avatar")]
+    [RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<IActionResult> PutAvatar([FromForm] IFormFile file, CancellationToken ct)
+    {
+        await _mediaService.StoreUserAvatarAsync(GetCurrentUserId(), file, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("me/avatar")]
+    public async Task<IActionResult> DeleteAvatar(CancellationToken ct)
+    {
+        await _mediaService.DeleteUserAvatarAsync(GetCurrentUserId(), ct);
+        return NoContent();
     }
 
     [HttpGet("me")]
@@ -55,7 +82,7 @@ public sealed class UserController : ControllerBase
         CancellationToken ct
     )
     {
-        return Ok(await _userService.SetSuspensionAsync(id, request, ct));
+        return Ok(await _userService.SetSuspensionAsync(GetCurrentUserId(), id, request, ct));
     }
 
     private long GetCurrentUserId()
@@ -66,5 +93,20 @@ public sealed class UserController : ControllerBase
         }
 
         return userId;
+    }
+
+    private static IActionResult ToFileResult(MediaFile? media)
+    {
+        if (media is null)
+        {
+            return new NotFoundResult();
+        }
+
+        return new FileStreamResult(media.Stream, "image/webp")
+        {
+            EntityTag = media.EntityTag,
+            LastModified = media.LastModified,
+            EnableRangeProcessing = false,
+        };
     }
 }

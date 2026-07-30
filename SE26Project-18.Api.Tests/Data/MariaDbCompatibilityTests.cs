@@ -16,6 +16,26 @@ public sealed class MariaDbCompatibilityTests
         );
     }
 
+    [Theory]
+    [InlineData("10.11.8-MariaDB-0ubuntu0.24.04.1", 8)]
+    [InlineData("10.11.14-MariaDB", 14)]
+    [InlineData("5.5.5-10.11.11-MariaDB", 11)]
+    public void ParseAndValidate_AcceptsMariaDbVersionOutput(string versionText, int patch)
+    {
+        var parsed = MariaDbCompatibility.ParseAndValidate(versionText);
+
+        Assert.IsType<MariaDbServerVersion>(parsed);
+        Assert.Equal(new Version(10, 11, patch), parsed.Version);
+    }
+
+    [Fact]
+    public void ParseAndValidate_RejectsMySqlVersionOutput()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            MariaDbCompatibility.ParseAndValidate("8.0.36-0ubuntu0.24.04.1")
+        );
+    }
+
     [Fact]
     public void Validate_RejectsMySql()
     {

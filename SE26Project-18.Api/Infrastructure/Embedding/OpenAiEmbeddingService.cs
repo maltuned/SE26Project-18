@@ -72,11 +72,26 @@ internal sealed class OpenAiEmbeddingService : IEmbeddingService
                 _options.ApiKey
             );
             request.Content = JsonContent.Create(
-                new EmbeddingRequest(_options.Model, batch, _options.Dimension)
+                new EmbeddingRequest(
+                    _options.Model,
+                    batch,
+                    _options.SendDimensions ? _options.Dimension : null
+                )
             );
 
             using var response = await _httpClient.SendAsync(request, ct);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var responseBody = await response.Content.ReadAsStringAsync(ct);
+                if (responseBody.Length > 2_000)
+                {
+                    responseBody = responseBody[..2_000];
+                }
+
+                throw new ServiceUnavailableException(
+                    $"Embedding API returned status {(int)response.StatusCode}: {responseBody}"
+                );
+            }
             var payload =
                 await response.Content.ReadFromJsonAsync<EmbeddingResponse>(cancellationToken: ct)
                 ?? throw new ServiceUnavailableException(
@@ -121,7 +136,9 @@ internal sealed class OpenAiEmbeddingService : IEmbeddingService
     private sealed record EmbeddingRequest(
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("input")] IReadOnlyCollection<string> Input,
-        [property: JsonPropertyName("dimensions")] int Dimensions
+        [property: JsonPropertyName("dimensions")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+            int? Dimensions
     );
 
     private sealed record EmbeddingResponse(

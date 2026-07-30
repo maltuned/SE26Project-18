@@ -1,15 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect } from "expo-router";
-import { RecruitmentData, getResponses } from "../api/api";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RecruitmentData } from "../api/api";
 import { useTheme } from "../contexts/theme-context";
+import MediaImage from "./media-image";
 
 interface RecruitmentManageCardProps {
   recruitment: RecruitmentData;
   onPress: (recruitment: RecruitmentData) => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function RecruitmentManageCard({
   recruitment,
@@ -17,29 +14,13 @@ function RecruitmentManageCard({
 }: RecruitmentManageCardProps) {
   const { colors } = useTheme();
   const closed = recruitment.status === "已关闭";
-  const [responseCount, setResponseCount] = useState(0);
-
-  const loadResponseCount = useCallback(() => {
-    getResponses(recruitment.id).then((responses) => {
-      setResponseCount(responses.length);
-    });
-  }, [recruitment.id]);
-
-  useEffect(() => {
-    loadResponseCount();
-  }, [loadResponseCount]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadResponseCount();
-    }, [loadResponseCount]),
-  );
+  const responseCount = recruitment.responses.length;
 
   return (
     <TouchableOpacity onPress={() => onPress(recruitment)} activeOpacity={0.8}>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Image
-          source={testImage}
+        <MediaImage
+          uri={recruitment.gameCover || recruitment.gameIcon}
           style={[styles.cardImage, { backgroundColor: colors.placeholder }]}
         />
         <View style={styles.cardRight}>
@@ -55,7 +36,7 @@ function RecruitmentManageCard({
             </Text>
           </View>
           <Text style={[styles.cardTime, { color: colors.textQuaternary }]}>
-            {recruitment.createdAt}
+            截止 {new Date(recruitment.expiredAt).toLocaleDateString("zh-CN")}
           </Text>
         </View>
         <View

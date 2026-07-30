@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using SE26Project_18.Api.Models.Entities;
 
 namespace SE26Project_18.Api.Data;
@@ -37,10 +38,14 @@ internal sealed class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasCharSet("utf8mb4", DelegationModes.ApplyToDatabases);
+        modelBuilder.UseCollation("utf8mb4_unicode_ci");
+
         modelBuilder.Entity<Chat>(entity =>
         {
             entity.ToTable("chats");
             entity.HasKey(c => c.Id);
+            entity.Property(c => c.Status).HasConversion<byte>();
             entity
                 .HasOne(c => c.Recruitment)
                 .WithMany()
@@ -60,6 +65,7 @@ internal sealed class AppDbContext : DbContext
                 .HasMany(c => c.Messages)
                 .WithOne()
                 .HasForeignKey("ChatId")
+                .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex("User1Id", "User2Id").IsUnique();
         });
@@ -68,6 +74,8 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("games");
             entity.HasKey(g => g.Id);
+            entity.Property(g => g.Name).HasMaxLength(200);
+            entity.Property(g => g.Description).HasMaxLength(4_000);
             entity.HasIndex(g => g.Name).IsUnique();
             entity.HasMany(g => g.Tags).WithMany();
         });
@@ -77,6 +85,10 @@ internal sealed class AppDbContext : DbContext
             entity.ToTable("embedding_sync_outbox");
             entity.HasKey(message => message.Id);
             entity.HasIndex(message => new { message.PublishedAt, message.LeaseExpiresAt });
+            entity.Property(message => message.Target).HasConversion<byte>();
+            entity.Property(message => message.CreatedAt).HasPrecision(6);
+            entity.Property(message => message.PublishedAt).HasPrecision(6);
+            entity.Property(message => message.LeaseExpiresAt).HasPrecision(6);
             entity.Property(message => message.LastError).HasMaxLength(2_000);
         });
 
@@ -84,6 +96,7 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("game_tags");
             entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).HasMaxLength(100);
             entity.HasIndex(t => t.Name).IsUnique();
         });
 
@@ -91,7 +104,8 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("messages");
             entity.HasKey(m => m.Id);
-            entity.Property(m => m.Content).HasMaxLength(4000);
+            entity.Property(m => m.Content).HasMaxLength(4_000);
+            entity.Property(m => m.SentAt).HasPrecision(6);
             entity
                 .HasOne(m => m.Sender)
                 .WithMany()
@@ -103,6 +117,10 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("recruitments");
             entity.HasKey(r => r.Id);
+            entity.Property(r => r.Title).HasMaxLength(200);
+            entity.Property(r => r.Description).HasMaxLength(4_000);
+            entity.Property(r => r.Status).HasConversion<byte>();
+            entity.Property(r => r.ExpiresAt).HasPrecision(6);
             entity
                 .HasOne(r => r.Game)
                 .WithMany()
@@ -125,6 +143,7 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("recruitment_tags");
             entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).HasMaxLength(100);
             entity.HasIndex(t => t.Name).IsUnique();
         });
 
@@ -132,6 +151,7 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("recruitment_views");
             entity.HasKey(v => v.Id);
+            entity.Property(v => v.LastViewedAt).HasPrecision(6);
             entity
                 .HasOne(v => v.User)
                 .WithMany()
@@ -149,6 +169,13 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("refresh_tokens");
             entity.HasKey(rt => rt.Id);
+            entity
+                .Property(rt => rt.TokenHashed)
+                .HasMaxLength(44)
+                .IsFixedLength()
+                .HasCharSet("ascii")
+                .UseCollation("ascii_bin");
+            entity.Property(rt => rt.ExpiresAt).HasPrecision(6);
             entity.HasIndex(rt => rt.TokenHashed).IsUnique();
             entity
                 .HasOne(rt => rt.User)
@@ -161,6 +188,7 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("responses");
             entity.HasKey(r => r.Id);
+            entity.Property(r => r.Type).HasConversion<byte>();
             entity
                 .HasOne(r => r.Responder)
                 .WithMany()
@@ -173,6 +201,18 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("users");
             entity.HasKey(u => u.Id);
+            entity.Property(u => u.Username).HasMaxLength(50);
+            entity
+                .Property(u => u.PasswordHashed)
+                .HasMaxLength(60)
+                .IsFixedLength()
+                .HasCharSet("ascii")
+                .UseCollation("ascii_bin");
+            entity.Property(u => u.Nickname).HasMaxLength(100);
+            entity.Property(u => u.Signature).HasMaxLength(500);
+            entity.Property(u => u.Gender).HasConversion<byte>();
+            entity.Property(u => u.Status).HasConversion<byte>();
+            entity.Property(u => u.Role).HasConversion<byte>();
             entity.HasIndex(u => u.Username).IsUnique();
             entity.HasMany(u => u.Tags).WithMany();
         });
@@ -181,6 +221,7 @@ internal sealed class AppDbContext : DbContext
         {
             entity.ToTable("user_tags");
             entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).HasMaxLength(100);
             entity.HasIndex(t => t.Name).IsUnique();
         });
     }

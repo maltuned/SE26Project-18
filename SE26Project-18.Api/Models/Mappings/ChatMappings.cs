@@ -9,8 +9,23 @@ internal static class ChatMappings
     {
         var lastMessage = chat
             .Messages.OrderByDescending(message => message.SentAt)
+            .ThenByDescending(message => message.Id)
             .FirstOrDefault();
 
+        return chat.ToResponse(
+            lastMessage is null
+                ? null
+                : new MessageResponse(
+                    lastMessage.Id,
+                    lastMessage.Sender.Id,
+                    lastMessage.Content,
+                    lastMessage.SentAt
+                )
+        );
+    }
+
+    public static ChatResponse ToResponse(this Chat chat, MessageResponse? lastMessage)
+    {
         return new ChatResponse(
             chat.Id,
             chat.Recruitment.Id,
@@ -19,13 +34,7 @@ internal static class ChatMappings
             chat.Status,
             chat.NewMsgsCntForUser1,
             chat.NewMsgsCntForUser2,
-            lastMessage is null
-                ? null
-                : new MessageResponse(
-                    lastMessage.Sender.Id,
-                    lastMessage.Content,
-                    lastMessage.SentAt
-                )
+            lastMessage
         );
     }
 }

@@ -2,8 +2,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
-    Image,
     Keyboard,
     KeyboardAvoidingView,
     Platform,
@@ -11,26 +11,24 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    ToastAndroid,
     TouchableOpacity,
     View,
 } from "react-native";
 import {
     ChatStatus,
+    ApiError,
     getChatById,
-    getMessagesByChatId,
+    getMessagesPage,
     getRecruitmentById,
-    getUserById,
     MessageData,
     RecruitmentData,
-    sendMessage,
+    openChatSocket,
     UserInfo,
 } from "../api/api";
 import ChatMessage, { ChatMessageInfo } from "../components/chat-message";
+import MediaImage from "../components/media-image";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
-
-const testImage = require("../../assets/images/testImage.png");
 
 export default function ChatRoomScreen() {
   const router = useRouter();
@@ -40,6 +38,10 @@ export default function ChatRoomScreen() {
   const statusBarHeight =
     Platform.OS === "ios" ? 0 : StatusBar.currentHeight || 0;
   const flatListRef = useRef<FlatList>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const pendingTextRef = useRef<string | null>(null);
+  const historyInitializedRef = useRef(false);
+  const messagesRef = useRef<ChatMessageInfo[]>([]);
 
   const chatId = params.chatId ? Number(params.chatId) : undefined;
 
@@ -51,50 +53,204 @@ export default function ChatRoomScreen() {
   const [otherUserId, setOtherUserId] = useState<number | null>(null);
   const [otherUser, setOtherUser] = useState<UserInfo | null>(null);
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
+  const [nextMessageCursor, setNextMessageCursor] = useState<string | null>(null);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [pendingText, setPendingText] = useState<string | null>(null);
 
   // 基于实际消息列表判断
   const currentUserSent = messages.some((m) => m.sender === "me");
   const otherUserSent = messages.some((m) => m.sender === "other");
 
   useEffect(() => {
-    if (chatId) {
-      setLoading(true);
-      getChatById(chatId).then((chat) => {
-        if (chat) {
-          setChatStatus(chat.chatStatus);
-          const chatOtherUser = chat.users?.find((u) => u.userId !== userId);
-          setOtherUserId(chatOtherUser?.userId ?? null);
-          if (chatOtherUser?.userId) {
-            getUserById(chatOtherUser.userId).then((user) => {
-              if (user) setOtherUser(user);
-            });
+    if (!chatId || !userId) return;
+    let disposed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let stableTimer: ReturnType<typeof setTimeout> | undefined;
+    let reconnectAttempt = 0;
+    let connecting = false;
+
+    const mapMessage = (message: MessageData): ChatMessageInfo => ({
+      id: String(message.id),
+      text: message.content,
+      sender: message.senderId === userId ? "me" : "other",
+      created_at: message.createdAt,
+    });
+    const mergeMessages = (incoming: ChatMessageInfo[]) => {
+      setMessages((previous) => {
+        const existingIds = new Set(previous.map((message) => message.id));
+        const merged = [...previous, ...incoming.filter((message) => !existingIds.has(message.id))]
+          .sort((left, right) => new Date(left.created_at ?? 0).getTime() - new Date(right.created_at ?? 0).getTime());
+        messagesRef.current = merged;
+        return merged;
+      });
+    };
+    const failPending = () => {
+      const pending = pendingTextRef.current;
+      if (!pending || disposed) return;
+      pendingTextRef.current = null;
+      setPendingText(null);
+      setInputText((current) => current ? `${pending}\n${current}` : pending);
+      Alert.alert("发送失败", "消息未发送，请检查连接后重试");
+    };
+    const backfillNewest = async () => {
+      try {
+        const knownIds = new Set(messagesRef.current.map((message) => message.id));
+        const incoming: MessageData[] = [];
+        let cursor: string | undefined;
+        let firstPage: Awaited<ReturnType<typeof getMessagesPage>> | null = null;
+        let lastPage: Awaited<ReturnType<typeof getMessagesPage>> | null = null;
+        do {
+          const page = await getMessagesPage(chatId, cursor);
+          firstPage ??= page;
+          lastPage = page;
+          incoming.push(...page.items);
+          if (
+            knownIds.size === 0
+            || page.items.some((message) => knownIds.has(String(message.id)))
+            || !page.hasMore
+            || !page.nextCursor
+          ) {
+            break;
           }
-          if (chat.recruitmentId) {
-            getRecruitmentById(chat.recruitmentId).then((rec) => {
-              if (rec) setRecruitment(rec);
-            });
+          cursor = page.nextCursor;
+        } while (!disposed);
+        if (disposed) return;
+        mergeMessages(incoming.map(mapMessage));
+
+        const pending = pendingTextRef.current;
+        if (pending) {
+          const wasPersisted = incoming.some(
+            (message) =>
+              !knownIds.has(String(message.id))
+              && message.senderId === userId
+              && message.content === pending,
+          );
+          if (wasPersisted) {
+            pendingTextRef.current = null;
+            setPendingText(null);
+          } else if (knownIds.size > 0) {
+            failPending();
           }
         }
-      });
 
-      getMessagesByChatId(chatId).then((data) => {
-        const chatMessages: ChatMessageInfo[] = data.map(
-          (msg: MessageData) => ({
-            id: String(msg.id),
-            text: msg.content,
-            sender: msg.senderId === userId ? "me" : "other",
-            created_at: msg.createdAt,
-          }),
-        );
-        setMessages(chatMessages);
+        if (!historyInitializedRef.current) {
+          historyInitializedRef.current = true;
+          setNextMessageCursor(lastPage?.nextCursor ?? firstPage?.nextCursor ?? null);
+          setHasOlderMessages(lastPage?.hasMore ?? firstPage?.hasMore ?? false);
+        }
+      } catch {
+        // A later reconnect or the concurrent initial request will retry the backfill.
+      } finally {
+        if (!disposed) setLoading(false);
+      }
+    };
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimer) return;
+      const delay = Math.min(1000 * (2 ** reconnectAttempt), 30_000);
+      reconnectAttempt += 1;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = undefined;
+        void connect();
+      }, delay);
+    };
+
+    const connect = async () => {
+      if (disposed || connecting) return;
+      connecting = true;
+      try {
+        const socket = await openChatSocket(chatId);
+        if (disposed) return socket.close();
+        socketRef.current = socket;
+        socket.onopen = () => {
+          stableTimer = setTimeout(() => { reconnectAttempt = 0; }, 10_000);
+          void backfillNewest();
+        };
+        socket.onmessage = (event) => {
+          const message = JSON.parse(String(event.data)) as {
+            id: number;
+            senderId: number;
+            content: string;
+            sentAt: string;
+          };
+          mergeMessages([mapMessage({ ...message, createdAt: message.sentAt })]);
+          if (message.senderId === userId && message.content === pendingTextRef.current) {
+            pendingTextRef.current = null;
+            setPendingText(null);
+          }
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 0);
+        };
+        socket.onclose = () => {
+          if (stableTimer) clearTimeout(stableTimer);
+          if (socketRef.current === socket) socketRef.current = null;
+          scheduleReconnect();
+        };
+      } catch {
+        scheduleReconnect();
+      } finally {
+        connecting = false;
+      }
+    };
+
+    setLoading(true);
+    setMessages([]);
+    messagesRef.current = [];
+    pendingTextRef.current = null;
+    setPendingText(null);
+    historyInitializedRef.current = false;
+    void connect();
+    Promise.all([getChatById(chatId, userId), getMessagesPage(chatId)])
+      .then(([chat, messagePage]) => {
+        if (disposed) return;
+        setChatStatus(chat.chatStatus);
+        setOtherUserId(chat.otherUserId);
+        setOtherUser(chat.otherUser);
+        if (chat.recruitmentId) {
+          void getRecruitmentById(chat.recruitmentId).then(setRecruitment).catch(() => setRecruitment(null));
+        }
+        mergeMessages(messagePage.items.map(mapMessage));
+        if (!historyInitializedRef.current) {
+          historyInitializedRef.current = true;
+          setNextMessageCursor(messagePage.nextCursor);
+          setHasOlderMessages(messagePage.hasMore);
+        }
         setLoading(false);
-        setTimeout(
-          () => flatListRef.current?.scrollToEnd({ animated: false }),
-          100,
-        );
-      });
-    }
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+      })
+      .catch(() => setLoading(false));
+
+    return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (stableTimer) clearTimeout(stableTimer);
+      socketRef.current?.close();
+      socketRef.current = null;
+    };
   }, [chatId, userId]);
+
+  const loadOlderMessages = async () => {
+    if (!chatId || !userId || !hasOlderMessages || !nextMessageCursor || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = await getMessagesPage(chatId, nextMessageCursor);
+      const older = page.items.map((message) => ({
+        id: String(message.id),
+        text: message.content,
+        sender: message.senderId === userId ? "me" : "other",
+        created_at: message.createdAt,
+      }));
+      setMessages((previous) => {
+        const ids = new Set(previous.map((message) => message.id));
+        const merged = [...older.filter((message) => !ids.has(message.id)), ...previous];
+        messagesRef.current = merged;
+        return merged;
+      });
+      setNextMessageCursor(page.nextCursor);
+      setHasOlderMessages(page.hasMore);
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -124,35 +280,30 @@ export default function ChatRoomScreen() {
   }, [currentScrollOffset]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !userId || !chatId || !otherUserId) return;
-    if (chatStatus === "关闭") return;
+    if (!userId || !chatId || !otherUserId || pendingTextRef.current) return;
     if (chatStatus === "限制" && currentUserSent && !otherUserSent) return;
 
     const content = inputText.trim();
+    if (!content) return;
+    if (content.length > 4000) {
+      Alert.alert("无法发送", "消息最多 4000 个字符");
+      return;
+    }
+    const socket = socketRef.current;
+    if (socket?.readyState !== WebSocket.OPEN) {
+      Alert.alert("无法发送", "聊天正在重新连接，请稍后重试");
+      return;
+    }
+    pendingTextRef.current = content;
+    setPendingText(content);
     setInputText("");
-
-    const optimisticMsg: ChatMessageInfo = {
-      id: Date.now().toString(),
-      text: content,
-      sender: "me",
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, optimisticMsg]);
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 0);
-
     try {
-      await sendMessage({
-        chatId,
-        senderId: userId,
-        receiverId: otherUserId,
-        content,
-      });
-      // 限制状态下，发送消息后如果对方已发过消息，则更新为开放
-      if (chatStatus === "限制" && otherUserSent) {
-        setChatStatus("开放");
-      }
-    } catch (error) {
-      console.error("Failed to send message:", error);
+      socket.send(JSON.stringify({ content }));
+    } catch {
+      pendingTextRef.current = null;
+      setPendingText(null);
+      setInputText(content);
+      Alert.alert("发送失败", "消息未发送，请检查连接后重试");
     }
   };
 
@@ -162,16 +313,19 @@ export default function ChatRoomScreen() {
 
   const handleRecruitmentPress = async () => {
     if (!recruitment?.id) return;
-    const fullRecruitment = await getRecruitmentById(recruitment.id);
-    if (!fullRecruitment) return;
-    if (fullRecruitment.status === "已删除") {
-      ToastAndroid.show("该招募已被删除", ToastAndroid.SHORT);
-      return;
+    try {
+      const fullRecruitment = await getRecruitmentById(recruitment.id);
+      router.push({
+        pathname: '/recruitment-detail' as any,
+        params: { recruitmentId: fullRecruitment.id.toString() }
+      });
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 404) {
+        Alert.alert("招募不存在", "该招募已被删除");
+        return;
+      }
+      Alert.alert("加载失败", reason instanceof Error ? reason.message : "请稍后重试");
     }
-    router.push({
-      pathname: '/recruitment-detail' as any,
-      params: { recruitmentId: fullRecruitment.id.toString() }
-    });
   };
 
   // 限制+己方发过+对方没发过 → 不能发
@@ -180,10 +334,11 @@ export default function ChatRoomScreen() {
   const canSend =
     chatStatus === "开放" ||
     (chatStatus === "限制" && !(currentUserSent && !otherUserSent));
+  const canSubmit = canSend && !pendingText;
 
   const getStatusHint = (): string => {
     if (chatStatus !== "限制") {
-      return chatStatus === "关闭" ? "聊天已关闭" : "";
+      return "";
     }
     if (currentUserSent && !otherUserSent) {
       return "等待对方回复中...";
@@ -231,8 +386,8 @@ export default function ChatRoomScreen() {
               router.push(`/personal-page?userId=${otherUserId}`);
           }}
         >
-          <Image
-            source={testImage}
+          <MediaImage
+            uri={otherUser.avatar}
             style={[styles.headerAvatar, { backgroundColor: colors.primary }]}
           />
           <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -253,7 +408,7 @@ export default function ChatRoomScreen() {
           ]}
           onPress={handleRecruitmentPress}
         >
-          <Image source={testImage} style={styles.recruitmentIcon} />
+          <MediaImage uri={recruitment.gameIcon} style={styles.recruitmentIcon} />
           <Text
             style={[styles.recruitmentTitle, { color: colors.textSecondary }]}
             numberOfLines={1}
@@ -275,7 +430,13 @@ export default function ChatRoomScreen() {
         renderItem={renderMessage}
         style={styles.messageList}
         contentContainerStyle={styles.messageContainer}
-        onScroll={(e) => setCurrentScrollOffset(e.nativeEvent.contentOffset.y)}
+        ListHeaderComponent={loadingOlder ? <ActivityIndicator color={colors.primary} /> : null}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+        onScroll={(e) => {
+          const offset = e.nativeEvent.contentOffset.y;
+          setCurrentScrollOffset(offset);
+          if (offset <= 20) loadOlderMessages();
+        }}
         scrollEventThrottle={16}
       />
 
@@ -299,16 +460,17 @@ export default function ChatRoomScreen() {
           placeholderTextColor={colors.textTertiary}
           value={inputText}
           onChangeText={setInputText}
+          maxLength={4000}
           multiline
           editable={canSend}
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            { backgroundColor: canSend ? colors.primary : colors.textTertiary },
+            { backgroundColor: canSubmit ? colors.primary : colors.textTertiary },
           ]}
           onPress={handleSendMessage}
-          disabled={!canSend}
+          disabled={!canSubmit}
         >
           <Text style={styles.sendButtonText}>发送</Text>
         </TouchableOpacity>

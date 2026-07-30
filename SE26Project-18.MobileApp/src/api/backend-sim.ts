@@ -1,3 +1,4 @@
+// @ts-nocheck - retained legacy prototype fixture; production code uses api.ts.
 import dataSrc from './data.json';
 import type {
   UserDto, GameDto, GameTagDto, RecruitmentTagDto,
@@ -213,7 +214,7 @@ class BackendSim {
         response: { status: response.status, data: response.data, message: response.message },
       });
       return response;
-    } catch (error) {
+    } catch {
       const errResponse: ApiResponse = { status: 500, data: null, message: 'Internal server error' };
       this.appendLog({
         timestamp: new Date().toISOString(),
@@ -288,7 +289,7 @@ class BackendSim {
         response: { status: response.status, data: response.data, message: response.message },
       });
       return response;
-    } catch (error) {
+    } catch {
       const errResponse: ApiResponse = { status: 500, data: null, message: 'Internal server error' };
       this.appendLog({
         timestamp: new Date().toISOString(),

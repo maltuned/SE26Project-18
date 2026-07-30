@@ -9,7 +9,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { register as apiRegister } from "../../api/api";
+import { ApiError } from "../../api/api";
+import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
 export default function RegisterScreen() {
@@ -19,6 +20,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { colors } = useTheme();
+  const { register } = useAuth();
 
   const handleRegister = async () => {
     if (!username || !password || !confirmPassword) {
@@ -29,22 +31,18 @@ export default function RegisterScreen() {
       Alert.alert("注册失败", "两次输入的密码不一致");
       return;
     }
-    if (password.length < 6) {
-      Alert.alert("注册失败", "密码长度不能少于6位");
+    if (password.length < 8) {
+      Alert.alert("注册失败", "密码长度不能少于8位");
       return;
     }
     setLoading(true);
     try {
-      const user = await apiRegister(username, password);
-      if (user) {
-        Alert.alert("注册成功", "请登录", [
-          { text: "确定", onPress: () => router.replace("/(auth)/login") },
-        ]);
-      } else {
-        Alert.alert("注册失败", "用户名可能已存在");
-      }
+      await register(username.trim(), password);
     } catch (error) {
-      Alert.alert("注册失败", "网络错误，请稍后重试");
+      Alert.alert(
+        "注册失败",
+        error instanceof ApiError ? error.message : "网络错误，请稍后重试",
+      );
     } finally {
       setLoading(false);
     }

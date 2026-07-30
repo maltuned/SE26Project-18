@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Api.Exceptions;
+using SE26Project_18.Api.Infrastructure.Media;
 using SE26Project_18.Api.Models.Requests;
 using SE26Project_18.Api.Services;
 
@@ -13,9 +14,58 @@ public sealed class GameController : ControllerBase
 {
     private readonly IGameService _gameService;
 
-    public GameController(IGameService gameService)
+    private readonly IMediaService _mediaService;
+
+    public GameController(IGameService gameService, IMediaService mediaService)
     {
         _gameService = gameService;
+        _mediaService = mediaService;
+    }
+
+    [HttpGet("{id:long}/icon")]
+    [AllowAnonymous]
+    public Task<IActionResult> GetIcon(long id, CancellationToken ct)
+    {
+        return GetMedia(id, GameMediaKind.Icon, ct);
+    }
+
+    [HttpGet("{id:long}/cover")]
+    [AllowAnonymous]
+    public Task<IActionResult> GetCover(long id, CancellationToken ct)
+    {
+        return GetMedia(id, GameMediaKind.Cover, ct);
+    }
+
+    [HttpPut("{id:long}/icon")]
+    [Authorize(Policy = "RequireAdmin")]
+    [RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public Task<IActionResult> PutIcon(long id, [FromForm] IFormFile file, CancellationToken ct)
+    {
+        return PutMedia(id, GameMediaKind.Icon, file, ct);
+    }
+
+    [HttpPut("{id:long}/cover")]
+    [Authorize(Policy = "RequireAdmin")]
+    [RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public Task<IActionResult> PutCover(long id, [FromForm] IFormFile file, CancellationToken ct)
+    {
+        return PutMedia(id, GameMediaKind.Cover, file, ct);
+    }
+
+    [HttpDelete("{id:long}/icon")]
+    [Authorize(Policy = "RequireAdmin")]
+    public Task<IActionResult> DeleteIcon(long id, CancellationToken ct)
+    {
+        return DeleteMedia(id, GameMediaKind.Icon, ct);
+    }
+
+    [HttpDelete("{id:long}/cover")]
+    [Authorize(Policy = "RequireAdmin")]
+    public Task<IActionResult> DeleteCover(long id, CancellationToken ct)
+    {
+        return DeleteMedia(id, GameMediaKind.Cover, ct);
     }
 
     [HttpGet]
@@ -52,5 +102,46 @@ public sealed class GameController : ControllerBase
     )
     {
         return Ok(await _gameService.UpdateAsync(id, request, ct));
+    }
+
+    private async Task<IActionResult> GetMedia(
+        long id,
+        GameMediaKind kind,
+        CancellationToken ct
+    )
+    {
+        var media = await _mediaService.OpenGameMediaAsync(id, kind, ct);
+        if (media is null)
+        {
+            return NotFound();
+        }
+
+        return new FileStreamResult(media.Stream, "image/webp")
+        {
+            EntityTag = media.EntityTag,
+            LastModified = media.LastModified,
+            EnableRangeProcessing = false,
+        };
+    }
+
+    private async Task<IActionResult> PutMedia(
+        long id,
+        GameMediaKind kind,
+        IFormFile file,
+        CancellationToken ct
+    )
+    {
+        await _mediaService.StoreGameMediaAsync(id, kind, file, ct);
+        return NoContent();
+    }
+
+    private async Task<IActionResult> DeleteMedia(
+        long id,
+        GameMediaKind kind,
+        CancellationToken ct
+    )
+    {
+        await _mediaService.DeleteGameMediaAsync(id, kind, ct);
+        return NoContent();
     }
 }

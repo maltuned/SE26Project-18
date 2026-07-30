@@ -36,7 +36,7 @@ export default function RecruitmentDetailIndex() {
         } else {
           router.replace(`/recruitment-detail/view?recruitmentId=${recruitmentId}`);
         }
-      } catch (error) {
+      } catch {
         router.replace("/(tabs)");
       }
     };

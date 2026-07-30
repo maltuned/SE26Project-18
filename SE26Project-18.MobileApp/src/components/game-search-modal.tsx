@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -11,60 +10,74 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GameBrief, getGames } from "../api/api";
+import { FEATURE_FLAGS } from "../constants/feature-flags";
 import { useTheme } from "../contexts/theme-context";
 import GameInfoModal from "./game-info-modal";
+import MediaImage from "./media-image";
 
 interface GameSearchModalProps {
   visible: boolean;
   initialText: string;
-  onClose: (text: string) => void;
+  onClose: (text: string, selected?: boolean) => void;
+  onSelect?: (game: GameBrief) => void;
 }
-
-const testImage = require("../../assets/images/testImage.png");
 
 function GameSearchModal({
   visible,
   initialText,
   onClose,
+  onSelect,
 }: GameSearchModalProps) {
   const { colors } = useTheme();
-  const safeAreaInsets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState(initialText);
   const [results, setResults] = useState<GameBrief[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [gameInfoVisible, setGameInfoVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (visible) {
-      setSearchText(initialText);
-      setResults([]);
-      setLoading(true);
-      const timer = setTimeout(async () => {
-        inputRef.current?.focus();
-        const data = await getGames(initialText);
-        setResults(data);
-        setLoading(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
+    if (!visible) return;
+
+    setSearchText(initialText);
+    setResults([]);
+    setError(false);
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
   }, [visible, initialText]);
 
   useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!visible) return;
 
-    timerRef.current = setTimeout(async () => {
-      const data = await getGames(searchText);
-      setResults(data);
-    }, 0);
-  }, [searchText]);
+    let active = true;
+    setLoading(true);
+    setError(false);
+
+    const timer = setTimeout(async () => {
+      try {
+        const data = await getGames(searchText);
+        if (active) setResults(data);
+      } catch {
+        if (active) {
+          setResults([]);
+          setError(true);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [visible, searchText]);
 
   const handleSelect = (game: GameBrief) => {
-    onClose(game.name);
+    onSelect?.(game);
+    onClose(game.name, true);
   };
 
   const handleClose = () => {
@@ -137,6 +150,12 @@ function GameSearchModal({
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
+          ) : error ? (
+            <View style={styles.loadingContainer}>
+              <Text style={{ color: colors.textTertiary }}>
+                游戏列表加载失败，请稍后重试
+              </Text>
+            </View>
           ) : (
             <ScrollView style={styles.suggestionList}>
               {results.map((s) => (
@@ -151,8 +170,8 @@ function GameSearchModal({
                     style={styles.suggestionLeft}
                     onPress={() => handleSelect(s)}
                   >
-                    <Image
-                      source={testImage}
+                    <MediaImage
+                      uri={s.icon}
                       style={[
                         styles.suggestionIcon,
                         { backgroundColor: colors.placeholder },
@@ -182,13 +201,15 @@ function GameSearchModal({
             </ScrollView>
           )}
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
-            <TouchableOpacity>
-              <Text style={[styles.feedbackText, { color: colors.primary }]}>
-                没有游戏？反馈
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {FEATURE_FLAGS.gameFeedback && (
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              <TouchableOpacity>
+                <Text style={[styles.feedbackText, { color: colors.primary }]}>
+                  没有游戏？反馈
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <GameInfoModal

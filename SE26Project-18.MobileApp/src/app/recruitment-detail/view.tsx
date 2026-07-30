@@ -1,9 +1,8 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,21 +11,18 @@ import {
 } from "react-native";
 import {
   ChatData,
-  createChat,
   createResponse,
-  getChatsByRecruitmentId,
+  getChatByUser,
   getRecruitmentById,
-  getResponses,
   ResponseData,
   RecruitmentData,
   RecruitmentTag,
-  sendMessage,
+  sendGreeting,
 } from "../../api/api";
 import RecruitmentResponseModal from "../../components/recruitment-response-modal";
+import MediaImage from "../../components/media-image";
 import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
-
-const testImage = require("../../../assets/images/testImage.png");
 
 export default function RecruitmentViewScreen() {
   const router = useRouter();
@@ -60,19 +56,15 @@ export default function RecruitmentViewScreen() {
 
   useEffect(() => {
     if (userId && recruitment?.id) {
-      getChatsByRecruitmentId(recruitment.id).then((chats) => {
-        const myChat = chats.find((c) =>
-          c.users?.some((u) => u.userId === userId),
-        );
-        if (myChat) setExistingChat(myChat);
-      });
-
-      getResponses(recruitment.id).then((responses) => {
-        const myResponse = responses.find((r) => r.responserId === userId);
-        setMyResponse(myResponse || null);
-      });
+      const response = recruitment.responses.find((item) => item.responserId === userId);
+      setMyResponse(response || null);
+      if (response) {
+        getChatByUser(recruitment.publisherId, userId)
+          .then(setExistingChat)
+          .catch(() => setExistingChat(null));
+      }
     }
-  }, [userId, recruitment?.id]);
+  }, [userId, recruitment]);
 
   if (fetching) {
     return (
@@ -110,7 +102,7 @@ export default function RecruitmentViewScreen() {
     // 已关闭且没回应过：不能操作
     if (isClosed && !myResponse) return;
     // 已回应且被拒绝：不能操作
-    if (myResponse && myResponse.responseStatus === "已删除") return;
+    if (myResponse && myResponse.responseStatus === "已拒绝") return;
     // 回应过但没有聊天：不能操作
     if (myResponse && !existingChat) return;
     // 有聊天：继续聊天
@@ -127,32 +119,31 @@ export default function RecruitmentViewScreen() {
   const handleGreetingSent = async (greeting: string) => {
     if (!userId) return;
     setLoading(true);
+    let responseCreated = false;
     try {
-      const chat = await createChat({
-        recruitmentId: recruitment.id,
-        user1Id: userId,
-        user2Id: recruitment.publisherId,
-      });
-      await createResponse({
-        recruitmentId: recruitment.id,
-        responserId: userId,
-      });
-      await sendMessage({
-        chatId: chat.id,
-        senderId: userId,
-        receiverId: recruitment.publisherId,
-        content: greeting,
-      });
+      const response = await createResponse(recruitment.id);
+      responseCreated = true;
+      setMyResponse(response);
+      const chat = await getChatByUser(recruitment.publisherId, userId);
+      setExistingChat(chat);
+      await sendGreeting(chat.id, greeting);
       router.dismissAll();
       router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${chat.id}`);
     } catch {
-      Alert.alert("错误", "无法发起聊天，请稍后重试");
+      Alert.alert(
+        "错误",
+        responseCreated
+          ? "回应已创建，但问候消息发送失败。你可以进入聊天后重新发送。"
+          : "无法发起聊天，请稍后重试",
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // Kept for when reporting is enabled again.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleReport = () => {
     Alert.alert("举报", "举报已提交，我们会尽快处理", [{ text: "确定" }]);
   };
@@ -185,7 +176,7 @@ export default function RecruitmentViewScreen() {
       >
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
           <View style={styles.topRow}>
-            <Image source={testImage} style={styles.coverImage} />
+            <MediaImage uri={recruitment.gameCover || recruitment.gameIcon} style={styles.coverImage} />
             <View style={styles.topRight}>
               <View style={styles.nameRow}>
                 <Text
@@ -193,11 +184,7 @@ export default function RecruitmentViewScreen() {
                 >
                   {recruitment.gameName}
                 </Text>
-                <TouchableOpacity onPress={handleReport}>
-                  <Text style={[styles.reportText, { color: colors.primary }]}>
-                    举报
-                  </Text>
-                </TouchableOpacity>
+                {/* Report UI is hidden until the backend supports reports. */}
               </View>
               <Text style={[styles.title, { color: colors.text }]}>
                 {recruitment.title}
@@ -225,8 +212,8 @@ export default function RecruitmentViewScreen() {
                   )
                 }
               >
-                <Image
-                  source={testImage}
+                <MediaImage
+                  uri={recruitment.publisher.avatar}
                   style={[styles.avatar, { backgroundColor: colors.primary }]}
                 />
                 <Text
@@ -248,7 +235,7 @@ export default function RecruitmentViewScreen() {
           style={[
             styles.chatButton,
             (isClosed && !myResponse) ||
-            (myResponse && myResponse.responseStatus === "已删除")
+            (myResponse && myResponse.responseStatus === "已拒绝")
               ? { backgroundColor: colors.textQuaternary }
               : { backgroundColor: colors.primary },
             loading && styles.chatButtonDisabled,
@@ -257,7 +244,7 @@ export default function RecruitmentViewScreen() {
           disabled={
             loading ||
             (isClosed && !myResponse) ||
-            !!(myResponse && myResponse.responseStatus === "已删除")
+            !!(myResponse && myResponse.responseStatus === "已拒绝")
           }
         >
           <Text style={styles.chatButtonText}>
@@ -265,7 +252,7 @@ export default function RecruitmentViewScreen() {
               ? "加载中..."
               : isClosed && !myResponse
                 ? "已关闭"
-                : myResponse && myResponse.responseStatus === "已删除"
+                : myResponse && myResponse.responseStatus === "已拒绝"
                   ? "对方已拒绝"
                   : myResponse && !existingChat
                     ? "已回应"

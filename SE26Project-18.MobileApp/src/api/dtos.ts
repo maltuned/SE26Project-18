@@ -1,134 +1,128 @@
-// 后端 DTO 结构（Data Transfer Objects）
-// 这些结构用于后端与 api.ts 之间的数据传输
+export enum GenderDto {
+  Other = 0,
+  Male = 1,
+  Female = 2,
+}
 
-// ==================== Enum Types ====================
+export enum UserStatusDto {
+  Online = 0,
+  Offline = 1,
+  Suspended = 2,
+}
 
-export type UserStatus = '正常' | '封禁' | '注销';
-export type Gender = '男' | '女' | '其他';
-export type RecruitmentStatus = '招募中' | '已关闭' | '已删除';
-export type ChatStatus = '限制' | '开放' | '关闭';
-export type ResponseStatus = '已回应' | '已删除';
+export enum RecruitmentStatusDto {
+  Open = 0,
+  Closed = 1,
+  Deleted = 2,
+}
 
-// ==================== User ====================
+export enum ResponseTypeDto {
+  Pending = 0,
+  Accepted = 1,
+  Rejected = 2,
+}
 
-export interface UserDto {
+export enum ChatStatusDto {
+  Restricted = 0,
+  Free = 1,
+}
+
+export interface TagResponse {
   id: number;
-  uid: number;
+  name: string;
+}
+
+export interface UserResponse {
+  id: number;
   username: string;
   nickname: string;
-  avatar: string;
   signature: string;
-  gender: Gender;
-  status: UserStatus;
-  created_at: string;
-  updated_at: string;
+  gender: GenderDto;
+  status: UserStatusDto;
+  isAdmin: boolean;
+  tags: TagResponse[];
+  avatarUrl: string;
 }
 
-// ==================== Game ====================
-
-export interface GameDto {
+export interface GameResponse {
   id: number;
   name: string;
-  company: string;
   description: string;
-  cover: string;
-  icon: string;
-  tags_id: number[];
-  created_at: string;
-  updated_at: string;
+  tags: TagResponse[];
+  iconUrl: string;
+  coverUrl: string;
 }
 
-export interface GameTagDto {
+export interface ResponseResponse {
   id: number;
-  name: string;
+  recruitmentId: number;
+  responderId: number;
+  type: ResponseTypeDto;
 }
 
-// ==================== Recruitment ====================
-
-export interface RecruitmentTagDto {
+export interface RecruitmentResponse {
   id: number;
-  name: string;
-}
-
-export interface RecruitmentDto {
-  id: number;
-  publisher_id: number;
-  game_id: number;
+  game: GameResponse;
+  recruiter: UserResponse;
   title: string;
   description: string;
-  status: RecruitmentStatus;
-  tags_id: number[];
-  created_at: string;
-  updated_at: string;
-  expired_at: string;
-  max_participants: number;
-  current_participants: number;
+  tags: TagResponse[];
+  responses: ResponseResponse[];
+  maxParticipants: number;
+  currParticipants: number;
+  status: RecruitmentStatusDto;
+  expiresAt: string;
 }
 
-export interface RecruitmentDetailDto extends RecruitmentDto {
-  publisher: UserDto;
-  game: GameDto;
-  gameTags: GameTagDto[];
-  recruitmentTags: RecruitmentTagDto[];
-}
-
-// ==================== Response ====================
-
-export interface ResponseDto {
+export interface MessageResponse {
   id: number;
-  recruitment_id: number;
-  responser_id: number;
-  response_status: ResponseStatus;
-  created_at: string;
-  updated_at: string;
-  responser: UserDto;
-}
-
-// ==================== Chat ====================
-
-export interface ChatBriefDto {
-  id: number;
-  other_user_avatar: string;
-  other_user_name: string;
-  last_message_content: string;
-  last_message_at: string;
-  created_at: string;
-}
-
-export interface ChatUserDto {
-  user_id: number;
-  sent_message: boolean;
-}
-
-export interface ChatDto {
-  id: number;
-  recruitment_id: number;
-  recruitment_title: string;
-  other_user: UserDto;
-  last_message: MessageDto | null;
-  unread_count: number;
-  chat_status: ChatStatus;
-  new_message_at: string;
-  // For recruitment-based access
-  users?: ChatUserDto[];
-  recruitment?: RecruitmentDto;
-}
-
-export interface MessageDto {
-  id: number;
-  chat_id: number;
-  sender_id: number;
-  receiver_id: number;
+  senderId: number;
   content: string;
-  created_at: string;
-  sender: UserDto;
-  receiver: UserDto;
+  sentAt: string;
 }
 
-// ==================== API Response ====================
+export interface ChatResponse {
+  id: number;
+  recruitmentId: number;
+  user1Id: number;
+  user2Id: number;
+  status: ChatStatusDto;
+  newMsgsCntForUser1: number;
+  newMsgsCntForUser2: number;
+  lastMessage: MessageResponse | null;
+}
 
-export interface ApiResponse<T = any> {
-  status: number;
-  data: T;
-  message: string;
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: string;
+  refreshTokenExpiresAt: string;
+}
+
+export interface PagedResponse<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface CursorPagedResponse<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface WebSocketTicketResponse {
+  ticket: string;
+  expiresAt: string;
+}
+
+export interface ProblemDetails {
+  type?: string;
+  title?: string;
+  status?: number;
+  detail?: string;
+  instance?: string;
+  errors?: Record<string, string[]>;
 }

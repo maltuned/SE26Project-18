@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
-import { getUserById, updateUser, UserInfo } from "../api/api";
+import { getMe, updateUser, uploadAvatar, UserInfo } from "../api/api";
+import MediaImage from "../components/media-image";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 
@@ -16,14 +18,16 @@ export default function PersonalPageEditScreen() {
   const [nickname, setNickname] = useState("");
   const [bio, setBio] = useState("");
   const [fetching, setFetching] = useState(true);
-  const testImage = require("../../assets/images/testImage.png");
+  const [avatar, setAvatar] = useState("");
+  const [pickedAvatar, setPickedAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
   useEffect(() => {
     if (editUserId) {
-      getUserById(editUserId).then((user: UserInfo | null) => {
+      getMe().then((user: UserInfo | null) => {
         if (user) {
           setNickname(user.nickname || "");
           setBio(user.signature || "");
+          setAvatar(user.avatar);
         }
         setFetching(false);
       }).catch(() => {
@@ -34,17 +38,31 @@ export default function PersonalPageEditScreen() {
     }
   }, [editUserId]);
 
+  const pickAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (!result.canceled) {
+      setPickedAvatar(result.assets[0]);
+      setAvatar(result.assets[0].uri);
+    }
+  };
+
   const handleSave = async () => {
     if (!editUserId) {
       Alert.alert("提示", "请先登录");
       return;
     }
     try {
-      await updateUser(editUserId, {
+      await updateUser({
         nickname,
         signature: bio,
       });
-      refreshUser();
+      if (pickedAvatar) await uploadAvatar(pickedAvatar);
+      await refreshUser();
       router.back();
     } catch {
       Alert.alert("错误", "更新失败，请稍后重试");
@@ -69,8 +87,8 @@ export default function PersonalPageEditScreen() {
       <View style={styles.body}>
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={styles.avatarRow}>
-            <TouchableOpacity>
-              <Image source={testImage} style={styles.avatar} />
+            <TouchableOpacity onPress={pickAvatar}>
+              <MediaImage uri={avatar} style={styles.avatar} cachePolicy={pickedAvatar ? "none" : "memory-disk"} />
             </TouchableOpacity>
             <TextInput
               style={[
