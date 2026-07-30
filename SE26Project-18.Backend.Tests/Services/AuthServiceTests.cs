@@ -1,0 +1,172 @@
+using SE26Project_18.Backend.Data;
+using Microsoft.Extensions.Configuration;
+using Moq;
+using SE26Project_18.Backend.Models.Dtos;
+using SE26Project_18.Backend.Models.Entities;
+using SE26Project_18.Backend.Models.Enums;
+using SE26Project_18.Backend.Services;
+
+namespace SE26Project_18.Backend.Tests.Services;
+
+public class AuthServiceTests
+{
+    private readonly Mock<ITokenService> _tokenMock = new();
+    private readonly Mock<IConfiguration> _configMock = new();
+    private readonly Mock<IConfigurationSection> _jwtSectionMock = new();
+
+    private AppDbContext CreateDb() => TestDbContextFactory.Create();
+
+    private AuthService CreateService(AppDbContext db)
+    {
+        _jwtSectionMock.Setup(s => s["AccessTokenExpiryMinutes"]).Returns("30");
+        _jwtSectionMock.Setup(s => s["RefreshTokenExpiryDays"]).Returns("7");
+        _configMock.Setup(c => c.GetSection("Jwt")).Returns(_jwtSectionMock.Object);
+
+        _tokenMock.Setup(t => t.GenerateAccessToken(It.IsAny<long>(), It.IsAny<string>()))
+            .Returns<long, string>((id, name) => $"access-token-{id}");
+        _tokenMock.Setup(t => t.GenerateRefreshToken())
+            .Returns("raw-refresh-token");
+        _tokenMock.Setup(t => t.HashToken(It.IsAny<string>()))
+            .Returns("hashed-refresh-token");
+
+        return new AuthService(db, _tokenMock.Object, _configMock.Object);
+    }
+
+    [Fact]
+    public async Task Register_CreatesUser_AndReturnsTokens()
+    {
+        var db = CreateDb();
+        var service = CreateService(db);
+
+        var result = await service.RegisterAsync("newuser", "password123");
+
+        Assert.NotNull(result.AccessToken);
+        Assert.NotNull(result.RefreshToken);
+        Assert.NotEqual(DateTime.MinValue, result.AccessTokenExpiresAt);
+        var user = db.Users.First();
+        Assert.Equal("newuser", user.Username);
+        Assert.Equal("newuser", user.Nickname);
+    }
+
+    [Fact]
+    public async Task Register_Throws_WhenUsernameExists()
+    {
+        var db = CreateDb();
+        db.Users.Add(new User("existing", BCrypt.Net.BCrypt.HashPassword("pw")));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RegisterAsync("existing", "password"));
+    }
+
+    [Fact]
+    public async Task Login_ReturnsTokens_WhenCredentialsValid()
+    {
+        var db = CreateDb();
+        db.Users.Add(new User("user1", BCrypt.Net.BCrypt.HashPassword("pass")));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var result = await service.LoginAsync("user1", "pass");
+
+        Assert.NotNull(result.AccessToken);
+        Assert.Contains("access-token", result.AccessToken);
+        Assert.NotNull(result.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Login_Throws_WhenWrongPassword()
+    {
+        var db = CreateDb();
+        db.Users.Add(new User("user1", BCrypt.Net.BCrypt.HashPassword("correct")));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.LoginAsync("user1", "wrongpass"));
+    }
+
+    [Fact]
+    public async Task Login_Throws_WhenUserBanned()
+    {
+        var db = CreateDb();
+        var user = new User("banned", BCrypt.Net.BCrypt.HashPassword("pw")) { Status = UserStatus.Banned };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.LoginAsync("banned", "pw"));
+    }
+
+    [Fact]
+    public async Task Login_Throws_WhenUserDeleted()
+    {
+        var db = CreateDb();
+        var user = new User("deleted", BCrypt.Net.BCrypt.HashPassword("pw")) { Status = UserStatus.Deleted };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.LoginAsync("deleted", "pw"));
+    }
+
+    [Fact]
+    public async Task Refresh_Throws_WhenTokenInvalid()
+    {
+        var db = CreateDb();
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RefreshAsync("invalid-token"));
+    }
+
+    [Fact(Skip = "InMemory provider does not support ExecuteDeleteAsync used by CleanupStaleTokensAsync")]
+    public async Task Refresh_ReturnsNewTokens_WhenTokenValid()
+    {
+        var db = CreateDb();
+        var user = new User("user", "pw");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var userId = db.Users.First().Id;
+        db.RefreshTokens.Add(new RefreshToken(userId, "hashed-refresh-token", DateTime.UtcNow.AddDays(7)));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var result = await service.RefreshAsync("raw-refresh-token");
+
+        Assert.NotNull(result.AccessToken);
+        Assert.NotEqual("raw-refresh-token", result.RefreshToken);
+        // Old token should be revoked
+        Assert.True(db.RefreshTokens.OrderBy(t => t.Id).First().IsRevoked);
+    }
+
+    [Fact(Skip = "InMemory provider does not support ExecuteDeleteAsync used by CleanupStaleTokensAsync")]
+    public async Task Logout_RevokesToken()
+    {
+        var db = CreateDb();
+        var user = new User("user", "pw");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var userId = db.Users.First().Id;
+        db.RefreshTokens.Add(new RefreshToken(userId, "hashed-refresh-token", DateTime.UtcNow.AddDays(7)));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await service.LogoutAsync(userId, "raw-refresh-token");
+
+        Assert.True(db.RefreshTokens.First().IsRevoked);
+    }
+
+    [Fact]
+    public async Task Logout_NoOp_WhenTokenNotFound()
+    {
+        var db = CreateDb();
+        var service = CreateService(db);
+
+        // Should not throw
+        await service.LogoutAsync(1, "nonexistent-token");
+    }
+}

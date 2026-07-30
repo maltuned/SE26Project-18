@@ -11,20 +11,14 @@ public class ImageService : IImageService
     private readonly string _endpoint;
     private readonly bool _useSsl;
 
-    public ImageService(IConfiguration configuration)
+    public ImageService(IMinioClient client, IConfiguration configuration)
     {
         var minioConfig = configuration.GetSection("Minio");
         _endpoint = minioConfig["Endpoint"]!;
-        var accessKey = minioConfig["AccessKey"]!;
-        var secretKey = minioConfig["SecretKey"]!;
         _bucketName = minioConfig["BucketName"]!;
         _useSsl = bool.Parse(minioConfig["UseSsl"] ?? "false");
 
-        _client = new MinioClient()
-            .WithEndpoint(_endpoint)
-            .WithCredentials(accessKey, secretKey)
-            .WithSSL(_useSsl)
-            .Build();
+        _client = client;
 
         Task.Run(async () => await EnsureBucketExistsAsync()).GetAwaiter().GetResult();
     }

@@ -6,6 +6,7 @@ using SE26Project_18.Backend.Data;
 using SE26Project_18.Backend.Hubs;
 using SE26Project_18.Backend.Models;
 using SE26Project_18.Backend.Models.Entities;
+using Minio;
 using SE26Project_18.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -58,6 +59,15 @@ builder.Services.AddAuthorization();
 builder.Services.AddSignalR();
 
 // Services
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var minioConfig = sp.GetRequiredService<IConfiguration>().GetSection("Minio");
+    return new MinioClient()
+        .WithEndpoint(minioConfig["Endpoint"]!)
+        .WithCredentials(minioConfig["AccessKey"]!, minioConfig["SecretKey"]!)
+        .WithSSL(bool.Parse(minioConfig["UseSsl"] ?? "false"))
+        .Build();
+});
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<MapperService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
