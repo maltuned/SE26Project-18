@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
@@ -83,10 +84,11 @@ public sealed class MessageServiceTests
 
     private static AppDbContext CreateDbContext()
     {
-        return new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options
-        );
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
     }
 }

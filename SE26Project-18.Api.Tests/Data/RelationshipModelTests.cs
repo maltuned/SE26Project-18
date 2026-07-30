@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Models.Entities;
@@ -9,11 +10,12 @@ public sealed class RelationshipModelTests
     [Fact]
     public async Task Response_HasSingleRecruitmentForeignKey()
     {
+        await using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
         await using var db = new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options
+            new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options
         );
+        db.Database.EnsureCreated();
 
         var responseType = db.Model.FindEntityType(typeof(Response))!;
         var recruitmentForeignKeys = responseType

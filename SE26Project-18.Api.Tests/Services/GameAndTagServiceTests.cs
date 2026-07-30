@@ -1,5 +1,5 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Exceptions;
 using SE26Project_18.Api.Infrastructure.Embedding;
@@ -104,13 +104,11 @@ public sealed class GameAndTagServiceTests
 
     private static AppDbContext CreateDbContext()
     {
-        return new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .ConfigureWarnings(warnings =>
-                    warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning)
-                )
-                .Options
-        );
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
     }
 }

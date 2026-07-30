@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SE26Project_18.Api.Data;
 using SE26Project_18.Api.Infrastructure.Embedding;
@@ -40,10 +41,12 @@ public sealed class ResponseEmbeddingSyncTests
 
     private static AppDbContext CreateDbContext()
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new AppDbContext(options);
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
     }
 
     private static async Task<(User Recruiter, User Responder, Response Response)> SeedResponseAsync(
