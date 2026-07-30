@@ -76,6 +76,21 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Login_Throws_WhenUserDoesNotExist()
+    {
+        var db = CreateDb();
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.LoginAsync("missing", "password"));
+
+        Assert.Equal("用户名或密码错误", exception.Message);
+        _tokenMock.Verify(
+            token => token.GenerateAccessToken(It.IsAny<long>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task Login_Throws_WhenWrongPassword()
     {
         var db = CreateDb();
@@ -123,6 +138,79 @@ public class AuthServiceTests
             service.RefreshAsync("invalid-token"));
     }
 
+    [Fact]
+    public async Task Refresh_Throws_WhenTokenIsRevoked()
+    {
+        var db = CreateDb();
+        var user = new User("user", "pw");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.RefreshTokens.Add(new RefreshToken(user.Id, "hashed-refresh-token", DateTime.UtcNow.AddDays(1))
+        {
+            IsRevoked = true,
+        });
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RefreshAsync("raw-refresh-token"));
+
+        Assert.Equal("无效或已过期的刷新令牌", exception.Message);
+        _tokenMock.Verify(
+            token => token.GenerateAccessToken(It.IsAny<long>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_Throws_WhenTokenIsExpired()
+    {
+        var db = CreateDb();
+        var user = new User("user", "pw");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.RefreshTokens.Add(new RefreshToken(
+            user.Id,
+            "hashed-refresh-token",
+            DateTime.UtcNow.AddMinutes(-1)));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RefreshAsync("raw-refresh-token"));
+
+        Assert.Equal("无效或已过期的刷新令牌", exception.Message);
+        _tokenMock.Verify(
+            token => token.GenerateAccessToken(It.IsAny<long>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Theory]
+    [InlineData(UserStatus.Banned)]
+    [InlineData(UserStatus.Deleted)]
+    public async Task Refresh_Throws_WhenUserStatusDisallowsAuthentication(UserStatus status)
+    {
+        var db = CreateDb();
+        var user = new User("user", "pw") { Status = status };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var storedToken = new RefreshToken(
+            user.Id,
+            "hashed-refresh-token",
+            DateTime.UtcNow.AddDays(1));
+        db.RefreshTokens.Add(storedToken);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RefreshAsync("raw-refresh-token"));
+
+        Assert.Equal("账户已被禁用或注销", exception.Message);
+        Assert.False(storedToken.IsRevoked);
+        _tokenMock.Verify(
+            token => token.GenerateAccessToken(It.IsAny<long>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
     [Fact(Skip = "InMemory provider does not support ExecuteDeleteAsync used by CleanupStaleTokensAsync")]
     public async Task Refresh_ReturnsNewTokens_WhenTokenValid()
     {
@@ -168,5 +256,95 @@ public class AuthServiceTests
 
         // Should not throw
         await service.LogoutAsync(1, "nonexistent-token");
+    }
+
+    [Fact]
+    public async Task Logout_NoOp_WhenTokenBelongsToAnotherUser()
+    {
+        var db = CreateDb();
+        var user = new User("user", "pw");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var storedToken = new RefreshToken(
+            user.Id,
+            "hashed-refresh-token",
+            DateTime.UtcNow.AddDays(1));
+        db.RefreshTokens.Add(storedToken);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await service.LogoutAsync(user.Id + 1, "raw-refresh-token");
+
+        Assert.False(storedToken.IsRevoked);
+    }
+
+    [Fact]
+    public async Task Logout_NoOp_WhenTokenAlreadyRevoked()
+    {
+        var db = CreateDb();
+        var user = new User("user", "pw");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var storedToken = new RefreshToken(
+            user.Id,
+            "hashed-refresh-token",
+            DateTime.UtcNow.AddDays(1))
+        {
+            IsRevoked = true,
+        };
+        db.RefreshTokens.Add(storedToken);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await service.LogoutAsync(user.Id, "raw-refresh-token");
+
+        Assert.True(storedToken.IsRevoked);
+        Assert.Single(db.RefreshTokens);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Throws_WhenUserDoesNotExist()
+    {
+        var db = CreateDb();
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ChangePasswordAsync(999, "old-password", "new-password"));
+
+        Assert.Equal("用户不存在", exception.Message);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Throws_WhenOldPasswordIsWrong()
+    {
+        var db = CreateDb();
+        var originalHash = BCrypt.Net.BCrypt.HashPassword("correct-password");
+        var user = new User("user", originalHash);
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ChangePasswordAsync(user.Id, "wrong-password", "new-password"));
+
+        Assert.Equal("原密码错误", exception.Message);
+        Assert.Equal(originalHash, user.PasswordHashed);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Throws_WhenNewPasswordIsTooShort()
+    {
+        var db = CreateDb();
+        var originalHash = BCrypt.Net.BCrypt.HashPassword("old-password");
+        var user = new User("user", originalHash);
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ChangePasswordAsync(user.Id, "old-password", "short"));
+
+        Assert.Equal("新密码长度不能少于 6 位", exception.Message);
+        Assert.Equal(originalHash, user.PasswordHashed);
     }
 }

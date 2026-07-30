@@ -6,6 +6,7 @@ using SE26Project_18.Backend.Repositories;
 
 namespace SE26Project_18.Backend.Tests.Recommendations;
 
+[Trait("Category", "Integration")]
 public sealed class MilvusBootstrapTests
 {
     [Fact]

@@ -33,7 +33,7 @@ public class ResponseServiceTests
         var u = new User("user", "pw");
         db.Users.Add(u);
         await db.SaveChangesAsync();
-        var service = new ResponseService(db, _mapper);
+        var service = TestServiceFactory.CreateResponseService(db, _mapper);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.CreateResponseAsync(999, u.Id));
@@ -44,7 +44,7 @@ public class ResponseServiceTests
     {
         var db = CreateDb();
         var (publisher, _, recruitment) = SeedData(db);
-        var service = new ResponseService(db, _mapper);
+        var service = TestServiceFactory.CreateResponseService(db, _mapper);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.CreateResponseAsync(recruitment.Id, 999));
@@ -61,7 +61,7 @@ public class ResponseServiceTests
             ResponseStatus = ResponseStatus.Responded
         });
         await db.SaveChangesAsync();
-        var service = new ResponseService(db, _mapper);
+        var service = TestServiceFactory.CreateResponseService(db, _mapper);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateResponseAsync(recruitment.Id, responser.Id));
@@ -73,7 +73,7 @@ public class ResponseServiceTests
         var db = CreateDb();
         var (publisher, responser, recruitment) = SeedData(db);
 
-        var userService = new ResponseService(db, _mapper);
+        var userService = TestServiceFactory.CreateResponseService(db, _mapper);
         var result = await userService.CreateResponseAsync(recruitment.Id, responser.Id);
 
         Assert.NotNull(result);
@@ -84,7 +84,7 @@ public class ResponseServiceTests
     public async Task DeleteResponse_ReturnsFalse_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new ResponseService(db, _mapper);
+        var service = TestServiceFactory.CreateResponseService(db, _mapper);
 
         var result = await service.DeleteResponseAsync(999, "reason");
 
@@ -103,7 +103,7 @@ public class ResponseServiceTests
         };
         db.Responses.Add(response);
         await db.SaveChangesAsync();
-        var service = new ResponseService(db, _mapper);
+        var service = TestServiceFactory.CreateResponseService(db, _mapper);
 
         var result = await service.DeleteResponseAsync(response.Id, "Not interested");
 
@@ -118,7 +118,7 @@ public class ResponseServiceTests
     public async Task UpdateResponseStatus_ReturnsNull_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new ResponseService(db, _mapper);
+        var service = TestServiceFactory.CreateResponseService(db, _mapper);
 
         var result = await service.UpdateResponseStatusAsync(999, "accepted");
 
@@ -136,7 +136,7 @@ public class ResponseServiceTests
             ResponseStatus = ResponseStatus.Responded, Responser = responser
         });
         await db.SaveChangesAsync();
-        var service = new ResponseService(db, _mapper);
+        var service = TestServiceFactory.CreateResponseService(db, _mapper);
 
         var result = await service.GetResponsesByRecruitmentAsync(recruitment.Id);
 

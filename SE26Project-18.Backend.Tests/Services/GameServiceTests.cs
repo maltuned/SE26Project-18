@@ -17,7 +17,7 @@ public class GameServiceTests
         db.Games.Add(new Game("Game1"));
         db.Games.Add(new Game("Game2"));
         await db.SaveChangesAsync();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.GetGamesAsync("");
 
@@ -32,7 +32,7 @@ public class GameServiceTests
         var g2 = new Game("Game2");
         db.Games.AddRange(g1, g2);
         await db.SaveChangesAsync();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.GetGamesAsync(g1.Id.ToString());
 
@@ -47,7 +47,7 @@ public class GameServiceTests
         db.Games.Add(new Game("EldenRing") { NameEn = "Elden Ring EN" });
         db.Games.Add(new Game("Minecraft"));
         await db.SaveChangesAsync();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.GetGamesAsync("Elden");
 
@@ -62,7 +62,7 @@ public class GameServiceTests
         var g = new Game("HeroGame") { Description = "A hero game" };
         db.Games.Add(g);
         await db.SaveChangesAsync();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.GetGamesAsync("Hero");
 
@@ -73,7 +73,7 @@ public class GameServiceTests
     public async Task GetGameById_ReturnsNull_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.GetGameByIdAsync(999);
 
@@ -88,7 +88,7 @@ public class GameServiceTests
         db.GameTags.Add(new GameTag("FPS"));
         await db.SaveChangesAsync();
         var tags = db.GameTags.ToList();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
         var request = new GameRequestDto
         {
             Name = "NewGame", NameEn = "NG", Company = "TestCo",
@@ -106,7 +106,7 @@ public class GameServiceTests
     public async Task UpdateGame_Throws_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.UpdateGameAsync(999, new GameRequestDto { Name = "X" }));
@@ -121,7 +121,7 @@ public class GameServiceTests
         await db.SaveChangesAsync();
         var game = db.Games.First();
         var tag = db.GameTags.First();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.UpdateGameAsync(game.Id, new GameRequestDto
         {
@@ -138,7 +138,7 @@ public class GameServiceTests
         var db = CreateDb();
         db.Games.Add(new Game("Chinese") { NameEn = "English" });
         await db.SaveChangesAsync();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.GetGamesAsync("English");
 
@@ -151,7 +151,7 @@ public class GameServiceTests
         var db = CreateDb();
         db.Games.Add(new Game("Found"));
         await db.SaveChangesAsync();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
         var game = db.Games.First();
 
         var result = await service.GetGameByIdAsync(game.Id);
@@ -164,7 +164,7 @@ public class GameServiceTests
     public async Task DeleteGame_ReturnsFalse_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.DeleteGameAsync(999);
 
@@ -177,7 +177,7 @@ public class GameServiceTests
         var db = CreateDb();
         db.Games.Add(new Game("ToDelete"));
         await db.SaveChangesAsync();
-        var service = new GameService(db, _mapper);
+        var service = TestServiceFactory.CreateGameService(db, _mapper);
 
         var result = await service.DeleteGameAsync(db.Games.First().Id);
 

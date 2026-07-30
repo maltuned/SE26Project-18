@@ -16,7 +16,7 @@ public class TagServiceTests
         db.GameTags.Add(new GameTag("RPG"));
         db.GameTags.Add(new GameTag("FPS"));
         await db.SaveChangesAsync();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.GetGameTagsAsync();
 
@@ -29,7 +29,7 @@ public class TagServiceTests
         var db = CreateDb();
         db.RecruitmentTags.Add(new RecruitmentTag("Casual"));
         await db.SaveChangesAsync();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.GetRecruitmentTagsAsync();
 
@@ -40,7 +40,7 @@ public class TagServiceTests
     public async Task CreateGameTag_CreatesAndReturns()
     {
         var db = CreateDb();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.CreateGameTagAsync("NewTag");
 
@@ -53,7 +53,7 @@ public class TagServiceTests
     public async Task CreateRecruitmentTag_CreatesAndReturns()
     {
         var db = CreateDb();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.CreateRecruitmentTagAsync("RecTag");
 
@@ -64,7 +64,7 @@ public class TagServiceTests
     public async Task UpdateGameTag_ReturnsNull_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.UpdateGameTagAsync(999, "New");
 
@@ -77,7 +77,7 @@ public class TagServiceTests
         var db = CreateDb();
         db.GameTags.Add(new GameTag("Old"));
         await db.SaveChangesAsync();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.UpdateGameTagAsync(db.GameTags.First().Id, "NewName");
 
@@ -89,7 +89,7 @@ public class TagServiceTests
     public async Task DeleteGameTag_ReturnsFalse_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.DeleteGameTagAsync(999);
 
@@ -102,7 +102,7 @@ public class TagServiceTests
         var db = CreateDb();
         db.GameTags.Add(new GameTag("ToDelete"));
         await db.SaveChangesAsync();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.DeleteGameTagAsync(db.GameTags.First().Id);
 
@@ -114,7 +114,7 @@ public class TagServiceTests
     public async Task DeleteRecruitmentTag_ReturnsFalse_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.DeleteRecruitmentTagAsync(999);
 
@@ -125,7 +125,7 @@ public class TagServiceTests
     public async Task UpdateRecruitmentTag_ReturnsNull_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.UpdateRecruitmentTagAsync(999, "New");
 
@@ -138,7 +138,7 @@ public class TagServiceTests
         var db = CreateDb();
         db.RecruitmentTags.Add(new RecruitmentTag("Old"));
         await db.SaveChangesAsync();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.UpdateRecruitmentTagAsync(db.RecruitmentTags.First().Id, "New");
 
@@ -152,7 +152,7 @@ public class TagServiceTests
         var db = CreateDb();
         db.RecruitmentTags.Add(new RecruitmentTag("ToDelete"));
         await db.SaveChangesAsync();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.DeleteRecruitmentTagAsync(db.RecruitmentTags.First().Id);
 
@@ -168,7 +168,7 @@ public class TagServiceTests
         var game = new Game("Test") { Tags = new List<GameTag> { tag } };
         db.Games.Add(game);
         await db.SaveChangesAsync();
-        var service = new TagService(db, _mapper);
+        var service = TestServiceFactory.CreateTagService(db, _mapper);
 
         var result = await service.DeleteGameTagAsync(tag.Id);
 

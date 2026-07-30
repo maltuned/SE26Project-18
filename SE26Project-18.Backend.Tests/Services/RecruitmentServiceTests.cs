@@ -31,7 +31,7 @@ public class RecruitmentServiceTests
         var user = new User("u", "pw");
         db.Users.Add(user);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.CreateRecruitmentAsync(new RecruitmentDto
@@ -47,7 +47,7 @@ public class RecruitmentServiceTests
     {
         var db = CreateDb();
         var (_, game) = SeedData(db);
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.CreateRecruitmentAsync(new RecruitmentDto
@@ -63,7 +63,7 @@ public class RecruitmentServiceTests
     {
         var db = CreateDb();
         var (user, game) = SeedData(db);
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.CreateRecruitmentAsync(new RecruitmentDto
         {
@@ -90,7 +90,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game2.Id, Game = game2 };
         db.Recruitments.AddRange(r1, r2);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         // Filter by game name "TestGame" (name of the first game from SeedData)
         var result = await service.GetRecruitmentsAsync("TestGame");
@@ -108,7 +108,7 @@ public class RecruitmentServiceTests
         db.Recruitments.Add(new Recruitment("R2", DateTime.UtcNow.AddDays(30), 3)
             { PublisherId = user.Id, GameId = game.Id, Game = game });
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.GetRecruitmentsAsync(null);
 
@@ -119,7 +119,7 @@ public class RecruitmentServiceTests
     public async Task UpdateRecruitment_ReturnsNull_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(999, new Dictionary<string, object>());
 
@@ -137,7 +137,7 @@ public class RecruitmentServiceTests
         };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(r.Id,
             new Dictionary<string, object> { { "title", "Changed" } });
@@ -155,7 +155,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(r.Id,
             new Dictionary<string, object> { { "title", "New Title" } });
@@ -167,7 +167,7 @@ public class RecruitmentServiceTests
     public async Task DeleteRecruitment_ReturnsFalse_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.DeleteRecruitmentAsync(999);
 
@@ -183,7 +183,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.DeleteRecruitmentAsync(r.Id);
 
@@ -202,7 +202,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.AddRange(r1, r2);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.SearchRecruitmentsAsync(r1.Id.ToString());
 
@@ -213,7 +213,7 @@ public class RecruitmentServiceTests
     public async Task GetRecruitmentById_ReturnsNull_WhenNotFound()
     {
         var db = CreateDb();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.GetRecruitmentByIdAsync(999);
 
@@ -229,7 +229,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.GetRecruitmentByIdAsync(r.Id);
 
@@ -247,7 +247,7 @@ public class RecruitmentServiceTests
         db.Recruitments.Add(new Recruitment("R2", DateTime.UtcNow.AddDays(30), 3)
             { PublisherId = user.Id, GameId = game.Id, Game = game, Status = RecruitmentStatus.Closed });
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.GetRecruitmentsByGameAsync(game.Id);
 
@@ -266,7 +266,7 @@ public class RecruitmentServiceTests
         var chat = new Chat { RecruitmentId = r.Id, RecruiterId = user.Id, ResponserId = 2 };
         db.Chats.Add(chat);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.GetRecruitmentByChatIdAsync(chat.Id);
 
@@ -282,7 +282,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(r.Id,
             new Dictionary<string, object> { { "description", "New desc" } });
@@ -299,7 +299,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(r.Id,
             new Dictionary<string, object> { { "status", "已关闭" } });
@@ -317,7 +317,7 @@ public class RecruitmentServiceTests
         db.Recruitments.Add(new Recruitment("Beta team", DateTime.UtcNow.AddDays(30), 3)
             { PublisherId = user.Id, GameId = game.Id, Game = game });
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.SearchRecruitmentsAsync("Alpha");
 
@@ -333,7 +333,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(r.Id,
             new Dictionary<string, object> { { "max_participants", 10 } });
@@ -350,7 +350,7 @@ public class RecruitmentServiceTests
             { PublisherId = user.Id, GameId = game.Id, Game = game };
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(r.Id,
             new Dictionary<string, object> { { "current_participants", 2 } });
@@ -366,7 +366,7 @@ public class RecruitmentServiceTests
         db.Recruitments.Add(new Recruitment("R1", DateTime.UtcNow.AddDays(30), 3)
             { PublisherId = user.Id, GameId = game.Id, Game = game });
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.SearchRecruitmentsAsync("");
 
@@ -385,7 +385,7 @@ public class RecruitmentServiceTests
         db.Recruitments.Add(r);
         await db.SaveChangesAsync();
         var tagIds = db.RecruitmentTags.Select(t => t.Id).ToArray();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.UpdateRecruitmentAsync(r.Id,
             new Dictionary<string, object> { { "tags_id", tagIds } });
@@ -406,7 +406,7 @@ public class RecruitmentServiceTests
         db.Recruitments.Add(new Recruitment("R2", DateTime.UtcNow.AddDays(30), 3)
             { PublisherId = otherUser.Id, GameId = game.Id, Game = game });
         await db.SaveChangesAsync();
-        var service = new RecruitmentService(db, _mapper);
+        var service = TestServiceFactory.CreateRecruitmentService(db, _mapper);
 
         var result = await service.GetRecruitmentsByPublisherIdAsync(user.Id);
 
