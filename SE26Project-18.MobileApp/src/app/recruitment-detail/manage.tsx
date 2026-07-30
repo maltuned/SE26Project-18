@@ -12,7 +12,7 @@ import {
 import {
   deleteRecruitment,
   deleteResponse,
-  getChatsByRecruitmentId,
+  getChatByUsers,
   getRecruitmentById,
   getResponses,
   RecruitmentData,
@@ -21,14 +21,12 @@ import {
   updateRecruitment,
 } from "../../api/api";
 import ResponseRejectModal from "../../components/response-reject-modal";
-import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
 export default function RecruitmentManageScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ recruitmentId?: string }>();
   const { colors } = useTheme();
-  const { userId } = useAuth();
 
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
   const [closed, setClosed] = useState(false);
@@ -80,11 +78,11 @@ export default function RecruitmentManageScreen() {
   };
 
   const handleViewChat = async (res: ResponseData) => {
-    if (!recruitment?.id) return;
-    const chats = await getChatsByRecruitmentId(recruitment.id);
-    const chat = chats.find((c) =>
-      c.users?.some((u) => u.userId === res.responserId),
-    );
+    if (!recruitment?.publisherId) return;
+    const chat = await getChatByUsers([
+      res.responserId,
+      recruitment.publisherId,
+    ]);
     if (chat) {
       router.dismissAll();
       router.push(`/(tabs)/chat`);

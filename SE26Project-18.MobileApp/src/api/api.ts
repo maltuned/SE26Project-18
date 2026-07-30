@@ -690,9 +690,32 @@ export const deleteRecruitment = async (id: number): Promise<boolean> => {
   return Boolean(await updateRecruitment(id, { status: "已删除" }));
 };
 
-export const getResponses = (
-  _recruitmentId?: number,
-): Promise<ResponseData[]> => Promise.resolve([]);
+export const getResponses = async (
+  recruitmentId?: number,
+): Promise<ResponseData[]> => {
+  if (!recruitmentId) return [];
+  try {
+    const responses = (await get<BackendResponse[]>(
+      `/recruitments/${recruitmentId}/responses`,
+    )).map(mapResponse);
+    const responderIds = [
+      ...new Set(responses.map((response) => response.responserId)),
+    ];
+    const responderById = new Map<number, UserInfo>();
+    await Promise.all(
+      responderIds.map(async (responderId) => {
+        const responder = await getUserById(responderId);
+        if (responder) responderById.set(responderId, responder);
+      }),
+    );
+    return responses.map((response) => ({
+      ...response,
+      responser: responderById.get(response.responserId) ?? response.responser,
+    }));
+  } catch {
+    return [];
+  }
+};
 
 export const getResponsesByUserId = (
   _userId: number,

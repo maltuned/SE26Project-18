@@ -92,19 +92,20 @@ export default function RecruitmentViewScreen() {
   }
 
   const isClosed = recruitment.status === "已关闭";
+  const chatMatchesRecruitment = existingChat?.recruitmentId === recruitment.id;
+  const canContinueChat = Boolean(
+    existingChat && (chatMatchesRecruitment || isClosed),
+  );
 
   const handleChat = async () => {
     if (!userId) return;
-    // 有聊天：继续聊天
-    if (existingChat) {
+    if (canContinueChat && existingChat) {
       router.dismissAll();
       router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${existingChat.id}`);
       return;
     }
-    // 已关闭且没有聊天：不能操作
     if (isClosed) return;
-    // 没回应过：弹出打招呼
     setShowGreetingModal(true);
   };
 
@@ -112,11 +113,18 @@ export default function RecruitmentViewScreen() {
     if (!userId) return;
     setLoading(true);
     try {
-      await createResponse({
-        recruitmentId: recruitment.id,
-        responserId: userId,
-      });
-      const chat = await getChatByUsers([userId, recruitment.publisherId]);
+      let chat = existingChat;
+      try {
+        await createResponse({
+          recruitmentId: recruitment.id,
+          responserId: userId,
+        });
+        chat = await getChatByUsers([userId, recruitment.publisherId]);
+      } catch (error) {
+        const alreadyResponded =
+          error instanceof Error && error.message === "HTTP 409" && chat;
+        if (!alreadyResponded) throw error;
+      }
       if (!chat) throw new Error("Chat not found");
       await sendMessage({
         chatId: chat.id,
@@ -239,7 +247,7 @@ export default function RecruitmentViewScreen() {
           <Text style={styles.chatButtonText}>
             {loading
               ? "加载中..."
-              : existingChat
+              : canContinueChat
                 ? "继续聊天"
                 : isClosed
                 ? "已关闭"
