@@ -1,14 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  ApiError,
-  discardSession,
-  getMe,
-  login as apiLogin,
-  logout as apiLogout,
-  register as apiRegister,
-  restoreTokens,
-  type UserInfo,
-} from "../api/api";
+import { clearAuthTokens, getUserById, UserInfo } from "../api/api";
 
 type AuthContextType = {
   initializing: boolean;
@@ -75,11 +66,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         initializing,
         isLoggedIn: currentUser !== null,
         currentUser,
-        userId: currentUser?.id ?? null,
-        login: (username, password) => authenticate(username, password, false),
-        register: (username, password) => authenticate(username, password, true),
-        logout,
-        refreshUser,
+        userId,
+        login: (id: number) => {
+          setUserId(id);
+          setIsLoggedIn(true);
+        },
+        logout: () => {
+          clearAuthTokens();
+          setUserId(null);
+          setIsLoggedIn(false);
+        },
+        refreshUser: () => {
+          if (userId) {
+            getUserById(userId).then((user) => setCurrentUser(user));
+          }
+        },
       }}
     >
       {children}
@@ -88,7 +89,5 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used inside AuthProvider");
-  return context;
+  return useContext(AuthContext);
 }

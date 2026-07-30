@@ -98,6 +98,15 @@ public sealed class RecruitmentController : ControllerBase
         return CreatedAtRoute("GetResponseById", new { id = response.Id }, response);
     }
 
+    [HttpGet("{id:long}/responses")]
+    public async Task<ActionResult<IReadOnlyList<ResponseResponse>>> GetResponses(
+        long id,
+        CancellationToken ct
+    )
+    {
+        return Ok(await _responseService.GetByRecruitmentAsync(id, GetCurrentUserId(), ct));
+    }
+
     [HttpPost("{id:long}/views")]
     public async Task<IActionResult> RecordView(long id, CancellationToken ct)
     {

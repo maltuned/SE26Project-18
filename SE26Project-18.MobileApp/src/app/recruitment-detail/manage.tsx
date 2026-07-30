@@ -12,7 +12,8 @@ import {
 import {
   acceptResponse,
   deleteRecruitment,
-  getChatByUser,
+  deleteResponse,
+  getChatByUsers,
   getRecruitmentById,
   getUserById,
   RecruitmentData,
@@ -23,15 +24,12 @@ import {
   updateRecruitment,
 } from "../../api/api";
 import ResponseRejectModal from "../../components/response-reject-modal";
-import MediaImage from "../../components/media-image";
-import { useAuth } from "../../contexts/auth-context";
 import { useTheme } from "../../contexts/theme-context";
 
 export default function RecruitmentManageScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ recruitmentId?: string }>();
   const { colors } = useTheme();
-  const { userId } = useAuth();
 
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
   const [closed, setClosed] = useState(false);
@@ -88,19 +86,15 @@ export default function RecruitmentManageScreen() {
   };
 
   const handleViewChat = async (res: ResponseData) => {
-    if (!recruitment?.id) return;
-    try {
-      const chat = await getChatByUser(res.responserId, userId!);
-      if (chat) {
-        router.dismissAll();
-        router.push(`/(tabs)/chat`);
-        router.push(`/chat-room?chatId=${chat.id}`);
-      }
-    } catch (error) {
-      Alert.alert(
-        "打开聊天失败",
-        error instanceof Error ? error.message : "请稍后重试",
-      );
+    if (!recruitment?.publisherId) return;
+    const chat = await getChatByUsers([
+      res.responserId,
+      recruitment.publisherId,
+    ]);
+    if (chat) {
+      router.dismissAll();
+      router.push(`/(tabs)/chat`);
+      router.push(`/chat-room?chatId=${chat.id}`);
     }
   };
 

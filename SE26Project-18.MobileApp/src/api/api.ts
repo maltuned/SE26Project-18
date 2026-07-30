@@ -31,6 +31,7 @@ import type {
   RecruitmentData,
   RecruitmentTag,
   ResponseData,
+  ResponseStatus,
   UserInfo,
 } from "./data-patterns";
 
@@ -43,548 +44,839 @@ export type {
   GameTag,
   MessageData,
   RecruitmentData,
-  RecruitmentStatus,
   RecruitmentTag,
   ResponseData,
   ResponseStatus,
   UserInfo,
 } from "./data-patterns";
-export type { CursorPagedResponse, GameResponse, PagedResponse, ProblemDetails, TagResponse, TokenResponse, UserResponse } from "./dtos";
-export { RecruitmentStatusDto, ResponseTypeDto, UserStatusDto } from "./dtos";
 
-const developmentHost = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-const configuredBase = process.env.EXPO_PUBLIC_API_URL?.trim();
-const rawBase = configuredBase || `http://${developmentHost}:5193/api/v1`;
-const configuredUrl = new URL(rawBase);
-if (configuredUrl.pathname === "/") configuredUrl.pathname = "/api/v1";
-export const API_BASE_URL = configuredUrl.toString().replace(/\/+$/, "");
-export const API_ORIGIN = new URL(API_BASE_URL).origin;
-export const WS_BASE_URL = API_BASE_URL.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+const API_BASE = "http://10.73.61.199:5111/api/v1";
 
-const ACCESS_TOKEN_KEY = "auth.accessToken";
-const REFRESH_TOKEN_KEY = "auth.refreshToken";
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
-let refreshPromise: Promise<boolean> | null = null;
-let mediaCacheVersion = 0;
+let currentUserId: number | null = null;
 
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly problem?: ProblemDetails,
-  ) {
-    super(problem?.detail || problem?.title || `Request failed with status ${status}`);
-    this.name = "ApiError";
-  }
-}
-
-const storage = {
-  async get(key: string) {
-    if (Platform.OS === "web") return globalThis.sessionStorage?.getItem(key) ?? null;
-    return SecureStore.getItemAsync(key);
-  },
-  async set(key: string, value: string) {
-    if (Platform.OS === "web") globalThis.sessionStorage?.setItem(key, value);
-    else await SecureStore.setItemAsync(key, value);
-  },
-  async remove(key: string) {
-    if (Platform.OS === "web") globalThis.sessionStorage?.removeItem(key);
-    else await SecureStore.deleteItemAsync(key);
-  },
+type BackendPaged<T> = {
+  items?: T[];
+  Items?: T[];
 };
 
-async function setTokens(tokens: TokenResponse | null) {
-  accessToken = tokens?.accessToken ?? null;
-  refreshToken = tokens?.refreshToken ?? null;
-  if (tokens) {
-    await Promise.all([
-      storage.set(ACCESS_TOKEN_KEY, tokens.accessToken),
-      storage.set(REFRESH_TOKEN_KEY, tokens.refreshToken),
-    ]);
-  } else {
-    await Promise.all([storage.remove(ACCESS_TOKEN_KEY), storage.remove(REFRESH_TOKEN_KEY)]);
+type BackendToken = {
+  accessToken?: string;
+  refreshToken?: string;
+  AccessToken?: string;
+  RefreshToken?: string;
+};
+
+type BackendTag = {
+  id?: number;
+  Id?: number;
+  name?: string;
+  Name?: string;
+};
+
+type BackendUser = {
+  id?: number;
+  Id?: number;
+  username?: string;
+  Username?: string;
+  nickname?: string;
+  Nickname?: string;
+  signature?: string;
+  Signature?: string;
+  gender?: number | string;
+  Gender?: number | string;
+  status?: number | string;
+  Status?: number | string;
+};
+
+type BackendGame = {
+  id?: number;
+  Id?: number;
+  name?: string;
+  Name?: string;
+  description?: string;
+  Description?: string;
+  tags?: BackendTag[];
+  Tags?: BackendTag[];
+};
+
+type BackendRecruitment = {
+  id?: number;
+  Id?: number;
+  game?: BackendGame;
+  Game?: BackendGame;
+  recruiter?: BackendUser;
+  Recruiter?: BackendUser;
+  title?: string;
+  Title?: string;
+  description?: string;
+  Description?: string;
+  tags?: BackendTag[];
+  Tags?: BackendTag[];
+  maxParticipants?: number;
+  MaxParticipants?: number;
+  currParticipants?: number;
+  CurrParticipants?: number;
+  status?: number | string;
+  Status?: number | string;
+  expiresAt?: string;
+  ExpiresAt?: string;
+};
+
+type BackendResponse = {
+  id?: number;
+  Id?: number;
+  recruitmentId?: number;
+  RecruitmentId?: number;
+  responderId?: number;
+  ResponderId?: number;
+  type?: number | string;
+  Type?: number | string;
+};
+
+type BackendChat = {
+  id?: number;
+  Id?: number;
+  recruitmentId?: number;
+  RecruitmentId?: number;
+  user1Id?: number;
+  User1Id?: number;
+  user2Id?: number;
+  User2Id?: number;
+  status?: number | string;
+  Status?: number | string;
+  newMsgsCntForUser1?: number;
+  NewMsgsCntForUser1?: number;
+  newMsgsCntForUser2?: number;
+  NewMsgsCntForUser2?: number;
+  lastMessage?: BackendMessage | null;
+  LastMessage?: BackendMessage | null;
+};
+
+type BackendMessage = {
+  senderId?: number;
+  SenderId?: number;
+  content?: string;
+  Content?: string;
+  sentAt?: string;
+  SentAt?: string;
+};
+
+const prop = <T,>(obj: object | null | undefined, ...keys: string[]) => {
+  if (!obj) return undefined;
+  const record = obj as Record<string, unknown>;
+  for (const key of keys) {
+    if (record[key] !== undefined) return record[key] as T;
   }
-}
+  return undefined;
+};
 
-export async function restoreTokens() {
-  [accessToken, refreshToken] = await Promise.all([
-    storage.get(ACCESS_TOKEN_KEY),
-    storage.get(REFRESH_TOKEN_KEY),
-  ]);
-  return Boolean(accessToken && refreshToken);
-}
-
-function buildUrl(path: string, params?: Record<string, string | number | boolean | number[] | undefined>) {
-  const url = /^https?:\/\//.test(path)
-    ? new URL(path)
-    : new URL(`${API_BASE_URL}/${path.replace(/^\//, "")}`);
-  Object.entries(params ?? {}).forEach(([key, value]) => {
-    if (value === undefined || value === "") return;
-    if (Array.isArray(value)) value.forEach((item) => url.searchParams.append(key, String(item)));
-    else url.searchParams.set(key, String(value));
-  });
-  return url.toString();
-}
-
-async function parseError(response: Response) {
-  let problem: ProblemDetails | undefined;
-  try {
-    problem = await response.json();
-  } catch {
-    problem = undefined;
-  }
-  return new ApiError(response.status, problem);
-}
-
-async function refreshAccessToken() {
-  if (!refreshToken) return false;
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      const response = await fetch(buildUrl("auth/refresh"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-      });
-      if (response.status === 400 || response.status === 401) {
-        await setTokens(null);
-        return false;
+const buildUrl = (endpoint: string, params?: Record<string, unknown>) => {
+  const url = new URL(endpoint.replace(/^\//, ""), `${API_BASE}/`);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "") return;
+      if (Array.isArray(value)) {
+        value.forEach((item) => url.searchParams.append(key, String(item)));
+      } else {
+        url.searchParams.append(key, String(value));
       }
-      if (!response.ok) throw await parseError(response);
-      await setTokens((await response.json()) as TokenResponse);
-      return true;
-    })().finally(() => {
-      refreshPromise = null;
     });
   }
-  return refreshPromise;
-}
-
-type RequestOptions = Omit<RequestInit, "body"> & { body?: unknown; authenticated?: boolean };
-
-async function request<T>(path: string, options: RequestOptions = {}, retry = true): Promise<T> {
-  const { body, authenticated = true, headers: suppliedHeaders, ...init } = options;
-  const headers = new Headers(suppliedHeaders);
-  const tokenForRequest = accessToken;
-  if (authenticated && tokenForRequest) headers.set("Authorization", `Bearer ${tokenForRequest}`);
-  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
-  if (body !== undefined && !isForm) headers.set("Content-Type", "application/json");
-  const response = await fetch(buildUrl(path), {
-    ...init,
-    headers,
-    body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
-  });
-  if (response.status === 401 && authenticated && retry) {
-    if (tokenForRequest && accessToken && tokenForRequest !== accessToken) {
-      return request<T>(path, options, false);
-    }
-    if (await refreshAccessToken()) return request<T>(path, options, false);
-  }
-  if (!response.ok) throw await parseError(response);
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
-}
-
-export function resolveMediaUrl(value?: string | null, cacheBust?: string | number) {
-  if (!value) return "";
-  const url = new URL(value, API_ORIGIN);
-  if (cacheBust !== undefined) url.searchParams.set("v", String(cacheBust));
   return url.toString();
-}
-
-const genderLabels = ["其他", "男", "女"] as const;
-const userStatusLabels = ["正常", "离线", "封禁"] as const;
-const recruitmentStatusLabels = ["招募中", "已关闭", "已删除"] as const;
-const responseStatusLabels = ["待处理", "已接受", "已拒绝"] as const;
-const chatStatusLabels = ["限制", "开放"] as const;
-
-const mapUser = (user: UserResponse): UserInfo => ({
-  id: user.id,
-  username: user.username,
-  nickname: user.nickname,
-  signature: user.signature,
-  avatar: resolveMediaUrl(user.avatarUrl, mediaCacheVersion || undefined),
-  gender: genderLabels[user.gender] ?? genderLabels[GenderDto.Other],
-  status: userStatusLabels[user.status] ?? userStatusLabels[UserStatusDto.Offline],
-  isAdmin: user.isAdmin,
-  tags: user.tags,
-});
-
-const mapResponse = (response: ResponseResponse): ResponseData => ({
-  id: response.id,
-  recruitmentId: response.recruitmentId,
-  responserId: response.responderId,
-  responseStatus: responseStatusLabels[response.type] ?? responseStatusLabels[ResponseTypeDto.Pending],
-});
-
-const mapRecruitment = (recruitment: RecruitmentResponse): RecruitmentData => ({
-  id: recruitment.id,
-  publisherId: recruitment.recruiter.id,
-  gameId: recruitment.game.id,
-  gameName: recruitment.game.name,
-  gameIcon: resolveMediaUrl(recruitment.game.iconUrl, mediaCacheVersion || undefined),
-  gameCover: resolveMediaUrl(recruitment.game.coverUrl, mediaCacheVersion || undefined),
-  title: recruitment.title,
-  description: recruitment.description,
-  gameTags: recruitment.game.tags.map((tag) => tag.name),
-  recruitmentTags: recruitment.tags,
-  responses: recruitment.responses.map(mapResponse),
-  status: recruitmentStatusLabels[recruitment.status] ?? recruitmentStatusLabels[RecruitmentStatusDto.Open],
-  expiredAt: recruitment.expiresAt,
-  maxParticipants: recruitment.maxParticipants,
-  currentParticipants: recruitment.currParticipants,
-  publisher: mapUser(recruitment.recruiter),
-});
-
-const mapMessage = (message: MessageResponse): MessageData => ({
-  id: message.id,
-  senderId: message.senderId,
-  content: message.content,
-  createdAt: message.sentAt,
-});
-
-export async function login(username: string, password: string) {
-  const tokens = await request<TokenResponse>("auth/login", {
-    method: "POST",
-    body: { username, password },
-    authenticated: false,
-  });
-  await setTokens(tokens);
-  return tokens;
-}
-
-export async function register(username: string, password: string) {
-  const tokens = await request<TokenResponse>("auth/register", {
-    method: "POST",
-    body: { username, password },
-    authenticated: false,
-  });
-  await setTokens(tokens);
-  return tokens;
-}
-
-export const discardSession = () => setTokens(null);
-
-export const getMe = async () => mapUser(await request<UserResponse>("users/me"));
-export const getUserById = async (id: number) => mapUser(await request<UserResponse>(`users/${id}`));
-
-export async function logout() {
-  try {
-    const revoke = async () => {
-      if (!accessToken || !refreshToken) return 204;
-      const response = await fetch(buildUrl("auth/logout"), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-      return response.status;
-    };
-    if ((await revoke()) === 401 && (await refreshAccessToken())) await revoke();
-  } finally {
-    await setTokens(null);
-  }
-}
-
-export async function updateUser(data: { nickname?: string; signature?: string; gender?: number; tagIds?: number[] }) {
-  return mapUser(await request<UserResponse>("users/me", { method: "PATCH", body: data }));
-}
-
-export async function uploadAvatar(asset: { uri: string; fileName?: string | null; mimeType?: string; file?: File }) {
-  const form = new FormData();
-  if (Platform.OS === "web" && asset.file) form.append("file", asset.file);
-  else form.append("file", { uri: asset.uri, name: asset.fileName || "avatar.jpg", type: asset.mimeType || "image/jpeg" } as unknown as Blob);
-  await request<void>("users/me/avatar", { method: "PUT", body: form });
-  mediaCacheVersion = Date.now();
-}
-
-export async function getGames(query = ""): Promise<GameBrief[]> {
-  const games = await request<GameResponse[]>(`games${query ? `?query=${encodeURIComponent(query)}` : ""}`);
-  return games.map((game) => ({ id: game.id, name: game.name, icon: resolveMediaUrl(game.iconUrl, mediaCacheVersion || undefined) }));
-}
-
-export async function getGameById(id: number): Promise<GameInfo> {
-  const game = await request<GameResponse>(`games/${id}`);
-  return {
-    id: game.id,
-    name: game.name,
-    description: game.description,
-    icon: resolveMediaUrl(game.iconUrl, mediaCacheVersion || undefined),
-    cover: resolveMediaUrl(game.coverUrl, mediaCacheVersion || undefined),
-    tags: game.tags.map((tag) => tag.name),
-  };
-}
-
-export const getGameTags = () => request<TagResponse[]>("game-tags") as Promise<GameTag[]>;
-export const getUserTags = () => request<TagResponse[]>("user-tags");
-export const getRecruitmentTags = () => request<TagResponse[]>("recruitment-tags") as Promise<RecruitmentTag[]>;
-
-export interface AdminUserQuery {
-  query?: string;
-  status?: UserStatusDto;
-  isAdmin?: boolean;
-  page?: number;
-  pageSize?: number;
-}
-
-export interface AdminGameQuery {
-  query?: string;
-  page?: number;
-  pageSize?: number;
-}
-
-export interface AdminRecruitmentQuery {
-  query?: string;
-  recruiterId?: number;
-  gameId?: number;
-  status?: RecruitmentStatusDto;
-  page?: number;
-  pageSize?: number;
-}
-
-export async function getAdminUsers(query: AdminUserQuery = {}) {
-  return request<PagedResponse<UserResponse>>(buildUrl("admin/users", { ...query }));
-}
-
-export async function getAdminGames(query: AdminGameQuery = {}) {
-  const page = await request<PagedResponse<GameResponse>>(buildUrl("admin/games", { ...query }));
-  return {
-    ...page,
-    items: page.items.map((game) => ({
-      ...game,
-      iconUrl: resolveMediaUrl(game.iconUrl, mediaCacheVersion || undefined),
-      coverUrl: resolveMediaUrl(game.coverUrl, mediaCacheVersion || undefined),
-    })),
-  };
-}
-
-export async function getAdminGameById(id: number) {
-  const game = await request<GameResponse>(`games/${id}`);
-  return {
-    ...game,
-    iconUrl: resolveMediaUrl(game.iconUrl, mediaCacheVersion || undefined),
-    coverUrl: resolveMediaUrl(game.coverUrl, mediaCacheVersion || undefined),
-  };
-}
-
-export async function getAdminRecruitments(query: AdminRecruitmentQuery = {}) {
-  const page = await request<PagedResponse<RecruitmentResponse>>(buildUrl("admin/recruitments", { ...query }));
-  return { ...page, items: page.items.map(mapRecruitment) };
-}
-
-export const setUserSuspension = (id: number, suspended: boolean) =>
-  request<UserResponse>(`users/${id}/suspension`, { method: "PATCH", body: { suspended } });
-
-export interface GameWriteData {
-  name: string;
-  description: string;
-  tagIds: number[];
-}
-
-export const createGame = (data: GameWriteData) =>
-  request<GameResponse>("games", { method: "POST", body: data });
-export const updateGame = (id: number, data: Partial<GameWriteData>) =>
-  request<GameResponse>(`games/${id}`, { method: "PATCH", body: data });
-
-export type UploadAsset = {
-  uri: string;
-  fileName?: string | null;
-  mimeType?: string;
-  file?: File;
 };
 
-async function uploadGameMedia(id: number, kind: "icon" | "cover", asset: UploadAsset) {
-  const form = new FormData();
-  if (Platform.OS === "web" && asset.file) form.append("file", asset.file);
-  else form.append("file", { uri: asset.uri, name: asset.fileName || `${kind}.jpg`, type: asset.mimeType || "image/jpeg" } as unknown as Blob);
-  await request<void>(`games/${id}/${kind}`, { method: "PUT", body: form });
-  mediaCacheVersion = Date.now();
-}
+const authHeaders = () =>
+  accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
-async function deleteGameMedia(id: number, kind: "icon" | "cover") {
-  await request<void>(`games/${id}/${kind}`, { method: "DELETE" });
-  mediaCacheVersion = Date.now();
-}
+const updateTokens = (tokens: BackendToken) => {
+  accessToken = prop<string>(tokens, "accessToken", "AccessToken") ?? null;
+  refreshToken = prop<string>(tokens, "refreshToken", "RefreshToken") ?? null;
+};
 
-export const uploadGameIcon = (id: number, asset: UploadAsset) => uploadGameMedia(id, "icon", asset);
-export const uploadGameCover = (id: number, asset: UploadAsset) => uploadGameMedia(id, "cover", asset);
-export const deleteGameIcon = (id: number) => deleteGameMedia(id, "icon");
-export const deleteGameCover = (id: number) => deleteGameMedia(id, "cover");
+export const clearAuthTokens = () => {
+  accessToken = null;
+  refreshToken = null;
+  currentUserId = null;
+};
 
-const createTag = (catalog: "game-tags" | "user-tags" | "recruitment-tags", name: string) =>
-  request<TagResponse>(catalog, { method: "POST", body: { name } });
-export const createGameTag = (name: string) => createTag("game-tags", name);
-export const createUserTag = (name: string) => createTag("user-tags", name);
-export const createRecruitmentTag = (name: string) => createTag("recruitment-tags", name);
+const refreshAccessToken = async () => {
+  if (!refreshToken) return false;
+  const res = await fetch(buildUrl("/auth/refresh"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+  if (!res.ok) {
+    clearAuthTokens();
+    return false;
+  }
+  updateTokens((await res.json()) as BackendToken);
+  return Boolean(accessToken);
+};
 
-export interface RecruitmentQuery {
-  gameId?: number;
-  gameTagIds?: number[];
-  recruitmentTagIds?: number[];
-  page?: number;
-  pageSize?: number;
-}
+const mergeHeaders = (headers?: HeadersInit) => {
+  const merged: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...authHeaders(),
+  };
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => {
+      merged[key] = value;
+    });
+  } else if (Array.isArray(headers)) {
+    headers.forEach(([key, value]) => {
+      merged[key] = value;
+    });
+  } else if (headers) {
+    Object.assign(merged, headers);
+  }
+  return merged;
+};
 
-export async function searchRecruitments(query: RecruitmentQuery = {}) {
-  const page = await request<PagedResponse<RecruitmentResponse>>(
-    buildUrl("recruitments", { ...query, pageSize: Math.min(query.pageSize ?? 20, 100) }),
+const request = async <T,>(
+  endpoint: string,
+  options: RequestInit = {},
+  retry = true,
+): Promise<T> => {
+  const res = await fetch(buildUrl(endpoint), {
+    ...options,
+    headers: mergeHeaders(options.headers),
+  });
+  if (res.status === 401 && retry && (await refreshAccessToken())) {
+    return request<T>(endpoint, options, false);
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+};
+
+const get = <T,>(endpoint: string, params?: Record<string, unknown>) =>
+  request<T>(buildUrl(endpoint, params).replace(`${API_BASE}/`, "/"));
+
+const post = <T,>(endpoint: string, body?: unknown) =>
+  request<T>(endpoint, {
+    method: "POST",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+const patch = <T,>(endpoint: string, body?: unknown) =>
+  request<T>(endpoint, {
+    method: "PATCH",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+const normalizeNumber = (value: unknown, fallback = 0) =>
+  typeof value === "number" ? value : Number(value ?? fallback) || fallback;
+
+const normalizeText = (value: unknown) =>
+  typeof value === "string" ? value : "";
+
+const enumName = (value: unknown, names: string[]) => {
+  if (typeof value === "number") return names[value] ?? "";
+  if (typeof value === "string") return value;
+  return "";
+};
+
+const mapGender = (value: unknown) => {
+  switch (enumName(value, ["Other", "Male", "Female"])) {
+    case "Male":
+      return "男";
+    case "Female":
+      return "女";
+    default:
+      return "其他";
+  }
+};
+
+const mapUserStatus = (value: unknown) =>
+  enumName(value, ["Online", "Offline", "Suspended"]) === "Suspended"
+    ? "封禁"
+    : "正常";
+
+const mapRecruitmentStatus = (value: unknown) => {
+  switch (enumName(value, ["Open", "Closed", "Deleted"])) {
+    case "Closed":
+      return "已关闭";
+    case "Deleted":
+      return "已删除";
+    default:
+      return "招募中";
+  }
+};
+
+const toRecruitmentStatusValue = (status?: string) => {
+  switch (status) {
+    case "招募中":
+      return 0;
+    case "已关闭":
+      return 1;
+    case "已删除":
+      return 2;
+    default:
+      return undefined;
+  }
+};
+
+const mapChatStatus = (value: unknown) =>
+  enumName(value, ["Restricted", "Free"]) === "Free" ? "开放" : "限制";
+
+const mapResponseStatus = (value: unknown) =>
+  enumName(value, ["Pending", "Accepted", "Rejected"]) === "Rejected"
+    ? "已删除"
+    : "已回应";
+
+const mapTag = (tag: BackendTag): RecruitmentTag => ({
+  id: normalizeNumber(prop(tag, "id", "Id")),
+  name: normalizeText(prop(tag, "name", "Name")),
+});
+
+const mapGameTag = (tag: BackendTag): GameTag => ({
+  id: normalizeNumber(prop(tag, "id", "Id")),
+  name: normalizeText(prop(tag, "name", "Name")),
+});
+
+const uniqueTags = <T extends { id: number }>(tags: T[]) => {
+  const seen = new Set<number>();
+  return tags.filter((tag) => {
+    if (seen.has(tag.id)) return false;
+    seen.add(tag.id);
+    return true;
+  });
+};
+
+const emptyUser = (id = 0): UserInfo => ({
+  id,
+  uid: id,
+  username: "",
+  nickname: "",
+  avatar: "",
+  signature: "",
+  gender: "其他",
+  status: "正常",
+  createdAt: "",
+  updatedAt: "",
+});
+
+const mapUser = (dto: BackendUser): UserInfo => {
+  const id = normalizeNumber(prop(dto, "id", "Id"));
+  return {
+    ...emptyUser(id),
+    username: normalizeText(prop(dto, "username", "Username")),
+    nickname: normalizeText(prop(dto, "nickname", "Nickname")),
+    signature: normalizeText(prop(dto, "signature", "Signature")),
+    gender: mapGender(prop(dto, "gender", "Gender")),
+    status: mapUserStatus(prop(dto, "status", "Status")),
+  };
+};
+
+const mapGameBrief = (dto: BackendGame): GameBrief => ({
+  id: normalizeNumber(prop(dto, "id", "Id")),
+  name: normalizeText(prop(dto, "name", "Name")),
+  icon: "",
+});
+
+const mapGame = (dto: BackendGame): GameInfo => {
+  const tags = prop<BackendTag[]>(dto, "tags", "Tags") ?? [];
+  return {
+    id: normalizeNumber(prop(dto, "id", "Id")),
+    name: normalizeText(prop(dto, "name", "Name")),
+    company: "",
+    description: normalizeText(prop(dto, "description", "Description")),
+    cover: "",
+    icon: "",
+    tags: tags.map((tag) => mapGameTag(tag).name),
+    createdAt: "",
+    updatedAt: "",
+  };
+};
+
+const mapRecruitment = (dto: BackendRecruitment): RecruitmentData => {
+  const game = prop<BackendGame>(dto, "game", "Game") ?? {};
+  const recruiter = prop<BackendUser>(dto, "recruiter", "Recruiter") ?? {};
+  const recruitmentTags = prop<BackendTag[]>(dto, "tags", "Tags") ?? [];
+  const gameTags = prop<BackendTag[]>(game, "tags", "Tags") ?? [];
+  return {
+    id: normalizeNumber(prop(dto, "id", "Id")),
+    publisherId: normalizeNumber(prop(recruiter, "id", "Id")),
+    gameId: normalizeNumber(prop(game, "id", "Id")),
+    gameName: normalizeText(prop(game, "name", "Name")),
+    title: normalizeText(prop(dto, "title", "Title")),
+    description: normalizeText(prop(dto, "description", "Description")),
+    gameTags: gameTags.map((tag) => mapGameTag(tag).name),
+    recruitmentTags: recruitmentTags.map(mapTag),
+    status: mapRecruitmentStatus(prop(dto, "status", "Status")),
+    createdAt: "",
+    updatedAt: "",
+    expiredAt: normalizeText(prop(dto, "expiresAt", "ExpiresAt")),
+    maxParticipants: normalizeNumber(prop(dto, "maxParticipants", "MaxParticipants")),
+    currentParticipants: normalizeNumber(prop(dto, "currParticipants", "CurrParticipants")),
+    publisher: mapUser(recruiter),
+  };
+};
+
+const mapResponse = (dto: BackendResponse): ResponseData => ({
+  id: normalizeNumber(prop(dto, "id", "Id")),
+  recruitmentId: normalizeNumber(prop(dto, "recruitmentId", "RecruitmentId")),
+  responserId: normalizeNumber(prop(dto, "responderId", "ResponderId")),
+  responseStatus: mapResponseStatus(prop(dto, "type", "Type")),
+  createdAt: "",
+  updatedAt: "",
+  responser: emptyUser(normalizeNumber(prop(dto, "responderId", "ResponderId"))),
+});
+
+const mapMessage = (
+  dto: BackendMessage,
+  chatId: number,
+  index: number,
+  receiverId = 0,
+): MessageData => {
+  const senderId = normalizeNumber(prop(dto, "senderId", "SenderId"));
+  const createdAt = normalizeText(prop(dto, "sentAt", "SentAt"));
+  return {
+    id: Number.isFinite(Date.parse(createdAt)) ? Date.parse(createdAt) + index : index,
+    chatId,
+    senderId,
+    receiverId,
+    content: normalizeText(prop(dto, "content", "Content")),
+    createdAt,
+    sender: emptyUser(senderId),
+    receiver: emptyUser(receiverId),
+  };
+};
+
+const mapChat = async (dto: BackendChat): Promise<ChatData> => {
+  const id = normalizeNumber(prop(dto, "id", "Id"));
+  const recruitmentId = normalizeNumber(prop(dto, "recruitmentId", "RecruitmentId"));
+  const user1Id = normalizeNumber(prop(dto, "user1Id", "User1Id"));
+  const user2Id = normalizeNumber(prop(dto, "user2Id", "User2Id"));
+  const otherUserId = user1Id === currentUserId ? user2Id : user1Id;
+  const otherUser = otherUserId ? await getUserById(otherUserId) : null;
+  const lastMessage = prop<BackendMessage | null>(dto, "lastMessage", "LastMessage");
+  const unreadCount =
+    currentUserId === user1Id
+      ? normalizeNumber(prop(dto, "newMsgsCntForUser1", "NewMsgsCntForUser1"))
+      : normalizeNumber(prop(dto, "newMsgsCntForUser2", "NewMsgsCntForUser2"));
+
+  return {
+    id,
+    recruitmentId,
+    recruitmentTitle: "",
+    otherUser: otherUser ?? emptyUser(otherUserId),
+    lastMessage: lastMessage ? mapMessage(lastMessage, id, 0, currentUserId ?? 0) : null,
+    unreadCount,
+    chatStatus: mapChatStatus(prop(dto, "status", "Status")),
+    newMessageAt: lastMessage ? normalizeText(prop(lastMessage, "sentAt", "SentAt")) : "",
+    users: [
+      { userId: user1Id, sentMessage: false },
+      { userId: user2Id, sentMessage: false },
+    ],
+  };
+};
+
+const readPagedItems = <T,>(page: BackendPaged<T>) =>
+  prop<T[]>(page, "items", "Items") ?? [];
+
+export const login = async (
+  username: string,
+  password: string,
+): Promise<UserInfo | null> => {
+  clearAuthTokens();
+  const tokens = await post<BackendToken>("/auth/login", { username, password });
+  updateTokens(tokens);
+  const user = await getUserById("me");
+  if (user) currentUserId = user.id;
+  return user;
+};
+
+export const register = async (
+  username: string,
+  password: string,
+): Promise<UserInfo | null> => {
+  clearAuthTokens();
+  const tokens = await post<BackendToken>("/auth/register", { username, password });
+  updateTokens(tokens);
+  const user = await getUserById("me");
+  if (user) currentUserId = user.id;
+  return user;
+};
+
+export const getUserById = async (id: number | "me"): Promise<UserInfo | null> => {
+  try {
+    return mapUser(await get<BackendUser>(id === "me" ? "/users/me" : `/users/${id}`));
+  } catch {
+    return null;
+  }
+};
+
+export const getUsers = (): Promise<UserInfo[]> => Promise.resolve([]);
+
+export const updateUser = async (
+  id: number,
+  data: Record<string, unknown>,
+): Promise<UserInfo | null> => {
+  if (currentUserId !== id) return null;
+  return mapUser(
+    await patch<BackendUser>("/users/me", {
+      nickname: data.nickname,
+      signature: data.signature,
+      gender: data.gender,
+      tagIds: data.tagIds,
+    }),
   );
-  return { ...page, items: page.items.map(mapRecruitment) };
-}
+};
+
+export const getGames = async (query: string = ""): Promise<GameBrief[]> => {
+  try {
+    const games = await get<BackendGame[]>("/games", { Query: query || undefined });
+    return games.map(mapGameBrief);
+  } catch {
+    return [];
+  }
+};
+
+export const getGameById = async (id: number): Promise<GameInfo | null> => {
+  try {
+    return mapGame(await get<BackendGame>(`/games/${id}`));
+  } catch {
+    return null;
+  }
+};
+
+export const getGameTags = async (): Promise<GameTag[]> => {
+  try {
+    const games = await get<BackendGame[]>("/games");
+    return uniqueTags(
+      games.flatMap((game) => (prop<BackendTag[]>(game, "tags", "Tags") ?? []).map(mapGameTag)),
+    );
+  } catch {
+    return [];
+  }
+};
+
+export const getRecruitmentTags = async (): Promise<RecruitmentTag[]> => {
+  try {
+    const page = await get<BackendPaged<BackendRecruitment>>("/recruitments", {
+      PageSize: 100,
+    });
+    return uniqueTags(
+      readPagedItems(page).flatMap((item) =>
+        (prop<BackendTag[]>(item, "tags", "Tags") ?? []).map(mapTag),
+      ),
+    );
+  } catch {
+    return [];
+  }
+};
 
 export const getRecruitments = async (
-  gameId?: number,
-  gameTagIds: number[] = [],
-  recruitmentTagIds: number[] = [],
-) => {
-  const first = await searchRecruitments({
-    gameId,
-    gameTagIds,
-    recruitmentTagIds,
-    page: 1,
-    pageSize: 100,
-  });
-  const items = [...first.items];
-  for (let page = 2; page <= first.totalPages; page++) {
-    items.push(
-      ...(await searchRecruitments({
-        gameId,
-        gameTagIds,
-        recruitmentTagIds,
-        page,
-        pageSize: 100,
-      })).items,
-    );
+  gameName: string = "",
+  gameTags: number[] = [],
+  recruitmentTags: number[] = [],
+): Promise<RecruitmentData[]> => {
+  try {
+    let gameId: number | undefined;
+    if (gameName.trim()) {
+      const games = await getGames(gameName.trim());
+      gameId = games[0]?.id;
+      if (!gameId) return [];
+    }
+    const page = await get<BackendPaged<BackendRecruitment>>("/recruitments", {
+      GameId: gameId,
+      GameTagIds: gameTags,
+      RecruitmentTagIds: recruitmentTags,
+      PageSize: 100,
+    });
+    return readPagedItems(page).map(mapRecruitment);
+  } catch {
+    return [];
   }
-  return items;
 };
 
-export const getRecruitmentById = async (id: number) => mapRecruitment(await request<RecruitmentResponse>(`recruitments/${id}`));
-export const recordRecruitmentView = (id: number) =>
-  request<void>(`recruitments/${id}/views`, { method: "POST" });
+export const getRecruitmentsByGame = async (
+  gameId: number,
+): Promise<RecruitmentData[]> => {
+  const page = await get<BackendPaged<BackendRecruitment>>("/recruitments", {
+    GameId: gameId,
+    PageSize: 100,
+  });
+  return readPagedItems(page).map(mapRecruitment);
+};
 
-export async function getRecruitmentsByPublisherId(recruiterId: number) {
-  const first = await request<PagedResponse<RecruitmentResponse>>(
-    `recruitments/recruiters/${recruiterId}?page=1&pageSize=100`,
-  );
-  const items = [...first.items];
-  for (let page = 2; page <= first.totalPages; page++) {
-    const next = await request<PagedResponse<RecruitmentResponse>>(
-      `recruitments/recruiters/${recruiterId}?page=${page}&pageSize=100`,
-    );
-    items.push(...next.items);
+export const getRecruitmentById = async (
+  id: number,
+): Promise<RecruitmentData | null> => {
+  try {
+    return mapRecruitment(await get<BackendRecruitment>(`/recruitments/${id}`));
+  } catch {
+    return null;
   }
-  return items.map(mapRecruitment);
-}
+};
 
-export async function getRecruitmentsByPublisherPage(
-  recruiterId: number,
-  page = 1,
-  pageSize = 20,
-  status?: RecruitmentStatusDto,
-) {
-  const result = await request<PagedResponse<RecruitmentResponse>>(
-    buildUrl(`recruitments/recruiters/${recruiterId}`, { page, pageSize, status }),
+export const getRecruitmentByChatId = async (
+  chatId: number,
+): Promise<RecruitmentData | null> => {
+  const chat = await getChatById(chatId);
+  return chat?.recruitmentId ? getRecruitmentById(chat.recruitmentId) : null;
+};
+
+export const getRecruitmentsByPublisherId = async (
+  publisherId: number | null,
+): Promise<RecruitmentData[]> => {
+  if (publisherId === null) return getRecruitments();
+  const page = await get<BackendPaged<BackendRecruitment>>(
+    `/recruitments/recruiters/${publisherId}`,
+    { PageSize: 100 },
   );
-  return { ...result, items: result.items.map(mapRecruitment) };
-}
+  return readPagedItems(page).map(mapRecruitment);
+};
 
-export interface RecruitmentWriteData {
+export const saveRecruitment = (data: {
+  id: number;
+  publisherId: number;
+  gameId: number;
+  title: string;
+  description: string;
+  status: string;
+  expiredAt: string;
+  maxParticipants: number;
+  currentParticipants: number;
+  tagsId: number[];
+}): Promise<RecruitmentData> => {
+  if (data.id <= 0) return createRecruitment(data);
+  return updateRecruitment(data.id, {
+    title: data.title,
+    description: data.description,
+    status: data.status,
+    expired_at: data.expiredAt,
+    max_participants: data.maxParticipants,
+    recruitment_tag_ids: data.tagsId,
+  }).then((item) => {
+    if (!item) throw new Error("Recruitment not found");
+    return item;
+  });
+};
+
+export const createRecruitment = async (data: {
+  publisherId: number;
   gameId: number;
   title: string;
   description: string;
   maxParticipants: number;
-  expiresAt: string;
-  recruitmentTagIds: number[];
-  status?: RecruitmentStatusDto;
-}
-
-export async function createRecruitment(data: RecruitmentWriteData) {
-  return mapRecruitment(await request<RecruitmentResponse>("recruitments", { method: "POST", body: data }));
-}
-
-export async function updateRecruitment(id: number, data: Partial<Omit<RecruitmentWriteData, "gameId">>) {
-  return mapRecruitment(await request<RecruitmentResponse>(`recruitments/${id}`, { method: "PATCH", body: data }));
-}
-
-export const deleteRecruitment = (id: number) => updateRecruitment(id, { status: RecruitmentStatusDto.Deleted });
-export const forceTakeDownRecruitment = (id: number) =>
-  request<void>(`recruitments/${id}/close`, { method: "POST" });
-
-export const createResponse = async (recruitmentId: number) => mapResponse(
-  await request<ResponseResponse>(`recruitments/${recruitmentId}/responses`, { method: "POST" }),
-);
-export const acceptResponse = async (id: number) => mapResponse(await request<ResponseResponse>(`responses/${id}/accept`, { method: "POST" }));
-export const rejectResponse = async (id: number) => mapResponse(await request<ResponseResponse>(`responses/${id}/reject`, { method: "POST" }));
-
-async function mapChat(chat: ChatResponse, currentUserId: number): Promise<ChatData> {
-  const otherUserId = chat.user1Id === currentUserId ? chat.user2Id : chat.user1Id;
-  const otherUser = await getUserById(otherUserId);
-  return {
-    id: chat.id,
-    recruitmentId: chat.recruitmentId,
-    otherUserId,
-    otherUser,
-    otherUserAvatar: otherUser.avatar,
-    otherUserName: otherUser.nickname || otherUser.username,
-    lastMessage: chat.lastMessage ? mapMessage(chat.lastMessage) : null,
-    lastMessageContent: chat.lastMessage?.content ?? "",
-    lastMessageAt: chat.lastMessage?.sentAt ?? "",
-    unreadCount: chat.user1Id === currentUserId ? chat.newMsgsCntForUser1 : chat.newMsgsCntForUser2,
-    chatStatus: chatStatusLabels[chat.status] ?? chatStatusLabels[ChatStatusDto.Restricted],
-  };
-}
-
-export async function getChatsPage(currentUserId: number, before?: string, limit = 20) {
-  const page = await request<CursorPagedResponse<ChatResponse>>(buildUrl("chats/me", { before, limit }));
-  return { ...page, items: await Promise.all(page.items.map((chat) => mapChat(chat, currentUserId))) };
-}
-export async function getChats(currentUserId: number): Promise<ChatBrief[]> {
-  return (await getChatsPage(currentUserId)).items;
-}
-export const getChatById = async (id: number, currentUserId: number) => mapChat(await request<ChatResponse>(`chats/${id}`), currentUserId);
-export const getChatByUser = async (otherUserId: number, currentUserId: number) => mapChat(await request<ChatResponse>(`chats/by-user/${otherUserId}`), currentUserId);
-export async function getMessagesPage(chatId: number, before?: string, limit = 50) {
-  const page = await request<CursorPagedResponse<MessageResponse>>(
-    buildUrl(`chats/${chatId}/messages`, { before, limit }),
+  currentParticipants: number;
+  tagsId: number[];
+}): Promise<RecruitmentData> => {
+  return mapRecruitment(
+    await post<BackendRecruitment>("/recruitments", {
+      gameId: data.gameId,
+      title: data.title,
+      description: data.description,
+      maxParticipants: data.maxParticipants,
+      expiresAt: data.expiredAt,
+      recruitmentTagIds: data.tagsId,
+    }),
   );
-  return { ...page, items: page.items.map(mapMessage) };
-}
-export const getMessagesByChatId = async (chatId: number) => (await getMessagesPage(chatId)).items;
-export const getWebSocketTicket = (chatId: number) => request<WebSocketTicketResponse>(`chats/${chatId}/ws-ticket`, { method: "POST" });
+};
 
-export async function openChatSocket(chatId: number) {
-  const { ticket } = await getWebSocketTicket(chatId);
-  return new WebSocket(`${WS_BASE_URL}/chats/${chatId}/ws?ticket=${encodeURIComponent(ticket)}`);
-}
+export const updateRecruitment = async (
+  id: number,
+  data: Partial<{
+    title: string;
+    description: string;
+    status: string;
+    expired_at: string;
+    max_participants: number;
+    current_participants: number;
+    recruitment_tag_ids: number[];
+  }>,
+): Promise<RecruitmentData | null> => {
+  try {
+    return mapRecruitment(
+      await patch<BackendRecruitment>(`/recruitments/${id}`, {
+        title: data.title,
+        description: data.description,
+        status: toRecruitmentStatusValue(data.status),
+        expiresAt: data.expired_at,
+        maxParticipants: data.max_participants,
+        recruitmentTagIds: data.recruitment_tag_ids,
+      }),
+    );
+  } catch {
+    return null;
+  }
+};
 
-export async function sendGreeting(chatId: number, content: string) {
-  const message = content.trim();
-  if (!message || message.length > 4000) throw new Error("Greeting must be 1-4000 characters");
-  const socket = await openChatSocket(chatId);
-  await new Promise<void>((resolve, reject) => {
+export const deleteRecruitment = async (id: number): Promise<boolean> => {
+  return Boolean(await updateRecruitment(id, { status: "已删除" }));
+};
+
+export const getResponses = async (
+  recruitmentId?: number,
+): Promise<ResponseData[]> => {
+  if (!recruitmentId) return [];
+  try {
+    const responses = (await get<BackendResponse[]>(
+      `/recruitments/${recruitmentId}/responses`,
+    )).map(mapResponse);
+    const responderIds = [
+      ...new Set(responses.map((response) => response.responserId)),
+    ];
+    const responderById = new Map<number, UserInfo>();
+    await Promise.all(
+      responderIds.map(async (responderId) => {
+        const responder = await getUserById(responderId);
+        if (responder) responderById.set(responderId, responder);
+      }),
+    );
+    return responses.map((response) => ({
+      ...response,
+      responser: responderById.get(response.responserId) ?? response.responser,
+    }));
+  } catch {
+    return [];
+  }
+};
+
+export const getResponsesByUserId = (
+  _userId: number,
+): Promise<ResponseData[]> => Promise.resolve([]);
+
+export const createResponse = async (data: {
+  recruitmentId: number;
+  responserId: number;
+}): Promise<ResponseData> => {
+  return mapResponse(await post<BackendResponse>(`/recruitments/${data.recruitmentId}/responses`));
+};
+
+export const deleteResponse = async (id: number, _reason?: string): Promise<boolean> => {
+  await post<BackendResponse>(`/responses/${id}/reject`);
+  return true;
+};
+
+export const updateResponseStatus = async (
+  id: number,
+  responseStatus: ResponseStatus,
+): Promise<ResponseData | null> => {
+  try {
+    const action = responseStatus === "已删除" ? "reject" : "accept";
+    return mapResponse(await post<BackendResponse>(`/responses/${id}/${action}`));
+  } catch {
+    return null;
+  }
+};
+
+export const getChats = async (_userId?: number): Promise<ChatBrief[]> => {
+  try {
+    const chats = await get<BackendChat[]>("/chats/me");
+    const mapped = await Promise.all(chats.map(mapChat));
+    return mapped.map((chat) => ({
+      id: chat.id,
+      otherUserAvatar: chat.otherUser.avatar,
+      otherUserName: chat.otherUser.nickname || chat.otherUser.username,
+      lastMessageContent: chat.lastMessage?.content ?? "",
+      lastMessageAt: chat.lastMessage?.createdAt ?? "",
+      createdAt: "",
+    }));
+  } catch {
+    return [];
+  }
+};
+
+export const getChatById = async (chatId: number): Promise<ChatData | null> => {
+  try {
+    return await mapChat(await get<BackendChat>(`/chats/${chatId}`));
+  } catch {
+    return null;
+  }
+};
+
+export const getChatByUsers = async (userIds: number[]): Promise<ChatData | null> => {
+  const otherUserId = userIds.find((id) => id !== currentUserId) ?? userIds[0];
+  if (!otherUserId) return null;
+  try {
+    return await mapChat(await get<BackendChat>(`/chats/by-user/${otherUserId}`));
+  } catch {
+    return null;
+  }
+};
+
+export const getChatsByRecruitmentId = async (
+  recruitmentId: number,
+): Promise<ChatData[]> => {
+  try {
+    const chats = await get<BackendChat[]>("/chats/me");
+    const filtered = chats.filter(
+      (chat) => normalizeNumber(prop(chat, "recruitmentId", "RecruitmentId")) === recruitmentId,
+    );
+    return Promise.all(filtered.map(mapChat));
+  } catch {
+    return [];
+  }
+};
+
+export const createChat = async (data: {
+  recruitmentId: number;
+  user1Id: number;
+  user2Id: number;
+}): Promise<ChatData> => {
+  await createResponse({ recruitmentId: data.recruitmentId, responserId: data.user1Id });
+  const chat = await getChatByUsers([data.user1Id, data.user2Id]);
+  if (!chat) throw new Error("Chat not found");
+  return chat;
+};
+
+export const closeChat = (_id?: number): Promise<boolean> => Promise.resolve(false);
+
+export const getMessagesByChatId = async (chatId: number): Promise<MessageData[]> => {
+  try {
+    const messages = await get<BackendMessage[]>(`/chats/${chatId}/messages`);
+    return messages.map((message, index) => mapMessage(message, chatId, index));
+  } catch {
+    return [];
+  }
+};
+
+export const sendMessage = (data: {
+  chatId: number;
+  senderId: number;
+  receiverId: number;
+  content: string;
+}): Promise<MessageData> =>
+  new Promise((resolve, reject) => {
+    if (!accessToken) {
+      reject(new Error("Authentication required"));
+      return;
+    }
+    const url = buildUrl(`/chats/${data.chatId}/ws`)
+      .replace(/^http:\/\//, "ws://")
+      .replace(/^https:\/\//, "wss://");
+    const socket = new (WebSocket as any)(url, undefined, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     let settled = false;
-    const finish = (error?: Error) => {
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ content: data.content }));
+    };
+    socket.onmessage = (event: MessageEvent) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeout);
-      if (error) reject(error);
-      else resolve();
-    };
-    const timeout = setTimeout(() => {
-      finish(new Error("Greeting timed out"));
       socket.close();
-    }, 10_000);
-    socket.onopen = () => socket.send(JSON.stringify({ content: message }));
-    socket.onmessage = (event) => {
-      const message = JSON.parse(String(event.data)) as MessageResponse;
-      if (message.content === content.trim()) {
-        finish();
-        socket.close();
-      }
+      resolve(mapMessage(JSON.parse(String(event.data)), data.chatId, 0, data.receiverId));
     };
-    socket.onerror = () => finish(new Error("Unable to send greeting"));
-    socket.onclose = () => finish(new Error("Chat closed before the greeting was sent"));
+    socket.onerror = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("WebSocket message send failed"));
+    };
+    socket.onclose = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("WebSocket closed before message was sent"));
+    };
   });
-}
+
+export const initTagCaches = async () => {
+  await Promise.allSettled([getGameTags(), getRecruitmentTags()]);
+};

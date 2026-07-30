@@ -12,9 +12,8 @@ import {
 import {
   ChatData,
   createResponse,
-  getChatByUser,
+  getChatByUsers,
   getRecruitmentById,
-  ResponseData,
   RecruitmentData,
   RecruitmentTag,
   sendGreeting,
@@ -32,7 +31,6 @@ export default function RecruitmentViewScreen() {
 
   const [recruitment, setRecruitment] = useState<RecruitmentData | null>(null);
   const [existingChat, setExistingChat] = useState<ChatData | null>(null);
-  const [myResponse, setMyResponse] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [showGreetingModal, setShowGreetingModal] = useState(false);
@@ -55,16 +53,12 @@ export default function RecruitmentViewScreen() {
   }, [params.recruitmentId]);
 
   useEffect(() => {
-    if (userId && recruitment?.id) {
-      const response = recruitment.responses.find((item) => item.responserId === userId);
-      setMyResponse(response || null);
-      if (response) {
-        getChatByUser(recruitment.publisherId, userId)
-          .then(setExistingChat)
-          .catch(() => setExistingChat(null));
-      }
+    if (userId && recruitment?.publisherId) {
+      getChatByUsers([userId, recruitment.publisherId]).then((chat) => {
+        setExistingChat(chat);
+      });
     }
-  }, [userId, recruitment]);
+  }, [userId, recruitment?.publisherId]);
 
   if (fetching) {
     return (
@@ -96,23 +90,20 @@ export default function RecruitmentViewScreen() {
   }
 
   const isClosed = recruitment.status === "已关闭";
+  const chatMatchesRecruitment = existingChat?.recruitmentId === recruitment.id;
+  const canContinueChat = Boolean(
+    existingChat && (chatMatchesRecruitment || isClosed),
+  );
 
   const handleChat = async () => {
     if (!userId) return;
-    // 已关闭且没回应过：不能操作
-    if (isClosed && !myResponse) return;
-    // 已回应且被拒绝：不能操作
-    if (myResponse && myResponse.responseStatus === "已拒绝") return;
-    // 回应过但没有聊天：不能操作
-    if (myResponse && !existingChat) return;
-    // 有聊天：继续聊天
-    if (myResponse && existingChat) {
+    if (canContinueChat && existingChat) {
       router.dismissAll();
       router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${existingChat.id}`);
       return;
     }
-    // 没回应过：弹出打招呼
+    if (isClosed) return;
     setShowGreetingModal(true);
   };
 
@@ -121,12 +112,25 @@ export default function RecruitmentViewScreen() {
     setLoading(true);
     let responseCreated = false;
     try {
-      const response = await createResponse(recruitment.id);
-      responseCreated = true;
-      setMyResponse(response);
-      const chat = await getChatByUser(recruitment.publisherId, userId);
-      setExistingChat(chat);
-      await sendGreeting(chat.id, greeting);
+      let chat = existingChat;
+      try {
+        await createResponse({
+          recruitmentId: recruitment.id,
+          responserId: userId,
+        });
+        chat = await getChatByUsers([userId, recruitment.publisherId]);
+      } catch (error) {
+        const alreadyResponded =
+          error instanceof Error && error.message === "HTTP 409" && chat;
+        if (!alreadyResponded) throw error;
+      }
+      if (!chat) throw new Error("Chat not found");
+      await sendMessage({
+        chatId: chat.id,
+        senderId: userId,
+        receiverId: recruitment.publisherId,
+        content: greeting,
+      });
       router.dismissAll();
       router.push(`/(tabs)/chat`);
       router.push(`/chat-room?chatId=${chat.id}`);
@@ -234,31 +238,22 @@ export default function RecruitmentViewScreen() {
         <TouchableOpacity
           style={[
             styles.chatButton,
-            (isClosed && !myResponse) ||
-            (myResponse && myResponse.responseStatus === "已拒绝")
+            isClosed && !existingChat
               ? { backgroundColor: colors.textQuaternary }
               : { backgroundColor: colors.primary },
             loading && styles.chatButtonDisabled,
           ]}
           onPress={handleChat}
-          disabled={
-            loading ||
-            (isClosed && !myResponse) ||
-            !!(myResponse && myResponse.responseStatus === "已拒绝")
-          }
+          disabled={loading || (isClosed && !existingChat)}
         >
           <Text style={styles.chatButtonText}>
             {loading
               ? "加载中..."
-              : isClosed && !myResponse
+              : canContinueChat
+                ? "继续聊天"
+                : isClosed
                 ? "已关闭"
-                : myResponse && myResponse.responseStatus === "已拒绝"
-                  ? "对方已拒绝"
-                  : myResponse && !existingChat
-                    ? "已回应"
-                    : myResponse && existingChat
-                      ? "继续聊天"
-                      : "聊一聊"}
+                : "聊一聊"}
           </Text>
         </TouchableOpacity>
       </ScrollView>

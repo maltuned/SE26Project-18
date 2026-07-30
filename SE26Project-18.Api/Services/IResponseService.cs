@@ -8,6 +8,12 @@ public interface IResponseService
 
     Task<ResponseResponse> GetByIdAsync(long responseId, long userId, CancellationToken ct);
 
+    Task<IReadOnlyList<ResponseResponse>> GetByRecruitmentAsync(
+        long recruitmentId,
+        long recruiterId,
+        CancellationToken ct
+    );
+
     Task<ResponseResponse> AcceptAsync(long responseId, long recruiterId, CancellationToken ct);
 
     Task<ResponseResponse> RejectAsync(long responseId, long recruiterId, CancellationToken ct);

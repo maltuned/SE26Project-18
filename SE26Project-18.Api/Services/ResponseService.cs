@@ -106,6 +106,32 @@ internal sealed class ResponseService : IResponseService
         return response.ToResponse();
     }
 
+    public async Task<IReadOnlyList<ResponseResponse>> GetByRecruitmentAsync(
+        long recruitmentId,
+        long recruiterId,
+        CancellationToken ct
+    )
+    {
+        var recruitment =
+            await _db
+                .Recruitments.AsNoTracking()
+                .Include(r => r.Recruiter)
+                .FirstOrDefaultAsync(r => r.Id == recruitmentId, ct)
+            ?? throw new NotFoundException("Recruitment not found.");
+
+        if (recruitment.Recruiter.Id != recruiterId)
+        {
+            throw new ForbiddenException("Only the recruitment recruiter can view responses.");
+        }
+
+        var responses = await BaseQuery()
+            .Where(r => r.RecruitmentId == recruitmentId)
+            .OrderBy(r => r.Id)
+            .ToListAsync(ct);
+
+        return responses.Select(r => r.ToResponse()).ToList();
+    }
+
     public async Task<ResponseResponse> AcceptAsync(
         long responseId,
         long recruiterId,
