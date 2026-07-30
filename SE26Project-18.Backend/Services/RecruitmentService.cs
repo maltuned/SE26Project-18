@@ -22,7 +22,7 @@ public class RecruitmentService : IRecruitmentService
     {
         return _db.Recruitments
             .Include(r => r.Publisher)
-            .Include(r => r.Game).ThenInclude(g => g.Tags)
+            .Include(r => r.Game!).ThenInclude(g => g.Tags)
             .Include(r => r.GameTags)
             .Include(r => r.RecruitmentTags);
     }
@@ -39,7 +39,7 @@ public class RecruitmentService : IRecruitmentService
         var query = Query().Where(r => r.Status == RecruitmentStatus.Open);
 
         if (!string.IsNullOrEmpty(gameName))
-            query = query.Where(r => r.Game.Name.Contains(gameName));
+            query = query.Where(r => (r.Game != null && r.Game.Name.Contains(gameName)) || r.GameName.Contains(gameName));
 
         if (gameTags is { Length: > 0 })
             query = query.Where(r => r.GameTags.Any(gt => gameTags.Contains(gt.Id)));
@@ -80,7 +80,9 @@ public class RecruitmentService : IRecruitmentService
 
     public async Task<RecruitmentDetailDto> CreateRecruitmentAsync(RecruitmentDto dto)
     {
-        var game = await _db.Games.Include(g => g.Tags).FirstOrDefaultAsync(g => g.Id == dto.GameId)
+        if (dto.GameId == null)
+            throw new ArgumentException("游戏ID不能为空");
+        var game = await _db.Games.Include(g => g.Tags).FirstOrDefaultAsync(g => g.Id == dto.GameId.Value)
             ?? throw new KeyNotFoundException("游戏不存在");
         var publisher = await _db.Users.FindAsync(dto.PublisherId)
             ?? throw new KeyNotFoundException("用户不存在");
@@ -88,13 +90,12 @@ public class RecruitmentService : IRecruitmentService
         var recruitment = new Recruitment(dto.Title, DateTime.Parse(dto.ExpiredAt), dto.MaxParticipants)
         {
             PublisherId = dto.PublisherId,
-            GameId = dto.GameId,
+            GameId = dto.GameId.Value,
             Description = dto.Description,
             Status = dto.Status.ToRecruitmentStatus(),
             CurrentParticipants = dto.CurrentParticipants,
             Publisher = publisher,
             Game = game,
-            // 从游戏注入游戏标签
             GameTags = [.. game.Tags],
         };
 

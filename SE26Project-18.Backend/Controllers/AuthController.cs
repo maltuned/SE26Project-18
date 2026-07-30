@@ -90,6 +90,26 @@ public class AuthController : ControllerBase
         await _authService.LogoutAsync(userId, request.RefreshToken);
         return Ok(ApiResponse<bool>.Success(true, "已登出"));
     }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<ActionResult<ApiResponse<bool>>> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (!long.TryParse(userIdClaim, out var userId))
+            return Ok(ApiResponse<bool>.Fail("无效的令牌", 401));
+
+        try
+        {
+            await _authService.ChangePasswordAsync(userId, request.OldPassword, request.NewPassword);
+            return Ok(ApiResponse<bool>.Success(true, "密码修改成功，请重新登录"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Ok(ApiResponse<bool>.Fail(ex.Message, 400));
+        }
+    }
 }
 
 public class AuthRequest
@@ -105,4 +125,13 @@ public class RefreshRequest
 {
     [JsonPropertyName("refresh_token")]
     public string RefreshToken { get; set; } = string.Empty;
+}
+
+public class ChangePasswordRequest
+{
+    [JsonPropertyName("old_password")]
+    public string OldPassword { get; set; } = string.Empty;
+
+    [JsonPropertyName("new_password")]
+    public string NewPassword { get; set; } = string.Empty;
 }

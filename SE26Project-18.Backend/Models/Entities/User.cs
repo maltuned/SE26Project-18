@@ -34,6 +34,8 @@ public class User
 
     public ICollection<Recruitment> Recruitments { get; set; } = [];
 
+    public UserSettings? Settings { get; set; }
+
     public ICollection<Chat> Chats { get; set; } = [];
 
     public ICollection<Response> SentResponses { get; set; } = [];

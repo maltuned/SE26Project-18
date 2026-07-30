@@ -22,6 +22,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<Admin> Admins => Set<Admin>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<UserSettings> UserSettings => Set<UserSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,6 +45,11 @@ public sealed class AppDbContext : DbContext
                 .WithOne(c => c.Recruiter)
                 .HasForeignKey(c => c.RecruiterId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(u => u.Settings)
+                .WithOne(s => s.User)
+                .HasForeignKey<UserSettings>(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Game <-> GameTag (M2M with custom join table)
@@ -66,7 +72,7 @@ public sealed class AppDbContext : DbContext
             entity.HasOne(r => r.Game)
                 .WithMany()
                 .HasForeignKey(r => r.GameId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasMany(r => r.GameTags)
                 .WithMany()

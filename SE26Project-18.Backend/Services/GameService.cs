@@ -79,10 +79,31 @@ public class GameService : IGameService
         return _mapper.ToGameDto(game);
     }
 
+    public async Task<GameDto> UpdateGameImageAsync(long id, string cover, string icon)
+    {
+        var game = await _db.Games.FindAsync(id)
+            ?? throw new KeyNotFoundException("游戏不存在");
+
+        game.UpdateDetails(game.Name, game.NameEn, game.Aliases, game.Company, game.Description, cover, icon);
+        await _db.SaveChangesAsync();
+        return _mapper.ToGameDto(game);
+    }
+
     public async Task<bool> DeleteGameAsync(long id)
     {
         var game = await _db.Games.FindAsync(id);
         if (game == null) return false;
+
+        var recruitments = await _db.Recruitments
+            .Where(r => r.GameId == id)
+            .ToListAsync();
+
+        foreach (var recruitment in recruitments)
+        {
+            recruitment.GameId = null;
+            recruitment.GameName = game.Name;
+        }
+
         _db.Games.Remove(game);
         await _db.SaveChangesAsync();
         return true;

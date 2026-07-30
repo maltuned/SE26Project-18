@@ -11,7 +11,10 @@ public class RecruitmentDto
     public long PublisherId { get; set; }
 
     [JsonPropertyName("game_id")]
-    public long GameId { get; set; }
+    public long? GameId { get; set; }
+
+    [JsonPropertyName("game_name")]
+    public string GameName { get; set; } = string.Empty;
 
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;

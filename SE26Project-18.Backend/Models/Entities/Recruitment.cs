@@ -10,7 +10,9 @@ public class Recruitment
 
     public long PublisherId { get; set; }
 
-    public long GameId { get; set; }
+    public long? GameId { get; set; }
+
+    public string GameName { get; set; } = string.Empty;
 
     public string Title { get; set; }
 
@@ -30,7 +32,7 @@ public class Recruitment
 
     public User Publisher { get; set; } = null!;
 
-    public Game Game { get; set; } = null!;
+    public Game? Game { get; set; }
 
     public ICollection<GameTag> GameTags { get; set; } = [];
 

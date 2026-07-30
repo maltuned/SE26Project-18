@@ -22,6 +22,13 @@ export interface UserInfo {
   status: UserStatus;
   createdAt: string;
   updatedAt: string;
+  settings?: UserSettings;
+}
+
+export interface UserSettings {
+  pushEnabled: boolean;
+  profileVisible: boolean;
+  darkMode: boolean;
 }
 
 // ==================== Game ====================

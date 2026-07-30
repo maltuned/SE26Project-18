@@ -7,7 +7,6 @@ namespace SE26Project_18.Backend.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize]
 public class ImageController : ControllerBase
 {
     private readonly IImageService _imageService;
@@ -18,6 +17,7 @@ public class ImageController : ControllerBase
     }
 
     [HttpPost("upload")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> Upload(IFormFile file, [FromForm] string folder = "general", [FromForm] string? name = null)
     {
         if (file == null || file.Length == 0)
@@ -35,6 +35,10 @@ public class ImageController : ControllerBase
         if (!allowedFolders.Contains(folder))
             folder = "general";
 
+        var adminFolders = new[] { "covers", "icons" };
+        if (adminFolders.Contains(folder) && !User.IsInRole("Admin"))
+            return Unauthorized(ApiResponse<string>.Fail("仅管理员可上传封面和图标", 403));
+
         using var stream = file.OpenReadStream();
         var objectName = !string.IsNullOrEmpty(name)
             ? await _imageService.UploadWithNameAsync(stream, $"{folder}/{name}{extension}", file.ContentType)
@@ -45,6 +49,7 @@ public class ImageController : ControllerBase
     }
 
     [HttpPost("upload-avatar")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> UploadAvatar(IFormFile file, [FromForm] long userId)
     {
         if (file == null || file.Length == 0)
@@ -73,6 +78,7 @@ public class ImageController : ControllerBase
     }
 
     [HttpGet("file/{**objectName}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetFile(string objectName)
     {
         var stream = await _imageService.GetStreamAsync(objectName);

@@ -383,6 +383,21 @@ public class AdminController : ControllerBase
     }
 
     [Authorize(Roles = "Admin")]
+    [HttpPut("games/{id}/image")]
+    public async Task<ActionResult<ApiResponse<GameDto>>> UpdateGameImage(long id, [FromBody] UpdateGameImageRequest request)
+    {
+        try
+        {
+            var game = await _gameService.UpdateGameImageAsync(id, request.Cover, request.Icon);
+            return Ok(ApiResponse<GameDto>.Success(game, "图片更新成功"));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Ok(ApiResponse<GameDto>.Fail(ex.Message, 404));
+        }
+    }
+
+    [Authorize(Roles = "Admin")]
     [HttpDelete("games/{id}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteGame(long id)
     {
@@ -557,4 +572,13 @@ public class UpdateReviewStatusRequest
 {
     [JsonPropertyName("status")]
     public string Status { get; set; } = string.Empty;
+}
+
+public class UpdateGameImageRequest
+{
+    [JsonPropertyName("cover")]
+    public string Cover { get; set; } = string.Empty;
+
+    [JsonPropertyName("icon")]
+    public string Icon { get; set; } = string.Empty;
 }

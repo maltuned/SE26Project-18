@@ -11,4 +11,7 @@ public interface IUserService
     Task<List<UserDto>> SearchUsersAsync(string query);
     Task<UserDto?> UpdateUserStatusAsync(long id, UserStatus status);
     Task<UserDto?> ClearUserProfileAsync(long id);
+    Task<UserSettingsDto?> GetUserSettingsAsync(long userId);
+    Task<UserSettingsDto?> UpdateUserSettingsAsync(long userId, UserSettingsDto settings);
+    Task<(UserDto? user, bool isPrivate)> GetUserProfileAsync(long requesterId, long targetId);
 }

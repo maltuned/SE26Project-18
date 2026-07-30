@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { useTheme } from "../contexts/theme-context";
-import { tokenStorage } from "../api/tokenStorage";
+import { tokenStorage } from "../api/token-storage";
 import { API_BASE } from "../api/config";
 
 const DEFAULT_AVATAR = require("../../assets/images/testImage.png");

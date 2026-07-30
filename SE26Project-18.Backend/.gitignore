@@ -483,3 +483,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Covers and Icons assets
+assets/covers/*
+!assets/covers/readme.txt
+assets/icons/*
+!assets/icons/readme.txt

@@ -6,7 +6,7 @@ import {
 } from "@microsoft/signalr";
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { MessageDto } from "../api/dtos";
-import { tokenStorage } from "../api/tokenStorage";
+import { tokenStorage } from "../api/token-storage";
 import { API_BASE } from "../api/config";
 import { useAuth } from "./auth-context";
 

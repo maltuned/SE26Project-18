@@ -12,20 +12,23 @@ import MessageToast, { ToastMessage } from "../components/message-toast";
 import TestMessageButton from "../components/test-message-button";
 import { AuthProvider, useAuth } from "../contexts/auth-context";
 import { ChatUnreadProvider } from "../contexts/chat-unread-context";
+import { NotificationProvider, useNotification } from "../contexts/notification-context";
 import { SignalRProvider, useSignalR } from "../contexts/signalr-context";
 import { ThemeProvider, useTheme } from "../contexts/theme-context";
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <ChatUnreadProvider>
-          <SignalRProvider>
-            <RootLayoutMain />
-          </SignalRProvider>
+          <NotificationProvider>
+            <SignalRProvider>
+              <RootLayoutMain />
+            </SignalRProvider>
+          </NotificationProvider>
         </ChatUnreadProvider>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 
@@ -46,6 +49,7 @@ function RootLayoutNav() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const { onNewChatMessage } = useSignalR();
+  const { pushEnabled } = useNotification();
   const globalParams = useGlobalSearchParams();
 
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -72,6 +76,8 @@ function RootLayoutNav() {
 
       if (isChatListTab || inChatRoom) return;
 
+      if (!pushEnabled) return;
+
       const newToast: ToastMessage = {
         id: `${msg.id}-${Date.now()}`,
         chatId: msg.chat_id,
@@ -88,7 +94,7 @@ function RootLayoutNav() {
     });
 
     return unsub;
-  }, [segments, globalParams.chatId, onNewChatMessage, showNextToast]);
+  }, [segments, globalParams.chatId, onNewChatMessage, pushEnabled, showNextToast]);
 
   return (
     <View

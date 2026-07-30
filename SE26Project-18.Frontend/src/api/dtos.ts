@@ -38,6 +38,13 @@ export interface UserDto {
   status: UserStatus;
   created_at: string;
   updated_at: string;
+  settings?: UserSettingsDto;
+}
+
+export interface UserSettingsDto {
+  push_enabled: boolean;
+  profile_visible: boolean;
+  dark_mode: boolean;
 }
 
 // ==================== Game ====================
@@ -80,13 +87,15 @@ export interface RecruitmentTagDto {
 export interface RecruitmentBriefDto {
   id: number;
   title: string;
-  game: GameBriefDto;
+  game: GameBriefDto | null;
+  game_name?: string;
 }
 
 export interface RecruitmentDto {
   id: number;
   publisher_id: number;
-  game_id: number;
+  game_id: number | null;
+  game_name?: string;
   title: string;
   description: string;
   status: RecruitmentStatus;
@@ -100,7 +109,8 @@ export interface RecruitmentDto {
 
 export interface RecruitmentDetailDto extends RecruitmentDto {
   publisher: UserBriefDto;
-  game: GameBriefDto;
+  game: GameBriefDto | null;
+  game_name?: string;
   gameTags: GameTagDto[];
   recruitmentTags: RecruitmentTagDto[];
 }

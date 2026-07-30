@@ -20,19 +20,39 @@ public class UserService : IUserService
 
     public async Task<UserDto?> GetUserByIdAsync(long id)
     {
-        var user = await _db.Users.FindAsync(id);
+        var user = await _db.Users
+            .Include(u => u.Settings)
+            .FirstOrDefaultAsync(u => u.Id == id);
         return user == null ? null : _mapper.ToUserDto(user);
+    }
+
+    public async Task<(UserDto? user, bool isPrivate)> GetUserProfileAsync(long requesterId, long targetId)
+    {
+        var user = await _db.Users
+            .Include(u => u.Settings)
+            .FirstOrDefaultAsync(u => u.Id == targetId);
+
+        if (user == null) return (null, false);
+
+        if (requesterId != targetId && user.Settings?.ProfileVisible == false)
+            return (null, true);
+
+        return (_mapper.ToUserDto(user), false);
     }
 
     public async Task<List<UserDto>> GetUsersAsync()
     {
-        var users = await _db.Users.ToListAsync();
+        var users = await _db.Users
+            .Include(u => u.Settings)
+            .ToListAsync();
         return users.Select(_mapper.ToUserDto).ToList();
     }
 
     public async Task<UserDto?> UpdateUserAsync(long id, Dictionary<string, object> data)
     {
-        var user = await _db.Users.FindAsync(id);
+        var user = await _db.Users
+            .Include(u => u.Settings)
+            .FirstOrDefaultAsync(u => u.Id == id);
         if (user == null) return null;
 
         if (data.TryGetValue("nickname", out var nick)) user.Nickname = GetStringValue(nick);
@@ -49,11 +69,15 @@ public class UserService : IUserService
     {
         if (long.TryParse(query, out var id))
         {
-            var user = await _db.Users.Where(u => u.Id == id).ToListAsync();
+            var user = await _db.Users
+                .Include(u => u.Settings)
+                .Where(u => u.Id == id)
+                .ToListAsync();
             return user.Select(_mapper.ToUserDto).ToList();
         }
 
         var users = await _db.Users
+            .Include(u => u.Settings)
             .Where(u => u.Username.Contains(query) || u.Nickname.Contains(query))
             .ToListAsync();
         return users.Select(_mapper.ToUserDto).ToList();
@@ -82,6 +106,60 @@ public class UserService : IUserService
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return _mapper.ToUserDto(user);
+    }
+
+    public async Task<UserSettingsDto?> GetUserSettingsAsync(long userId)
+    {
+        var settings = await _db.UserSettings
+            .FirstOrDefaultAsync(s => s.UserId == userId);
+        if (settings == null)
+        {
+            settings = new UserSettings
+            {
+                UserId = userId,
+                PushEnabled = true,
+                ProfileVisible = true,
+                DarkMode = false,
+            };
+            _db.UserSettings.Add(settings);
+            await _db.SaveChangesAsync();
+        }
+
+        return new UserSettingsDto
+        {
+            PushEnabled = settings.PushEnabled,
+            ProfileVisible = settings.ProfileVisible,
+            DarkMode = settings.DarkMode,
+        };
+    }
+
+    public async Task<UserSettingsDto?> UpdateUserSettingsAsync(long userId, UserSettingsDto dto)
+    {
+        var settings = await _db.UserSettings
+            .FirstOrDefaultAsync(s => s.UserId == userId);
+        if (settings == null)
+        {
+            settings = new UserSettings
+            {
+                UserId = userId,
+                PushEnabled = true,
+                ProfileVisible = true,
+                DarkMode = false,
+            };
+            _db.UserSettings.Add(settings);
+        }
+
+        settings.PushEnabled = dto.PushEnabled;
+        settings.ProfileVisible = dto.ProfileVisible;
+        settings.DarkMode = dto.DarkMode;
+        await _db.SaveChangesAsync();
+
+        return new UserSettingsDto
+        {
+            PushEnabled = settings.PushEnabled,
+            ProfileVisible = settings.ProfileVisible,
+            DarkMode = settings.DarkMode,
+        };
     }
 
     private static string GetStringValue(object value)

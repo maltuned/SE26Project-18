@@ -8,7 +8,7 @@ public class RecruitmentDetailDto : RecruitmentDto
     public UserBriefDto Publisher { get; set; } = null!;
 
     [JsonPropertyName("game")]
-    public GameBriefDto Game { get; set; } = null!;
+    public GameBriefDto? Game { get; set; }
 
     [JsonPropertyName("gameTags")]
     public GameTagDto[] GameTags { get; set; } = [];

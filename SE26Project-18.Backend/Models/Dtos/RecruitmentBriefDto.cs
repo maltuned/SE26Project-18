@@ -11,5 +11,8 @@ public class RecruitmentBriefDto
     public string Title { get; set; } = string.Empty;
 
     [JsonPropertyName("game")]
-    public GameBriefDto Game { get; set; } = null!;
+    public GameBriefDto? Game { get; set; }
+
+    [JsonPropertyName("game_name")]
+    public string GameName { get; set; } = string.Empty;
 }

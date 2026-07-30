@@ -29,6 +29,12 @@ public sealed class AuthService : IAuthService
         var user = new User(username, passwordHashed)
         {
             Nickname = username,
+            Settings = new UserSettings
+            {
+                PushEnabled = true,
+                ProfileVisible = true,
+                DarkMode = false,
+            },
         };
 
         _db.Users.Add(user);
@@ -84,6 +90,27 @@ public sealed class AuthService : IAuthService
             await CleanupStaleTokensAsync(userId);
             await _db.SaveChangesAsync();
         }
+    }
+
+    public async Task ChangePasswordAsync(long userId, string oldPassword, string newPassword)
+    {
+        var user = await _db.Users.FindAsync(userId)
+            ?? throw new InvalidOperationException("用户不存在");
+
+        if (!BCrypt.Net.BCrypt.Verify(oldPassword, user.PasswordHashed))
+            throw new InvalidOperationException("原密码错误");
+
+        if (newPassword.Length < 6)
+            throw new InvalidOperationException("新密码长度不能少于 6 位");
+
+        user.PasswordHashed = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _db.RefreshTokens
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+            .ExecuteUpdateAsync(s => s.SetProperty(rt => rt.IsRevoked, true));
+
+        await _db.SaveChangesAsync();
     }
 
     private async Task CleanupStaleTokensAsync(long userId)

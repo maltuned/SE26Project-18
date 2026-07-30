@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { getMe, setAuthExpiredHandler, setLogoutInProgress, UserInfo } from "../api/api";
-import { tokenStorage } from "../api/tokenStorage";
+import { tokenStorage } from "../api/token-storage";
 
 type AuthContextType = {
   isLoggedIn: boolean;

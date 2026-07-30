@@ -206,7 +206,7 @@ const Games: React.FC = () => {
   const columns: ColumnsType<Game> = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: '封面', dataIndex: 'cover', key: 'cover', width: 80,
-      render: (_, r) => r.cover ? <AuthImage src={r.cover} width={48} height={48} /> : '-',
+      render: (_, r) => r.cover ? <AuthImage src={r.cover} width={48} height={66} /> : '-',
     },
     {
       title: '图标', dataIndex: 'icon', key: 'icon', width: 80,

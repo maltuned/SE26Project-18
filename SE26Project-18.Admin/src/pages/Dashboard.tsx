@@ -6,6 +6,9 @@ import {
   UserOutlined,
   TeamOutlined,
   AppstoreOutlined,
+  NotificationOutlined,
+  StarOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getPendingCount as fetchPendingCount } from '../api';
@@ -20,9 +23,12 @@ interface PendingCounts {
 const cards = [
   { key: 'reports', title: '举报管理', icon: <WarningOutlined />, color: '#ff4d4f', path: '/admin/reports' },
   { key: 'feedbacks', title: '反馈管理', icon: <MessageOutlined />, color: '#1890ff', path: '/admin/feedbacks' },
+  { key: 'notifications', title: '通知管理', icon: <NotificationOutlined />, color: '#13c2c2', path: '/admin/notifications' },
   { key: 'users', title: '用户管理', icon: <UserOutlined />, color: '#52c41a', path: '/admin/users' },
   { key: 'recruitments', title: '招募管理', icon: <TeamOutlined />, color: '#722ed1', path: '/admin/recruitments' },
   { key: 'games', title: '游戏管理', icon: <AppstoreOutlined />, color: '#fa8c16', path: '/admin/games' },
+  { key: 'reviews', title: '评价管理', icon: <StarOutlined />, color: '#eb2f96', path: '/admin/reviews' },
+  { key: 'tags', title: '标签管理', icon: <TagsOutlined />, color: '#a0d911', path: '/admin/tags' },
 ];
 
 const Dashboard: React.FC = () => {

@@ -1,41 +1,27 @@
 import { useRouter } from "expo-router";
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
-import { useTheme } from "../contexts/theme-context";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useTheme } from "../../contexts/theme-context";
 
-const SETTING_ITEMS = ["通知设置", "隐私设置", "通用设置", "关于我们"];
+const APP_VERSION = "1.0.0";
 
-export default function SettingsScreen() {
+export default function AboutScreen() {
   const router = useRouter();
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
       <TouchableOpacity style={styles.back} onPress={() => router.back()}>
         <Text style={[styles.backText, { color: colors.primary }]}>← 返回</Text>
       </TouchableOpacity>
-      <Text style={[styles.header, { color: colors.text }]}>设置</Text>
+      <Text style={[styles.header, { color: colors.text }]}>关于我们</Text>
       <View style={[styles.list, { backgroundColor: colors.card }]}>
-        {SETTING_ITEMS.map((item, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.item, { borderBottomColor: colors.border }]}
-          >
-            <Text style={[styles.itemText, { color: colors.text }]}>
-              {item}
-            </Text>
-            <Text style={[styles.arrow, { color: colors.arrow }]}>›</Text>
-          </TouchableOpacity>
-        ))}
         <View style={[styles.item, { borderBottomColor: colors.border }]}>
           <Text style={[styles.itemText, { color: colors.text }]}>
-            深色主题
+            应用版本
           </Text>
-          <Switch
-            value={isDark}
-            onValueChange={toggleTheme}
-            trackColor={{ false: colors.disabled, true: colors.primary }}
-            thumbColor="#fff"
-          />
+          <Text style={[styles.version, { color: colors.textTertiary }]}>
+            v{APP_VERSION}
+          </Text>
         </View>
       </View>
     </View>
@@ -63,10 +49,11 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
   },
-  itemText: { flex: 1, fontSize: 16 },
-  arrow: { fontSize: 20 },
+  itemText: { fontSize: 16 },
+  version: { fontSize: 14 },
 });

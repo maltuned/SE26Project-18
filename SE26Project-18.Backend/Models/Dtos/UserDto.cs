@@ -29,6 +29,9 @@ public class UserDto
     [JsonPropertyName("status")]
     public string Status { get; set; } = string.Empty;
 
+    [JsonPropertyName("settings")]
+    public UserSettingsDto? Settings { get; set; }
+
     [JsonPropertyName("created_at")]
     public string CreatedAt { get; set; } = string.Empty;
 

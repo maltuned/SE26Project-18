@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SE26Project_18.Backend.Models.Dtos;
@@ -35,11 +37,57 @@ public class UsersController : ControllerBase
         return Ok(ApiResponse<UserDto>.Success(user));
     }
 
+    [HttpGet("profile")]
+    public async Task<ActionResult<ApiResponse<UserDto>>> GetUserProfile([FromQuery] long id)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        long.TryParse(userIdClaim, out var requesterId);
+
+        var (user, isPrivate) = await _userService.GetUserProfileAsync(requesterId, id);
+
+        if (isPrivate)
+            return Ok(ApiResponse<UserDto>.Fail("该用户未公开个人空间", 403));
+
+        if (user == null)
+            return Ok(ApiResponse<UserDto>.Fail("用户不存在", 404));
+
+        return Ok(ApiResponse<UserDto>.Success(user));
+    }
+
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<UserDto>>>> GetUsers()
     {
         var users = await _userService.GetUsersAsync();
         return Ok(ApiResponse<List<UserDto>>.Success(users));
+    }
+
+    [HttpGet("settings")]
+    public async Task<ActionResult<ApiResponse<UserSettingsDto>>> GetSettings()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (!long.TryParse(userIdClaim, out var userId))
+            return Ok(ApiResponse<UserSettingsDto>.Fail("无效的令牌", 401));
+
+        var settings = await _userService.GetUserSettingsAsync(userId);
+        if (settings == null)
+            return Ok(ApiResponse<UserSettingsDto>.Fail("设置不存在", 404));
+        return Ok(ApiResponse<UserSettingsDto>.Success(settings));
+    }
+
+    [HttpPut("settings")]
+    public async Task<ActionResult<ApiResponse<UserSettingsDto>>> UpdateSettings([FromBody] UserSettingsDto request)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (!long.TryParse(userIdClaim, out var userId))
+            return Ok(ApiResponse<UserSettingsDto>.Fail("无效的令牌", 401));
+
+        var settings = await _userService.UpdateUserSettingsAsync(userId, request);
+        if (settings == null)
+            return Ok(ApiResponse<UserSettingsDto>.Fail("设置不存在", 404));
+        return Ok(ApiResponse<UserSettingsDto>.Success(settings, "设置已更新"));
     }
 }
 

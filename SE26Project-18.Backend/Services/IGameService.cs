@@ -8,5 +8,6 @@ public interface IGameService
     Task<GameDto?> GetGameByIdAsync(long id);
     Task<GameDto> CreateGameAsync(GameRequestDto request);
     Task<GameDto> UpdateGameAsync(long id, GameRequestDto request);
+    Task<GameDto> UpdateGameImageAsync(long id, string cover, string icon);
     Task<bool> DeleteGameAsync(long id);
 }

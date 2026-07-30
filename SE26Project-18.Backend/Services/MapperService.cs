@@ -20,6 +20,12 @@ public class MapperService
             Status = user.Status.ToDtoString(),
             CreatedAt = user.CreatedAt.ToString("o"),
             UpdatedAt = user.UpdatedAt.ToString("o"),
+            Settings = user.Settings == null ? null : new UserSettingsDto
+            {
+                PushEnabled = user.Settings.PushEnabled,
+                ProfileVisible = user.Settings.ProfileVisible,
+                DarkMode = user.Settings.DarkMode,
+            },
         };
     }
 
@@ -82,6 +88,7 @@ public class MapperService
             Id = r.Id,
             PublisherId = r.PublisherId,
             GameId = r.GameId,
+            GameName = r.GameName,
             Title = r.Title,
             Description = r.Description,
             Status = r.Status.ToDtoString(),
@@ -100,7 +107,8 @@ public class MapperService
         {
             Id = r.Id,
             Title = r.Title,
-            Game = ToGameBriefDto(r.Game),
+            Game = r.Game != null ? ToGameBriefDto(r.Game) : null,
+            GameName = r.GameName,
         };
     }
 
@@ -111,6 +119,7 @@ public class MapperService
             Id = r.Id,
             PublisherId = r.PublisherId,
             GameId = r.GameId,
+            GameName = r.GameName,
             Title = r.Title,
             Description = r.Description,
             Status = r.Status.ToDtoString(),
@@ -121,7 +130,7 @@ public class MapperService
             MaxParticipants = r.MaxParticipants,
             CurrentParticipants = r.CurrentParticipants,
             Publisher = ToUserBriefDto(r.Publisher),
-            Game = ToGameBriefDto(r.Game),
+            Game = r.Game != null ? ToGameBriefDto(r.Game) : null,
             GameTags = r.GameTags.Select(ToGameTagDto).ToArray(),
             RecruitmentTags = r.RecruitmentTags.Select(ToRecruitmentTagDto).ToArray(),
         };

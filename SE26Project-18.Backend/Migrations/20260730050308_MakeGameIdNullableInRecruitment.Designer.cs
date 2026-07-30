@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SE26Project_18.Backend.Data;
 
@@ -11,9 +12,11 @@ using SE26Project_18.Backend.Data;
 namespace SE26Project_18.Backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260730050308_MakeGameIdNullableInRecruitment")]
+    partial class MakeGameIdNullableInRecruitment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -521,34 +524,6 @@ namespace SE26Project_18.Backend.Migrations
                     b.ToTable("users");
                 });
 
-            modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.UserSettings", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<bool>("DarkMode")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("ProfileVisible")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("PushEnabled")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<long>("UserId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("user_settings");
-                });
-
             modelBuilder.Entity("game_game_tags", b =>
                 {
                     b.Property<long>("game_id")
@@ -748,17 +723,6 @@ namespace SE26Project_18.Backend.Migrations
                     b.Navigation("Reviewer");
                 });
 
-            modelBuilder.Entity("SE26Project_18.Backend.Models.Entities.UserSettings", b =>
-                {
-                    b.HasOne("SE26Project_18.Backend.Models.Entities.User", "User")
-                        .WithOne("Settings")
-                        .HasForeignKey("SE26Project_18.Backend.Models.Entities.UserSettings", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("game_game_tags", b =>
                 {
                     b.HasOne("SE26Project_18.Backend.Models.Entities.Game", null)
@@ -823,8 +787,6 @@ namespace SE26Project_18.Backend.Migrations
                     b.Navigation("Recruitments");
 
                     b.Navigation("SentResponses");
-
-                    b.Navigation("Settings");
                 });
 #pragma warning restore 612, 618
         }

@@ -10,11 +10,11 @@ export default function TestMessageButton() {
     setLoading(true);
     try {
       const users = await getUsers();
-      const sender = users.find((u) => u.username === "rbhd");
-      const receiver = users.find((u) => u.username === "zhangsan");
+      const sender = users.find((u) => u.username === "test");
+      const receiver = users.find((u) => u.username === "rbhd");
 
       if (!sender || !receiver) {
-        console.warn("[TestButton] 找不到用户 rbhd 或 zhangsan");
+        console.warn("[TestButton] 找不到用户 test 或 rbhd");
         return;
       }
 
@@ -25,7 +25,7 @@ export default function TestMessageButton() {
         chatId = chat.id;
       } else {
         console.warn(
-          "[TestButton] rbhd 和 zhangsan 之间没有聊天，请先通过招募创建聊天",
+          "[TestButton] test 和 rbhd 之间没有聊天，请先通过招募创建聊天",
         );
         return;
       }
@@ -36,7 +36,7 @@ export default function TestMessageButton() {
         receiverId: receiver.id,
         content: "button",
       });
-      console.log("[TestButton] 消息已发送: rbhd → zhangsan: button");
+      console.log("[TestButton] 消息已发送: test → rbhd: button");
     } catch (e) {
       console.error("[TestButton] 发送失败:", e);
     } finally {

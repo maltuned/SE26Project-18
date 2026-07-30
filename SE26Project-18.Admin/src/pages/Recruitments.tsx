@@ -11,6 +11,7 @@ interface Recruitment {
   id: number;
   title?: string;
   game?: { id: number; name?: string };
+  game_name?: string;
   gameTags?: { id: number; name: string }[];
   recruitmentTags?: { id: number; name: string }[];
   description?: string;
@@ -77,7 +78,7 @@ const Recruitments: React.FC = () => {
 
   const columns: ColumnsType<Recruitment> = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
-    { title: '游戏', dataIndex: ['game', 'name'], key: 'game', width: 100 },
+    { title: '游戏', key: 'game', width: 100, render: (_: unknown, r: Recruitment) => r.game?.name || r.game_name || '-' },
     { title: '标题', dataIndex: 'title', key: 'title', width: 160 },
     {
       title: '游戏标签',

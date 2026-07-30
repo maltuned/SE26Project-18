@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { getMe } from "../api/api";
-import { tokenStorage } from "../api/tokenStorage";
+import { tokenStorage } from "../api/token-storage";
 import { useAuth } from "../contexts/auth-context";
 import { useTheme } from "../contexts/theme-context";
 

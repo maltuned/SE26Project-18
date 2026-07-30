@@ -18,7 +18,8 @@ import type {
   ReviewDto,
   TokenResponse,
   UserBriefDto,
-  UserDto
+  UserDto,
+  UserSettingsDto,
 } from "./dtos";
 import type {
   ChatBrief,
@@ -33,15 +34,16 @@ import type {
   ReviewData,
   ResponseData,
   ResponseStatus,
-  UserInfo
+  UserInfo,
+  UserSettings,
 } from "./data-patterns";
-import { tokenStorage } from "./tokenStorage";
+import { tokenStorage } from "./token-storage";
 import { API_BASE } from "./config";
 
 // Re-export frontend data patterns for convenience
 export type {
   ChatBrief, ChatData, ChatStatus, GameBrief, GameInfo, GameTag, MessageData, RecruitmentBrief, RecruitmentData,
-  RecruitmentTag, ResponseData, ResponseStatus, UserInfo, ReviewData
+  RecruitmentTag, ResponseData, ResponseStatus, UserInfo, UserSettings, ReviewData
 } from "./data-patterns";
 
 // ==================== Config ====================
@@ -237,6 +239,11 @@ const mapUserDto = (dto: UserDto): UserInfo => ({
   status: dto.status,
   createdAt: dto.created_at,
   updatedAt: dto.updated_at,
+  settings: dto.settings ? {
+    pushEnabled: dto.settings.push_enabled,
+    profileVisible: dto.settings.profile_visible,
+    darkMode: dto.settings.dark_mode,
+  } : undefined,
 });
 
 const mapUserBriefDto = (dto: UserBriefDto): UserInfo => ({
@@ -299,8 +306,8 @@ const getRecruitmentTagsByIds = (ids: number[]): RecruitmentTag[] => {
 const mapRecruitmentDto = (dto: RecruitmentDto): RecruitmentData => ({
   id: dto.id,
   publisherId: dto.publisher_id,
-  gameId: dto.game_id,
-  gameName: "",
+  gameId: dto.game_id ?? 0,
+  gameName: dto.game_name || "",
   gameCover: "",
   gameIcon: "",
   title: dto.title,
@@ -321,10 +328,10 @@ const mapRecruitmentDto = (dto: RecruitmentDto): RecruitmentData => ({
 const mapRecruitmentDetailDto = (dto: RecruitmentDetailDto): RecruitmentData => ({
   id: dto.id,
   publisherId: dto.publisher_id,
-  gameId: dto.game_id,
-  gameName: dto.game.name,
-  gameCover: dto.game.cover || "",
-  gameIcon: dto.game.icon || "",
+  gameId: dto.game_id ?? 0,
+  gameName: dto.game?.name || dto.game_name || "",
+  gameCover: dto.game?.cover || "",
+  gameIcon: dto.game?.icon || "",
   title: dto.title,
   description: dto.description,
   // 差异: backend gameTags是GameTagDto[], 前端需要string[]
@@ -355,7 +362,9 @@ const mapResponseDto = (dto: ResponseDto): ResponseData => ({
 const mapRecruitmentBriefDto = (dto: RecruitmentBriefDto): RecruitmentBrief => ({
   id: dto.id,
   title: dto.title,
-  game: { id: dto.game.id, name: dto.game.name, nameEn: dto.game.name_en || "", icon: dto.game.icon },
+  game: dto.game
+    ? { id: dto.game.id, name: dto.game.name, nameEn: dto.game.name_en || "", icon: dto.game.icon }
+    : { id: 0, name: dto.game_name || "(已删除)", nameEn: "", icon: "" },
 });
 
 // GameDto → GameBrief
@@ -569,6 +578,17 @@ export const getUserById = (id: number): Promise<UserInfo | null> => {
   return handleResponse<UserInfo>(response, mapUserDto);
 };
 
+export const getUserProfile = async (id: number): Promise<{ user: UserInfo | null; isPrivate: boolean }> => {
+  const res = await apiGet<UserDto>("/Users/profile", { id });
+  if (res.status === 403) {
+    return { user: null, isPrivate: true };
+  }
+  if (res.status >= 200 && res.status < 300 && res.data) {
+    return { user: mapUserDto(res.data), isPrivate: false };
+  }
+  return { user: null, isPrivate: false };
+};
+
 export const getUsers = (): Promise<UserInfo[]> => {
   const response = apiGet<UserDto[]>("/Users");
   return handleArrayResponse<UserInfo>(response, (data: UserDto[]) =>
@@ -579,6 +599,33 @@ export const getUsers = (): Promise<UserInfo[]> => {
 export const updateUser = (id: number, data: Record<string, any>): Promise<UserInfo | null> => {
   const response = apiPost<UserDto>("/Users/update", { id, data });
   return handleResponse<UserInfo>(response, mapUserDto);
+};
+
+export const changePassword = async (oldPassword: string, newPassword: string): Promise<boolean> => {
+  const res = await apiPost<boolean>("/Auth/change-password", {
+    old_password: oldPassword,
+    new_password: newPassword,
+  });
+  if (res.status !== 200 || !res.data) {
+    throw new Error(res.message || "修改密码失败");
+  }
+  return true;
+};
+
+export const updateUserSettings = async (settings: { pushEnabled: boolean; profileVisible: boolean; darkMode: boolean }): Promise<UserSettings> => {
+  const res = await apiPut<UserSettingsDto>("/Users/settings", {
+    push_enabled: settings.pushEnabled,
+    profile_visible: settings.profileVisible,
+    dark_mode: settings.darkMode,
+  });
+  if (res.status !== 200 || !res.data) {
+    throw new Error(res.message || "更新设置失败");
+  }
+  return {
+    pushEnabled: res.data.push_enabled,
+    profileVisible: res.data.profile_visible,
+    darkMode: res.data.dark_mode,
+  };
 };
 
 // ==================== Game API ====================
