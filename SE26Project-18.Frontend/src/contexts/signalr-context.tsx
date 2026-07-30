@@ -58,7 +58,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             accessTokenFactory: async () =>
               (await tokenStorage.getAccessToken()) || "",
           })
-          .configureLogging(LogLevel.Information)
+          .configureLogging(LogLevel.Warning)
           .withAutomaticReconnect()
           .build();
 
@@ -92,8 +92,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           connectionRef.current = connection;
           setIsConnected(true);
         }
-      } catch (err) {
-        console.error("SignalR connection failed:", err);
+      } catch (err: any) {
+        const isConnReset =
+          err?.message?.includes("1006") ||
+          err?.message?.includes("connection reset");
+        if (!isConnReset) {
+          console.error("SignalR connection failed:", err);
+        }
         if (!cancelledRef.current) {
           setTimeout(() => {
             if (!cancelledRef.current) connect();

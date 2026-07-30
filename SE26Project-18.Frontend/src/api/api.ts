@@ -39,6 +39,7 @@ import type {
 } from "./data-patterns";
 import { tokenStorage } from "./token-storage";
 import { API_BASE } from "./config";
+import { showToast } from "../utils/toast";
 
 // Re-export frontend data patterns for convenience
 export type {
@@ -462,7 +463,7 @@ const handleResponse = async <T>(
     }
     return null;
   } catch (e) {
-    console.error("API Error:", e);
+    showToast("网络连接失败，请检查网络");
     return null;
   }
 };
@@ -475,10 +476,9 @@ const handleResponseDirect = async <T>(
     if (res.status >= 200 && res.status < 300 && res.data !== undefined && res.data !== null) {
       return res.data;
     }
-    console.error("API Error:", res);
     return null;
   } catch (e) {
-    console.error("API Error:", e);
+    showToast("网络连接失败，请检查网络");
     return null;
   }
 };
@@ -494,7 +494,7 @@ const handleArrayResponse = async <T>(
     }
     return [];
   } catch (e) {
-    console.error("API Error:", e);
+    showToast("网络连接失败，请检查网络");
     return [];
   }
 };

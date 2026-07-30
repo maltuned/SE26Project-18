@@ -12,7 +12,6 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    ToastAndroid,
     TouchableOpacity,
     View,
 } from "react-native";
@@ -37,6 +36,7 @@ import ReviewModal from "../components/review-modal";
 import { useAuth } from "../contexts/auth-context";
 import { useSignalR } from "../contexts/signalr-context";
 import { useTheme } from "../contexts/theme-context";
+import { showToast } from "../utils/toast";
 
 export default function ChatRoomScreen() {
   const router = useRouter();
@@ -208,7 +208,7 @@ export default function ChatRoomScreen() {
         setChatStatus("开放");
       }
     } catch (error) {
-      console.error("Failed to send message:", error);
+      showToast("发送失败，请重试");
     }
   };
 
@@ -223,12 +223,12 @@ export default function ChatRoomScreen() {
       if (ok) {
         setAlreadyReviewed(true);
         setReviewModalVisible(false);
-        ToastAndroid.show("评价成功", ToastAndroid.SHORT);
+        showToast("评价成功");
       } else {
-        ToastAndroid.show("评价失败，请重试", ToastAndroid.SHORT);
+        showToast("评价失败，请重试");
       }
     } catch {
-      ToastAndroid.show("评价失败，请重试", ToastAndroid.SHORT);
+      showToast("评价失败，请重试");
     } finally {
       setSubmittingReview(false);
     }
@@ -243,7 +243,7 @@ export default function ChatRoomScreen() {
     const fullRecruitment = await getRecruitmentById(recruitment.id);
     if (!fullRecruitment) return;
     if (fullRecruitment.status === "已删除") {
-      ToastAndroid.show("该招募已被删除", ToastAndroid.SHORT);
+      showToast("该招募已被删除");
       return;
     }
     router.push({
