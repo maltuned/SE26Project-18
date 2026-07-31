@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <!-- Generated schema and composition-root code are outside the unit-test boundary. -->
+          <ExcludeByFile>
+            **/Migrations/**/*.cs,
+            **/obj/**/*.cs,
+            **/Program.cs,
+            **/Infrastructure/Messaging/**/*.cs,
+            **/Hubs/**/*.cs,
+            **/Infrastructure/VectorStore/MilvusVectorStore.cs,
+            **/Infrastructure/VectorStore/RecommendationVectorStoreInitializer.cs,
+            **/Infrastructure/Embedding/OpenAiEmbeddingService.cs,
+            **/Infrastructure/Embedding/EmbeddingSyncOutboxDispatcher.cs
+          </ExcludeByFile>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
